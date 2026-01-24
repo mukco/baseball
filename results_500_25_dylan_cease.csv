@@ -1,0 +1,401 @@
+predicted,actual,correct,plate_x,plate_z,release_speed
+4-Seam Fastball,4-Seam Fastball,True,-0.18,0.44,0.77
+Knuckle Curve,Knuckle Curve,True,-0.43,0.22,-0.05
+4-Seam Fastball,4-Seam Fastball,True,-0.17,0.28,0.77
+Slider,Slider,True,0.3,-0.15,0.22
+Slider,Slider,True,-0.18,-0.23,0.25
+Knuckle Curve,Knuckle Curve,True,-0.37,0.42,-0.1
+Knuckle Curve,Knuckle Curve,True,-0.32,0.33,-0.2
+Slider,Slider,True,0.36,-0.33,0.29
+4-Seam Fastball,4-Seam Fastball,True,-0.02,0.56,0.88
+4-Seam Fastball,4-Seam Fastball,True,-0.56,0.06,0.88
+4-Seam Fastball,4-Seam Fastball,True,-0.35,0.63,0.82
+Knuckle Curve,Sweeper,False,0.33,-0.27,0.12
+Knuckle Curve,Knuckle Curve,True,0.31,-0.3,-0.14
+Slider,Slider,True,-0.18,0.05,0.29
+Changeup,Changeup,True,-0.05,0.33,-0.03
+Slider,Slider,True,0.12,-0.2,0.21
+Slider,Slider,True,0.62,-0.11,0.27
+Changeup,Changeup,True,0.39,0.45,0.03
+4-Seam Fastball,4-Seam Fastball,True,-0.12,0.47,0.84
+Knuckle Curve,Knuckle Curve,True,0.06,0.35,-0.23
+Slider,Slider,True,0.41,-0.38,0.36
+Changeup,Changeup,True,-0.1,-0.75,0.01
+Slider,Slider,True,0.28,-0.16,0.34
+Changeup,Changeup,True,-0.35,0.43,-0.15
+4-Seam Fastball,4-Seam Fastball,True,0.08,0.05,0.82
+Knuckle Curve,Knuckle Curve,True,0.45,-0.45,-0.16
+Changeup,Changeup,True,0.19,-0.72,-0.35
+4-Seam Fastball,4-Seam Fastball,True,-0.44,0.34,0.86
+Knuckle Curve,Knuckle Curve,True,-0.11,0.41,-0.09
+Slider,Slider,True,0.57,0.09,0.34
+4-Seam Fastball,4-Seam Fastball,True,-0.16,0.45,0.83
+Changeup,Changeup,True,-0.24,-0.25,-0.07
+Slider,Slider,True,0.41,-0.1,0.35
+Changeup,Changeup,True,-0.75,0.03,-0.03
+Changeup,Changeup,True,-0.25,0.32,-0.09
+Changeup,Changeup,True,0.13,0.28,0.02
+Slider,Slider,True,0.41,-0.04,0.32
+4-Seam Fastball,4-Seam Fastball,True,0.6,0.28,0.77
+Changeup,Changeup,True,0.28,-0.75,-0.64
+Changeup,Changeup,True,-0.2,0.18,-0.35
+Knuckle Curve,Knuckle Curve,True,0.57,-0.24,-0.1
+Knuckle Curve,Knuckle Curve,True,0.19,-0.48,0.02
+4-Seam Fastball,4-Seam Fastball,True,0.58,-0.05,0.74
+Changeup,Changeup,True,0.47,-0.01,-0.12
+4-Seam Fastball,4-Seam Fastball,True,-0.1,0.33,0.93
+Changeup,Changeup,True,-0.1,-0.29,-0.03
+4-Seam Fastball,4-Seam Fastball,True,-0.01,0.47,0.84
+Slider,Slider,True,0.54,-0.47,0.43
+Slider,Slider,True,-0.2,0.25,0.36
+Changeup,Changeup,True,-0.3,-0.06,-0.64
+Knuckle Curve,Knuckle Curve,True,0.43,-0.5,0.04
+Slider,Slider,True,0.14,-0.18,0.37
+4-Seam Fastball,4-Seam Fastball,True,0.1,0.61,0.82
+Slider,Slider,True,-0.26,0.27,0.33
+Knuckle Curve,Knuckle Curve,True,0.18,-0.33,-0.05
+4-Seam Fastball,4-Seam Fastball,True,0.07,0.09,0.74
+Changeup,Changeup,True,0.07,-0.17,-0.18
+Changeup,Changeup,True,-0.05,-0.28,-0.08
+Slider,Slider,True,0.44,-0.23,0.35
+Slider,Slider,True,0.76,-0.53,0.3
+Knuckle Curve,Knuckle Curve,True,0.53,-0.21,-0.2
+Slider,Slider,True,0.35,0.0,0.21
+Knuckle Curve,Knuckle Curve,True,0.53,0.05,-0.12
+4-Seam Fastball,4-Seam Fastball,True,0.36,0.45,0.9
+4-Seam Fastball,4-Seam Fastball,True,-0.22,0.33,0.87
+4-Seam Fastball,4-Seam Fastball,True,-0.01,-0.21,0.87
+4-Seam Fastball,4-Seam Fastball,True,-0.01,0.03,0.86
+Knuckle Curve,Knuckle Curve,True,0.02,-0.23,-0.08
+Slider,Slider,True,0.39,-0.54,0.37
+Slider,Slider,True,0.23,0.03,0.24
+Slider,Slider,True,0.24,-0.55,0.45
+4-Seam Fastball,4-Seam Fastball,True,-0.3,0.5,0.7
+Changeup,Changeup,True,-0.18,0.62,-0.55
+Knuckle Curve,Knuckle Curve,True,-0.14,-0.31,0.0
+4-Seam Fastball,4-Seam Fastball,True,0.46,0.22,0.8
+Knuckle Curve,Knuckle Curve,True,0.04,-0.25,-0.06
+Knuckle Curve,Knuckle Curve,True,0.24,-0.2,-0.06
+Knuckle Curve,Knuckle Curve,True,0.43,-0.21,0.08
+Knuckle Curve,Knuckle Curve,True,0.35,-0.42,0.01
+Slider,Slider,True,0.66,-0.78,0.39
+Knuckle Curve,Knuckle Curve,True,-0.41,-0.14,-0.09
+4-Seam Fastball,4-Seam Fastball,True,0.15,0.26,0.75
+Slider,Slider,True,0.27,-0.1,0.27
+4-Seam Fastball,4-Seam Fastball,True,0.68,0.61,0.86
+Slider,Slider,True,0.11,-0.23,0.21
+4-Seam Fastball,4-Seam Fastball,True,0.34,0.08,0.99
+4-Seam Fastball,4-Seam Fastball,True,0.22,0.53,0.86
+Slider,Slider,True,0.58,-0.28,0.43
+Changeup,Changeup,True,0.03,0.05,-0.36
+Slider,Slider,True,-0.14,-0.27,0.39
+Changeup,Changeup,True,0.13,-0.05,-0.03
+4-Seam Fastball,Sinker,False,-0.24,0.54,0.85
+Knuckle Curve,Knuckle Curve,True,0.42,-0.16,0.04
+4-Seam Fastball,4-Seam Fastball,True,0.22,0.57,0.73
+Knuckle Curve,Knuckle Curve,True,0.65,0.15,-0.12
+Slider,Slider,True,0.76,-0.32,0.38
+4-Seam Fastball,4-Seam Fastball,True,0.16,0.39,0.72
+Slider,Slider,True,0.17,-0.23,0.21
+4-Seam Fastball,4-Seam Fastball,True,-0.62,0.47,0.9
+4-Seam Fastball,4-Seam Fastball,True,0.38,-0.22,0.77
+Slider,Slider,True,0.33,-0.4,0.33
+Slider,Slider,True,0.08,-0.16,0.25
+Slider,Slider,True,-0.01,-0.14,0.38
+Changeup,Changeup,True,-0.01,0.44,-0.18
+Knuckle Curve,Knuckle Curve,True,0.0,-0.46,-0.12
+Slider,Slider,True,0.18,-0.24,0.34
+Knuckle Curve,Knuckle Curve,True,-0.09,-0.68,-0.03
+4-Seam Fastball,4-Seam Fastball,True,0.29,-0.0,0.78
+4-Seam Fastball,4-Seam Fastball,True,-0.35,0.2,0.8
+Slider,Slider,True,0.08,-0.45,0.37
+Slider,Slider,True,0.71,-0.33,0.34
+Slider,Slider,True,0.64,-0.16,0.35
+4-Seam Fastball,4-Seam Fastball,True,0.28,0.49,1.0
+4-Seam Fastball,4-Seam Fastball,True,0.62,0.01,0.8
+Knuckle Curve,Knuckle Curve,True,0.24,-0.03,-0.1
+Knuckle Curve,Knuckle Curve,True,-0.39,0.4,-0.05
+Slider,Slider,True,0.51,0.14,0.23
+Slider,Slider,True,-0.07,-0.28,0.36
+Knuckle Curve,Knuckle Curve,True,0.23,-0.47,0.02
+4-Seam Fastball,4-Seam Fastball,True,0.07,0.38,0.92
+Knuckle Curve,Knuckle Curve,True,0.3,-0.28,0.08
+Slider,Slider,True,-0.0,-0.27,0.28
+Knuckle Curve,Knuckle Curve,True,-0.4,0.02,0.06
+4-Seam Fastball,4-Seam Fastball,True,0.26,0.38,0.73
+Changeup,Changeup,True,-0.11,0.08,-0.47
+4-Seam Fastball,4-Seam Fastball,True,0.36,-0.02,0.91
+4-Seam Fastball,4-Seam Fastball,True,-0.08,0.52,0.85
+Knuckle Curve,Sweeper,False,0.46,-0.26,-0.01
+Slider,Slider,True,0.18,0.09,0.32
+Knuckle Curve,Knuckle Curve,True,0.01,-0.39,-0.19
+Changeup,Changeup,True,0.2,0.54,-0.49
+Knuckle Curve,Knuckle Curve,True,-0.23,0.43,-0.1
+Knuckle Curve,Knuckle Curve,True,-0.16,0.08,-0.16
+Changeup,Changeup,True,0.28,0.56,-0.47
+Changeup,Changeup,True,-0.24,0.11,0.15
+4-Seam Fastball,4-Seam Fastball,True,0.22,0.08,0.8
+4-Seam Fastball,4-Seam Fastball,True,-0.01,0.61,0.82
+Changeup,Changeup,True,0.04,-0.66,-0.51
+Slider,Slider,True,0.68,-0.28,0.28
+4-Seam Fastball,4-Seam Fastball,True,0.52,0.01,0.91
+Changeup,Changeup,True,-0.43,-0.23,0.09
+4-Seam Fastball,4-Seam Fastball,True,-0.18,0.4,0.76
+Knuckle Curve,Knuckle Curve,True,0.56,0.01,-0.02
+4-Seam Fastball,4-Seam Fastball,True,-0.19,0.47,0.8
+Slider,Slider,True,0.2,-0.11,0.22
+Knuckle Curve,Knuckle Curve,True,0.01,-0.27,-0.03
+Changeup,Changeup,True,0.14,0.16,-0.46
+Slider,Slider,True,0.43,-0.7,0.16
+Knuckle Curve,Sweeper,False,-0.06,-0.15,-0.04
+Slider,Slider,True,-0.43,0.38,0.39
+4-Seam Fastball,4-Seam Fastball,True,0.3,0.29,0.83
+Slider,Slider,True,0.21,-0.09,0.21
+4-Seam Fastball,4-Seam Fastball,True,0.56,-0.16,0.68
+Knuckle Curve,Sweeper,False,0.15,0.37,0.09
+Changeup,Changeup,True,-0.31,0.84,0.06
+4-Seam Fastball,4-Seam Fastball,True,-0.32,0.6,0.82
+Slider,Slider,True,-0.31,-0.01,0.39
+Slider,Slider,True,0.28,0.03,0.45
+4-Seam Fastball,4-Seam Fastball,True,0.17,0.36,0.83
+4-Seam Fastball,4-Seam Fastball,True,0.14,0.3,0.78
+Knuckle Curve,Knuckle Curve,True,-0.39,0.19,-0.16
+Slider,Slider,True,-0.18,-0.32,0.3
+4-Seam Fastball,4-Seam Fastball,True,0.46,0.04,0.78
+Knuckle Curve,Knuckle Curve,True,0.49,-0.57,-0.04
+Knuckle Curve,Knuckle Curve,True,0.32,-0.38,-0.06
+Knuckle Curve,Sweeper,False,0.68,-0.19,-0.02
+Knuckle Curve,Knuckle Curve,True,-0.03,-0.35,0.11
+Changeup,Changeup,True,0.1,0.01,-0.24
+Slider,Slider,True,0.25,-0.21,0.32
+4-Seam Fastball,4-Seam Fastball,True,0.14,0.36,0.72
+Knuckle Curve,Knuckle Curve,True,-0.02,0.49,-0.22
+Slider,Slider,True,0.4,0.05,0.33
+4-Seam Fastball,4-Seam Fastball,True,-0.24,0.44,0.84
+4-Seam Fastball,4-Seam Fastball,True,0.47,0.41,0.84
+Slider,Slider,True,-0.18,0.3,0.22
+Knuckle Curve,Knuckle Curve,True,0.26,-0.43,0.0
+Changeup,Changeup,True,-0.2,-0.09,-0.46
+4-Seam Fastball,4-Seam Fastball,True,-0.35,-0.09,0.84
+Knuckle Curve,Knuckle Curve,True,0.04,-0.29,0.0
+Slider,Slider,True,0.87,-0.56,0.43
+4-Seam Fastball,4-Seam Fastball,True,-0.31,0.08,0.77
+Slider,Slider,True,0.3,-0.2,0.4
+Changeup,Changeup,True,-0.28,-0.04,-0.17
+4-Seam Fastball,4-Seam Fastball,True,-0.28,0.27,0.85
+Knuckle Curve,Knuckle Curve,True,0.28,-0.52,-0.1
+4-Seam Fastball,4-Seam Fastball,True,-0.13,0.06,0.78
+Slider,Slider,True,-0.6,0.05,0.33
+Knuckle Curve,Knuckle Curve,True,-0.09,0.41,0.07
+Slider,Slider,True,0.41,-0.3,0.32
+Knuckle Curve,Knuckle Curve,True,0.67,-0.31,0.16
+Knuckle Curve,Knuckle Curve,True,0.16,-0.26,-0.03
+4-Seam Fastball,Sinker,False,-0.21,-0.45,0.86
+Slider,Slider,True,-0.18,-0.16,0.25
+Changeup,Changeup,True,0.57,0.25,-0.02
+Knuckle Curve,Knuckle Curve,True,0.28,-0.05,0.08
+Knuckle Curve,Knuckle Curve,True,-0.06,-0.6,0.03
+4-Seam Fastball,4-Seam Fastball,True,0.27,0.14,0.85
+Slider,Slider,True,-0.25,0.22,0.28
+4-Seam Fastball,4-Seam Fastball,True,0.51,-0.02,0.74
+Slider,Slider,True,0.7,-0.22,0.36
+4-Seam Fastball,4-Seam Fastball,True,0.05,0.36,0.76
+Knuckle Curve,Knuckle Curve,True,-0.11,-0.22,-0.06
+Knuckle Curve,Sweeper,False,0.63,-0.09,0.12
+Knuckle Curve,Knuckle Curve,True,0.48,-0.14,0.02
+Knuckle Curve,Knuckle Curve,True,0.14,0.33,-0.03
+Changeup,Changeup,True,-0.23,0.39,-0.39
+Slider,Slider,True,-0.05,-0.24,0.33
+Knuckle Curve,Knuckle Curve,True,-0.62,-0.07,-0.03
+Knuckle Curve,Knuckle Curve,True,0.06,-0.13,-0.12
+Changeup,Changeup,True,-0.01,0.48,0.12
+Knuckle Curve,Knuckle Curve,True,0.05,-0.09,-0.04
+4-Seam Fastball,4-Seam Fastball,True,0.89,0.09,0.89
+Knuckle Curve,Knuckle Curve,True,0.64,-0.12,-0.24
+Knuckle Curve,Knuckle Curve,True,0.47,-1.0,-0.08
+Changeup,Changeup,True,-0.57,0.21,0.04
+Changeup,Changeup,True,-0.33,-0.15,-0.57
+Slider,Slider,True,0.71,-0.02,0.34
+Knuckle Curve,Knuckle Curve,True,0.18,-0.17,-0.12
+Changeup,Changeup,True,0.07,-0.09,-0.24
+Knuckle Curve,Knuckle Curve,True,0.68,-0.6,0.05
+4-Seam Fastball,4-Seam Fastball,True,0.73,-0.26,0.84
+Knuckle Curve,Knuckle Curve,True,0.66,-0.45,-0.12
+4-Seam Fastball,4-Seam Fastball,True,-0.3,0.18,0.82
+4-Seam Fastball,4-Seam Fastball,True,-0.16,0.3,0.74
+4-Seam Fastball,4-Seam Fastball,True,0.42,0.48,0.76
+4-Seam Fastball,4-Seam Fastball,True,-0.24,0.32,0.93
+Slider,Slider,True,0.5,-0.31,0.36
+Changeup,Changeup,True,0.47,0.18,-0.27
+4-Seam Fastball,4-Seam Fastball,True,-0.01,0.29,0.79
+Slider,Cutter,False,0.15,0.26,0.46
+Knuckle Curve,Knuckle Curve,True,0.22,-0.11,0.05
+Slider,Slider,True,-0.04,-0.18,0.27
+Knuckle Curve,Knuckle Curve,True,0.4,-0.15,-0.04
+4-Seam Fastball,4-Seam Fastball,True,0.02,-0.15,0.83
+Knuckle Curve,Sweeper,False,0.31,-0.3,-0.07
+4-Seam Fastball,4-Seam Fastball,True,0.18,0.53,0.67
+Knuckle Curve,Knuckle Curve,True,0.42,0.03,-0.01
+Slider,Slider,True,0.22,-0.27,0.51
+4-Seam Fastball,4-Seam Fastball,True,0.07,0.17,0.8
+Knuckle Curve,Knuckle Curve,True,0.69,-0.23,0.06
+Slider,Slider,True,0.86,0.01,0.29
+Knuckle Curve,Knuckle Curve,True,0.24,-0.27,-0.14
+Slider,Slider,True,0.37,-0.41,0.28
+4-Seam Fastball,4-Seam Fastball,True,-0.46,0.05,0.76
+4-Seam Fastball,4-Seam Fastball,True,-0.35,0.1,0.8
+Knuckle Curve,Knuckle Curve,True,-0.34,-0.29,0.05
+4-Seam Fastball,4-Seam Fastball,True,0.45,0.44,0.84
+Changeup,Changeup,True,-0.44,0.69,-0.46
+Knuckle Curve,Knuckle Curve,True,0.47,-0.09,-0.01
+Slider,Slider,True,0.61,-0.19,0.41
+4-Seam Fastball,4-Seam Fastball,True,-0.33,0.09,0.93
+Knuckle Curve,Knuckle Curve,True,-0.25,-0.13,-0.17
+Changeup,Changeup,True,0.52,-0.37,-0.2
+Changeup,Changeup,True,0.38,-0.35,-0.01
+Slider,Slider,True,0.65,-0.34,0.26
+Slider,Slider,True,0.06,-0.18,0.32
+4-Seam Fastball,4-Seam Fastball,True,-0.34,0.01,0.76
+Knuckle Curve,Knuckle Curve,True,0.13,-0.18,-0.05
+Slider,Slider,True,0.42,-0.06,0.31
+Changeup,Changeup,True,0.12,-0.2,0.0
+Knuckle Curve,Knuckle Curve,True,-0.09,0.26,-0.22
+4-Seam Fastball,4-Seam Fastball,True,-0.27,0.38,0.92
+4-Seam Fastball,4-Seam Fastball,True,-0.39,0.04,0.8
+Slider,Slider,True,0.34,-0.07,0.3
+Changeup,Changeup,True,-0.04,0.33,-0.24
+Knuckle Curve,Knuckle Curve,True,0.48,-0.1,-0.19
+Slider,Slider,True,0.5,-0.48,0.29
+Changeup,Changeup,True,-0.1,0.65,-0.6
+Slider,Slider,True,0.2,0.37,0.3
+Slider,Slider,True,0.39,-0.19,0.32
+Changeup,Changeup,True,0.09,-0.24,0.01
+Changeup,Changeup,True,0.04,0.12,0.0
+4-Seam Fastball,4-Seam Fastball,True,-0.19,0.36,0.8
+Knuckle Curve,Knuckle Curve,True,0.35,0.28,0.0
+Knuckle Curve,Knuckle Curve,True,-0.43,-0.01,-0.08
+Changeup,Changeup,True,-0.22,0.52,-0.29
+Slider,Slider,True,0.51,-0.21,0.26
+Changeup,Changeup,True,-0.1,-0.02,-0.38
+Slider,Slider,True,-0.11,-0.3,0.28
+Slider,Slider,True,0.25,-0.51,0.31
+Knuckle Curve,Knuckle Curve,True,0.17,-0.67,-0.16
+Changeup,Changeup,True,-0.19,0.3,-0.28
+Slider,Slider,True,0.68,-0.05,0.27
+4-Seam Fastball,4-Seam Fastball,True,0.2,0.35,0.83
+4-Seam Fastball,Sinker,False,-0.46,-0.01,0.77
+Changeup,Changeup,True,-0.29,0.14,-0.14
+Knuckle Curve,Knuckle Curve,True,0.67,-0.03,-0.01
+Slider,Slider,True,0.7,-0.44,0.3
+Knuckle Curve,Sweeper,False,0.57,-0.01,0.15
+Slider,Slider,True,0.09,-0.17,0.25
+Slider,Slider,True,-0.29,0.38,0.35
+Slider,Slider,True,0.31,-0.24,0.36
+4-Seam Fastball,4-Seam Fastball,True,0.35,-0.11,0.78
+Slider,Slider,True,-0.03,-0.4,0.35
+Knuckle Curve,Sweeper,False,0.59,0.12,0.08
+4-Seam Fastball,4-Seam Fastball,True,-0.32,0.36,0.78
+Changeup,Changeup,True,0.15,0.47,-0.1
+Changeup,Changeup,True,-0.12,0.9,-0.16
+4-Seam Fastball,Cutter,False,0.63,0.16,0.59
+Changeup,Changeup,True,-0.04,0.52,-0.17
+Knuckle Curve,Knuckle Curve,True,0.17,-0.26,-0.17
+Changeup,Changeup,True,-0.58,0.43,-0.61
+Knuckle Curve,Knuckle Curve,True,-0.11,0.58,-0.03
+4-Seam Fastball,4-Seam Fastball,True,-0.07,0.35,0.86
+4-Seam Fastball,4-Seam Fastball,True,0.08,0.5,0.8
+Changeup,Changeup,True,0.03,-0.08,-0.16
+Knuckle Curve,Knuckle Curve,True,-0.1,-0.15,-0.15
+Knuckle Curve,Knuckle Curve,True,0.2,-0.16,0.16
+Changeup,Changeup,True,-0.45,0.34,0.09
+4-Seam Fastball,4-Seam Fastball,True,-0.46,0.1,0.72
+Changeup,Changeup,True,-0.27,-0.07,-0.21
+Changeup,Changeup,True,-0.54,0.2,0.01
+Knuckle Curve,Knuckle Curve,True,0.53,-0.1,-0.16
+Knuckle Curve,Sweeper,False,-0.5,0.47,-0.03
+4-Seam Fastball,4-Seam Fastball,True,0.44,0.05,0.95
+Slider,Slider,True,0.1,-0.14,0.32
+Changeup,Changeup,True,-0.07,0.17,0.23
+4-Seam Fastball,4-Seam Fastball,True,-0.33,0.57,0.74
+Slider,Slider,True,-0.22,-0.2,0.34
+Knuckle Curve,Sweeper,False,0.36,-0.39,-0.07
+4-Seam Fastball,4-Seam Fastball,True,0.17,0.17,0.74
+Slider,Slider,True,0.34,-0.17,0.45
+Knuckle Curve,Knuckle Curve,True,0.36,-0.35,0.11
+Changeup,Changeup,True,-0.21,-0.19,-0.62
+Slider,Slider,True,0.47,0.3,0.36
+4-Seam Fastball,4-Seam Fastball,True,-0.53,0.23,0.86
+4-Seam Fastball,4-Seam Fastball,True,0.72,0.12,0.84
+4-Seam Fastball,4-Seam Fastball,True,-0.24,0.08,0.79
+4-Seam Fastball,4-Seam Fastball,True,0.1,0.55,0.86
+Slider,Slider,True,0.49,-0.29,0.3
+Slider,Slider,True,0.41,-0.23,0.29
+Changeup,Changeup,True,-0.62,0.02,-0.27
+Slider,Slider,True,0.53,-0.11,0.32
+Knuckle Curve,Knuckle Curve,True,0.27,-0.39,0.09
+Changeup,Changeup,True,0.01,-0.01,0.12
+4-Seam Fastball,4-Seam Fastball,True,0.22,0.53,0.85
+Changeup,Changeup,True,-0.43,0.21,0.03
+Knuckle Curve,Knuckle Curve,True,-0.05,-0.27,-0.04
+Slider,Slider,True,0.79,-0.19,0.34
+Slider,Slider,True,0.05,-0.31,0.26
+Slider,Slider,True,0.31,0.29,0.25
+Changeup,Changeup,True,0.24,-0.34,0.14
+Slider,Slider,True,0.35,0.33,0.29
+Knuckle Curve,Knuckle Curve,True,-0.26,0.35,-0.01
+Slider,Slider,True,0.53,0.36,0.32
+4-Seam Fastball,4-Seam Fastball,True,-0.12,0.45,0.8
+Knuckle Curve,Knuckle Curve,True,-0.2,0.39,-0.17
+Changeup,Changeup,True,0.2,-0.44,-0.13
+4-Seam Fastball,4-Seam Fastball,True,0.14,0.41,0.96
+Slider,Slider,True,0.08,0.43,0.37
+4-Seam Fastball,4-Seam Fastball,True,0.39,0.6,0.85
+4-Seam Fastball,4-Seam Fastball,True,-0.21,0.41,0.85
+Slider,Slider,True,0.06,-0.28,0.42
+Changeup,Changeup,True,-0.08,0.24,-0.13
+Slider,Slider,True,-0.01,-0.13,0.39
+Changeup,Changeup,True,0.09,-0.05,0.1
+Slider,Slider,True,-0.32,0.05,0.39
+Knuckle Curve,Knuckle Curve,True,0.31,-0.31,-0.05
+Changeup,Changeup,True,-0.48,0.53,-0.12
+4-Seam Fastball,4-Seam Fastball,True,-0.54,0.37,0.78
+Knuckle Curve,Knuckle Curve,True,0.29,-0.39,-0.01
+4-Seam Fastball,4-Seam Fastball,True,-0.15,0.53,0.76
+Slider,Slider,True,0.72,0.07,0.34
+Knuckle Curve,Knuckle Curve,True,0.02,0.38,-0.14
+4-Seam Fastball,4-Seam Fastball,True,0.09,0.21,0.91
+4-Seam Fastball,4-Seam Fastball,True,0.35,0.31,0.74
+Changeup,Changeup,True,-0.41,-0.23,-0.51
+Knuckle Curve,Knuckle Curve,True,-0.43,0.5,0.01
+Knuckle Curve,Knuckle Curve,True,0.35,-0.66,-0.01
+Changeup,Changeup,True,-0.25,-0.21,-0.36
+4-Seam Fastball,4-Seam Fastball,True,0.33,0.36,0.8
+Slider,Slider,True,0.49,-0.03,0.28
+Changeup,Changeup,True,0.3,0.22,0.08
+4-Seam Fastball,4-Seam Fastball,True,0.19,0.23,0.79
+Slider,Slider,True,-0.28,-0.11,0.42
+4-Seam Fastball,4-Seam Fastball,True,0.46,0.29,0.93
+Knuckle Curve,Knuckle Curve,True,-0.5,0.07,-0.04
+Knuckle Curve,Sweeper,False,0.54,-0.35,0.06
+Knuckle Curve,Sweeper,False,0.41,-0.07,-0.11
+Changeup,Changeup,True,-0.15,-0.19,0.02
+4-Seam Fastball,Sinker,False,0.56,-0.19,0.86
+Knuckle Curve,Knuckle Curve,True,-0.35,0.23,0.03
+4-Seam Fastball,4-Seam Fastball,True,0.52,-0.24,0.83
+Slider,Slider,True,-0.2,-0.19,0.35
+4-Seam Fastball,Sinker,False,-0.41,0.11,0.81
+4-Seam Fastball,4-Seam Fastball,True,0.52,-0.29,0.79
+Changeup,Changeup,True,-0.38,-0.16,-0.14
+Knuckle Curve,Knuckle Curve,True,0.5,-0.51,-0.01
+Knuckle Curve,Knuckle Curve,True,-0.32,0.14,-0.33
+Changeup,Changeup,True,-0.01,0.4,-0.2
+Changeup,Changeup,True,-0.52,0.12,-0.09
+Slider,Slider,True,0.3,-0.06,0.32
+Knuckle Curve,Knuckle Curve,True,0.35,-0.3,-0.12
+Slider,Slider,True,0.22,-0.23,0.32
+4-Seam Fastball,4-Seam Fastball,True,0.11,0.41,0.82
+Slider,Slider,True,0.49,-0.2,0.27
+Knuckle Curve,Knuckle Curve,True,0.45,-0.02,-0.01
+4-Seam Fastball,4-Seam Fastball,True,0.04,0.39,0.82
+Knuckle Curve,Knuckle Curve,True,0.64,-0.08,-0.08
+Knuckle Curve,Knuckle Curve,True,0.2,-0.34,-0.03
