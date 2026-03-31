@@ -1,0 +1,14 @@
+# Rails credentials — never commit these
+/config/master.key
+/config/credentials.yml.enc
+/config/credentials/
+
+# Logs and temp files
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+
+# Environment files
+.env
+.env.*
