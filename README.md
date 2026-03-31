@@ -47,41 +47,58 @@ Player search is available globally via the navbar autocomplete.
 
 ```
 baseball/
-├── backend/                  # FastAPI Python service
-│   ├── main.py               # App entry point, CORS config, router registration
-│   ├── requirements.txt      # Python dependencies
+├── backend_rails/            # Rails 8 API (primary backend — Ruby)
+│   ├── Gemfile               # Ruby dependencies
+│   ├── config/
+│   │   ├── application.rb    # App config + CORS middleware
+│   │   └── routes.rb         # All /api/* routes
+│   └── app/
+│       ├── controllers/
+│       │   └── api/
+│       │       ├── base_controller.rb         # Shared error handling
+│       │       ├── schedule_controller.rb     # GET /api/schedule/*
+│       │       ├── players_controller.rb      # GET /api/players/*
+│       │       ├── stats_controller.rb        # GET /api/stats/*
+│       │       └── leaderboards_controller.rb # GET /api/leaderboards/*
+│       └── services/
+│           ├── mlb_api_service.rb    # MLB Stats API client
+│           └── statcast_service.rb   # Baseball Savant + FanGraphs client
+│
+├── backend/                  # (Reference) FastAPI Python service
+│   ├── main.py
+│   ├── requirements.txt
 │   ├── routers/
-│   │   ├── schedule.py       # /api/schedule/* endpoints
-│   │   ├── players.py        # /api/players/* endpoints
-│   │   └── stats.py          # /api/stats/* and /api/leaderboards/* endpoints
+│   │   ├── schedule.py
+│   │   ├── players.py
+│   │   └── stats.py
 │   └── services/
-│       ├── mlb_api.py        # MLB Stats API client (schedule, player info, standard stats)
-│       └── statcast.py       # pybaseball client (Statcast, FanGraphs leaderboards)
+│       ├── mlb_api.py
+│       └── statcast.py
 │
 └── frontend/                 # React + Vite + Tailwind
     ├── index.html
-    ├── vite.config.js        # Vite config with /api proxy to :8000
+    ├── vite.config.js        # /api proxy → :8000
     ├── tailwind.config.js    # Custom color tokens
-    ├── src/
-    │   ├── main.jsx          # React root, QueryClient, BrowserRouter
-    │   ├── App.jsx           # Route definitions
-    │   ├── api.js            # Typed fetch wrappers for all backend endpoints
-    │   ├── index.css         # Tailwind base + component layer
-    │   ├── pages/
-    │   │   ├── Today.jsx         # Date-navigable schedule view
-    │   │   ├── PlayerProfile.jsx # Player stat page with tabs
-    │   │   └── Leaderboards.jsx  # Sortable FanGraphs leaderboards
-    │   └── components/
-    │       ├── Navbar.jsx        # Sticky nav with live player search
-    │       ├── GameCard.jsx      # Individual game card
-    │       ├── StatCard.jsx      # Stat value card with percentile bar
-    │       └── charts/
-    │           ├── PitchMovementChart.jsx  # H/V break scatter (Recharts)
-    │           ├── PitchMixChart.jsx       # Usage horizontal bar chart
-    │           └── SprayChart.jsx          # Hit location scatter
+    └── src/
+        ├── main.jsx          # React root, QueryClient, BrowserRouter
+        ├── App.jsx           # Route definitions
+        ├── api.js            # Fetch wrappers for all backend endpoints
+        ├── index.css         # Tailwind base + component layer
+        ├── pages/
+        │   ├── Today.jsx         # Date-navigable schedule view
+        │   ├── PlayerProfile.jsx # Player stat page with tabs
+        │   └── Leaderboards.jsx  # Sortable FanGraphs leaderboards
+        └── components/
+            ├── Navbar.jsx        # Sticky nav with live player search
+            ├── GameCard.jsx      # Individual game card
+            ├── StatCard.jsx      # Stat value card with percentile bar
+            └── charts/
+                ├── PitchMovementChart.jsx  # H/V break scatter (Recharts)
+                ├── PitchMixChart.jsx       # Usage horizontal bar chart
+                └── SprayChart.jsx          # Hit location scatter
 ```
 
-The frontend uses Vite's dev-server proxy so all `/api/*` requests are forwarded to the FastAPI backend on port 8000 — no CORS issues during development, and no environment variables needed for the API URL.
+The frontend uses Vite's dev-server proxy so all `/api/*` requests are forwarded to the Rails backend on port 8000. No CORS issues in development, and no environment variables needed for the API URL.
 
 ---
 
@@ -90,8 +107,8 @@ The frontend uses Vite's dev-server proxy so all `/api/*` requests are forwarded
 | Source | What it provides | Auth required |
 |--------|-----------------|---------------|
 | [MLB Stats API](https://statsapi.mlb.com/api/v1) | Schedule, scores, lineups, probable pitchers, player bios, standard season stats | None |
-| [Baseball Savant / Statcast](https://baseballsavant.mlb.com) | Pitch-by-pitch data (velocity, spin, movement, exit velocity, launch angle, barrel rate, etc.) via pybaseball | None |
-| [FanGraphs](https://fangraphs.com) | Advanced metrics (wRC+, FIP, xFIP, SIERA, WAR) via pybaseball leaderboards | None |
+| [Baseball Savant / Statcast](https://baseballsavant.mlb.com) | Pitch-by-pitch data (velocity, spin, movement, exit velocity, launch angle, barrel rate, etc.) via direct CSV export API | None |
+| [FanGraphs](https://fangraphs.com) | Advanced metrics (wRC+, FIP, xFIP, SIERA, WAR) via leaderboard JSON API | None |
 
 All three sources are free and require no API key.
 
@@ -101,25 +118,29 @@ All three sources are free and require no API key.
 
 ### Prerequisites
 
-- Python 3.11+
+- Ruby 3.3+ (managed via rbenv or rvm)
+- Bundler 2.x (`gem install bundler`)
 - Node.js 18+
 - npm 9+
 
-### Backend Setup
+### Backend Setup (Rails)
 
 ```bash
-cd backend
-pip install -r requirements.txt
+cd backend_rails
+bundle install
 ```
 
-**requirements.txt** installs:
-- `fastapi` — web framework
-- `uvicorn[standard]` — ASGI server
-- `httpx` — async HTTP client for MLB Stats API calls
-- `pybaseball` — wrapper for Statcast and FanGraphs data
-- `pandas` — DataFrame processing for Statcast aggregation
-- `numpy` — numeric operations
-- `python-dotenv` — `.env` file support (optional)
+**Gemfile** installs:
+- `rails (~> 8.1)` — web framework
+- `puma` — Rack/HTTP server
+- `rack-cors` — CORS headers for the frontend dev server
+- `faraday` + `faraday-retry` — HTTP client for MLB Stats API, Baseball Savant, and FanGraphs
+- `csv` — standard library, used to parse Baseball Savant CSV export responses
+- `bootsnap` — faster boot times via caching
+
+No database is required — the app is purely a proxy/aggregation layer over external APIs.
+
+> **Python backend (reference):** A functionally identical FastAPI implementation is kept in `backend/` for reference. See its `requirements.txt` for dependencies. Run it with `uvicorn main:app --reload --port 8000`.
 
 ### Frontend Setup
 
@@ -140,14 +161,14 @@ npm install
 
 ### Running the App
 
-Start the backend in one terminal:
+Start the Rails backend in one terminal:
 
 ```bash
-cd backend
-uvicorn main:app --reload --port 8000
+cd backend_rails
+bundle exec rails server -p 8000
 ```
 
-The `--reload` flag enables hot reloading during development. The interactive API docs are available at [http://localhost:8000/docs](http://localhost:8000/docs).
+The `--dev` flag (or setting `config.cache_classes = false` in `development.rb`) enables class reloading. Rails logs all requests to the terminal.
 
 Start the frontend in a second terminal:
 
@@ -162,7 +183,9 @@ Open [http://localhost:5173](http://localhost:5173).
 
 ## Backend API Reference
 
-The FastAPI app exposes interactive Swagger docs at `/docs` and ReDoc at `/redoc` when running locally.
+All endpoints are served under the `/api` namespace. The Rails server runs on port 8000 by default. There is no authentication or API key required.
+
+Routes are defined in `config/routes.rb`. All controllers live under `app/controllers/api/` and inherit from `Api::BaseController`, which handles errors uniformly and returns `{ error: "..." }` with HTTP 502 on upstream failures.
 
 ### Schedule Endpoints
 
@@ -380,7 +403,7 @@ Fetches and aggregates Statcast batted-ball data for a hitter.
 
 ### Leaderboard Endpoints
 
-Both leaderboard endpoints call FanGraphs via pybaseball. **The first request for a given season may take 15–30 seconds.** Results are cached in memory.
+Both leaderboard endpoints call FanGraphs' internal leaderboard JSON API directly. **The first request for a given season may take 15–30 seconds.** Results are cached in memory.
 
 #### `GET /api/leaderboards/batting?season={year}&min_pa={pa}`
 
@@ -561,11 +584,52 @@ Typography uses **Inter** for UI text and **JetBrains Mono** for all numeric sta
 
 ---
 
+## Rails Services
+
+The backend has two plain Ruby service classes that hold all external API logic. Controllers are kept thin — they call a service and render JSON.
+
+### `MlbApiService`
+
+Instantiated per-request (via the `mlb` helper in `BaseController`). Wraps every call to `https://statsapi.mlb.com/api/v1` using a Faraday connection with a 2-retry policy and 15-second timeout.
+
+| Method | Description |
+|--------|-------------|
+| `schedule(date)` | Games for a `YYYY-MM-DD` date, parsed into a flat hash |
+| `search_players(query)` | Name search, returns ≤20 results |
+| `player_info(id)` | Biographical data + headshot URL |
+| `player_season_stats(id, season)` | Season hitting/pitching/fielding stats |
+| `player_career_stats(id, group:)` | Year-by-year stats array |
+
+Team colour and abbreviation lookup is a constant hash inside the service (`TEAM_META`), keyed by MLB team ID.
+
+### `StatcastService`
+
+All methods are class-level (`self.`) so no instantiation is needed. Results are stored in `@@cache` (a class variable hash) keyed by `"#{type}_#{player_id}_#{season}"`.
+
+| Method | Description |
+|--------|-------------|
+| `StatcastService.pitcher(id, season)` | Fetches Baseball Savant pitcher CSV, aggregates pitch-type stats + movement data |
+| `StatcastService.batter(id, season)` | Fetches Baseball Savant batter CSV, aggregates exit-velo/barrel/spray data |
+| `StatcastService.batting_leaderboard(season, min_pa:)` | FanGraphs batting leaderboard JSON |
+| `StatcastService.pitching_leaderboard(season, min_ip:)` | FanGraphs pitching leaderboard JSON |
+
+The Baseball Savant CSV endpoint accepts a `hfGT=R|` parameter to restrict to regular season data. Faraday is configured with a 60-second timeout for these calls since large datasets (e.g. a full-season starter) can be several MB of CSV.
+
+---
+
 ## Caching
 
-**Backend** — Statcast and FanGraphs results are cached in a module-level Python dictionary (`_cache` in `services/statcast.py`) keyed by `{type}_{player_id}_{season}`. This cache lives for the lifetime of the server process. To clear it, restart the server.
+**Rails backend** — Statcast and FanGraphs results are cached in a class-level Ruby hash (`@@cache` in `StatcastService`) keyed by `{type}_{player_id}_{season}`. This cache lives for the lifetime of the server process. To clear it, restart the server.
 
-For persistent caching across restarts, replace the dict with Redis or a simple SQLite cache.
+For persistent caching across restarts, swap `@@cache` for `Rails.cache` backed by Redis or Memcached:
+
+```ruby
+# config/environments/production.rb
+config.cache_store = :redis_cache_store, { url: ENV["REDIS_URL"] }
+
+# StatcastService — replace @@cache reads/writes with:
+Rails.cache.fetch(key, expires_in: 1.hour) { fetch_pitcher(...) }
+```
 
 **Frontend** — TanStack Query is configured with a 5-minute `staleTime` globally. Statcast data uses a 15-minute `staleTime` since it rarely changes. Leaderboard data uses 10 minutes. The query cache persists for the browser session.
 
@@ -581,10 +645,13 @@ For persistent caching across restarts, replace the dict with Redis or a simple 
 
 ### Add a new data source
 
-1. Add a new function to `services/mlb_api.py` or `services/statcast.py`
-2. Add a new route to the appropriate router file in `routers/`
-3. Add a matching fetch function to `frontend/src/api.js`
-4. Use `useQuery` in the relevant page component to load and display the data
+**Rails backend:**
+
+1. Add a method to `MlbApiService` (for MLB Stats API data) or `StatcastService` (for Statcast/FanGraphs)
+2. Add a route in `config/routes.rb`
+3. Add a controller action (or a new controller under `app/controllers/api/`)
+4. Add a matching fetch function to `frontend/src/api.js`
+5. Use `useQuery` in the relevant page component to load and display the data
 
 ### Add a new page
 
