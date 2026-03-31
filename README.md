@@ -37,7 +37,7 @@ Statline has three primary views:
 |------|-------------|
 | **Schedule** | Today's MLB games with team logos, scores, game status, and probable pitchers. Date-navigable. |
 | **Player Profile** | Full player page with batting, pitching, and fielding tabs. Stat cards show percentile context using a Baseball Savant-style color scale. Pitchers get a pitch movement scatter chart and pitch mix breakdown. Batters get a spray chart. |
-| **Leaderboards** | Sortable batting and pitching leaderboards pulled from FanGraphs via pybaseball. |
+| **Leaderboards** | Sortable batting and pitching leaderboards pulled from FanGraphs. |
 
 Player search is available globally via the navbar autocomplete.
 
@@ -63,17 +63,6 @@ baseball/
 │       └── services/
 │           ├── mlb_api_service.rb    # MLB Stats API client
 │           └── statcast_service.rb   # Baseball Savant + FanGraphs client
-│
-├── backend/                  # (Reference) FastAPI Python service
-│   ├── main.py
-│   ├── requirements.txt
-│   ├── routers/
-│   │   ├── schedule.py
-│   │   ├── players.py
-│   │   └── stats.py
-│   └── services/
-│       ├── mlb_api.py
-│       └── statcast.py
 │
 └── frontend/                 # React + Vite + Tailwind
     ├── index.html
@@ -139,8 +128,6 @@ bundle install
 - `bootsnap` — faster boot times via caching
 
 No database is required — the app is purely a proxy/aggregation layer over external APIs.
-
-> **Python backend (reference):** A functionally identical FastAPI implementation is kept in `backend/` for reference. See its `requirements.txt` for dependencies. Run it with `uvicorn main:app --reload --port 8000`.
 
 ### Frontend Setup
 
@@ -662,4 +649,4 @@ Rails.cache.fetch(key, expires_in: 1.hour) { fetch_pitcher(...) }
 
 ### Add FanGraphs advanced batting stats to player profiles
 
-The FanGraphs leaderboards already include wRC+, FIP, xFIP, etc. To surface these on individual player profiles, add a lookup by player name against the leaderboard data, or use `pybaseball.playerid_lookup(last, first)` to get the FanGraphs ID and then call `pybaseball.batting_stats_bref()` directly.
+The FanGraphs leaderboards already include wRC+, FIP, xFIP, etc. To surface these on individual player profiles, look up the player by name against the leaderboard data returned by `StatcastService.batting_leaderboard` and join on the `Name` field.
