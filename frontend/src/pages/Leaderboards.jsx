@@ -1,47 +1,81 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api'
+import StatHelpTooltip from '../components/StatHelpTooltip'
+import PlayerLink from '../components/PlayerLink'
+import TeamLink from '../components/TeamLink'
+import { teamIdFromAbbr } from '../lib/teamMeta'
+
+const CURRENT_SEASON = new Date().getFullYear()
+const MIN_SEASON = 2018
+const SEASON_OPTIONS = Array.from(
+  { length: Math.max(1, CURRENT_SEASON - MIN_SEASON + 1) },
+  (_, i) => CURRENT_SEASON - i
+)
+
+const toNumber = (v) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+const fmtInt = (v) => {
+  const n = toNumber(v)
+  return n == null ? '—' : Math.round(n)
+}
+
+const fmtDec = (digits) => (v) => {
+  const n = toNumber(v)
+  return n == null ? '—' : n.toFixed(digits)
+}
+
+const fmtPct = (v) => {
+  const n = toNumber(v)
+  return n == null ? '—' : `${n.toFixed(1)}%`
+}
 
 const BATTING_COLS = [
   { key: 'Name', label: 'Player' },
   { key: 'Team', label: 'Team' },
-  { key: 'G', label: 'G' },
-  { key: 'PA', label: 'PA' },
-  { key: 'HR', label: 'HR' },
-  { key: 'RBI', label: 'RBI' },
-  { key: 'SB', label: 'SB' },
-  { key: 'AVG', label: 'AVG', fmt: (v) => Number(v).toFixed(3) },
-  { key: 'OBP', label: 'OBP', fmt: (v) => Number(v).toFixed(3) },
-  { key: 'SLG', label: 'SLG', fmt: (v) => Number(v).toFixed(3) },
-  { key: 'OPS', label: 'OPS', fmt: (v) => Number(v).toFixed(3) },
-  { key: 'wRC+', label: 'wRC+' },
-  { key: 'WAR', label: 'WAR', fmt: (v) => Number(v).toFixed(1) },
-  { key: 'BB%', label: 'BB%', fmt: (v) => `${Number(v).toFixed(1)}%` },
-  { key: 'K%', label: 'K%', fmt: (v) => `${Number(v).toFixed(1)}%` },
+  { key: 'G', label: 'G', fmt: fmtInt },
+  { key: 'PA', label: 'PA', fmt: fmtInt },
+  { key: 'HR', label: 'HR', fmt: fmtInt },
+  { key: 'RBI', label: 'RBI', fmt: fmtInt },
+  { key: 'SB', label: 'SB', fmt: fmtInt },
+  { key: 'AVG', label: 'AVG', fmt: fmtDec(3) },
+  { key: 'OBP', label: 'OBP', fmt: fmtDec(3) },
+  { key: 'SLG', label: 'SLG', fmt: fmtDec(3) },
+  { key: 'OPS', label: 'OPS', fmt: fmtDec(3) },
+  { key: 'wRC+', label: 'wRC+', fmt: fmtInt },
+  { key: 'WAR', label: 'WAR', fmt: fmtDec(1) },
+  { key: 'BB%', label: 'BB%', fmt: fmtPct },
+  { key: 'K%', label: 'K%', fmt: fmtPct },
 ]
 
 const PITCHING_COLS = [
   { key: 'Name', label: 'Player' },
   { key: 'Team', label: 'Team' },
-  { key: 'G', label: 'G' },
-  { key: 'GS', label: 'GS' },
-  { key: 'IP', label: 'IP', fmt: (v) => Number(v).toFixed(1) },
-  { key: 'W', label: 'W' },
-  { key: 'L', label: 'L' },
-  { key: 'SV', label: 'SV' },
-  { key: 'ERA', label: 'ERA', fmt: (v) => Number(v).toFixed(2) },
-  { key: 'WHIP', label: 'WHIP', fmt: (v) => Number(v).toFixed(2) },
-  { key: 'K/9', label: 'K/9', fmt: (v) => Number(v).toFixed(1) },
-  { key: 'BB/9', label: 'BB/9', fmt: (v) => Number(v).toFixed(1) },
-  { key: 'FIP', label: 'FIP', fmt: (v) => Number(v).toFixed(2) },
-  { key: 'xFIP', label: 'xFIP', fmt: (v) => Number(v).toFixed(2) },
-  { key: 'WAR', label: 'WAR', fmt: (v) => Number(v).toFixed(1) },
-  { key: 'K%', label: 'K%', fmt: (v) => `${Number(v).toFixed(1)}%` },
-  { key: 'BB%', label: 'BB%', fmt: (v) => `${Number(v).toFixed(1)}%` },
+  { key: 'G', label: 'G', fmt: fmtInt },
+  { key: 'GS', label: 'GS', fmt: fmtInt },
+  { key: 'IP', label: 'IP', fmt: fmtDec(1) },
+  { key: 'W', label: 'W', fmt: fmtInt },
+  { key: 'L', label: 'L', fmt: fmtInt },
+  { key: 'SV', label: 'SV', fmt: fmtInt },
+  { key: 'ERA', label: 'ERA', fmt: fmtDec(2) },
+  { key: 'WHIP', label: 'WHIP', fmt: fmtDec(2) },
+  { key: 'K/9', label: 'K/9', fmt: fmtDec(1) },
+  { key: 'BB/9', label: 'BB/9', fmt: fmtDec(1) },
+  { key: 'FIP', label: 'FIP', fmt: fmtDec(2) },
+  { key: 'xFIP', label: 'xFIP', fmt: fmtDec(2) },
+  { key: 'WAR', label: 'WAR', fmt: fmtDec(1) },
+  { key: 'K%', label: 'K%', fmt: fmtPct },
+  { key: 'BB%', label: 'BB%', fmt: fmtPct },
 ]
 
 function Table({ data, columns, sortKey, sortDir, onSort }) {
+  function playerIdFromRow(row) {
+    return row.xMLBAMID || row.MLBAMID || row.MLBID || row.mlbamid || row.player_id || row.PlayerId || null
+  }
+
   if (!data?.length) {
     return (
       <div className="card p-12 text-center">
@@ -66,6 +100,7 @@ function Table({ data, columns, sortKey, sortDir, onSort }) {
                 >
                   <span className="flex items-center gap-1">
                     {col.label}
+                    <StatHelpTooltip stat={col.key} />
                     {sortKey === col.key && (
                       <span className="text-brand-light">{sortDir === 'asc' ? '↑' : '↓'}</span>
                     )}
@@ -82,9 +117,24 @@ function Table({ data, columns, sortKey, sortDir, onSort }) {
                   const raw = row[col.key]
                   const formatted = raw != null ? (col.fmt ? col.fmt(raw) : raw) : '—'
                   if (col.key === 'Name') {
+                    const playerId = playerIdFromRow(row)
                     return (
                       <td key={col.key} className="px-3 py-2.5 font-medium text-content-primary whitespace-nowrap">
-                        {formatted}
+                        <PlayerLink
+                          playerId={playerId}
+                          name={formatted}
+                          imageClassName="w-6 h-6"
+                          textClassName="font-medium"
+                        />
+                      </td>
+                    )
+                  }
+                  if (col.key === 'Team') {
+                    const teamAbbr = String(formatted || '')
+                    const teamId = teamIdFromAbbr(teamAbbr)
+                    return (
+                      <td key={col.key} className="px-3 py-2.5 font-mono text-content-secondary whitespace-nowrap">
+                        <TeamLink teamId={teamId} label={teamAbbr || '—'} iconClassName="w-5 h-5" />
                       </td>
                     )
                   }
@@ -105,7 +155,7 @@ function Table({ data, columns, sortKey, sortDir, onSort }) {
 
 export default function Leaderboards() {
   const [tab, setTab] = useState('batting')
-  const [season, setSeason] = useState(2024)
+  const [season, setSeason] = useState(CURRENT_SEASON)
   const [sortKey, setSortKey] = useState(tab === 'batting' ? 'WAR' : 'ERA')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -158,7 +208,7 @@ export default function Leaderboards() {
             onChange={(e) => setSeason(Number(e.target.value))}
             className="bg-bg-elevated border border-bg-border text-content-primary text-sm rounded-lg px-3 py-1.5 outline-none focus:border-brand"
           >
-            {[2024, 2023, 2022, 2021].map((y) => <option key={y} value={y}>{y}</option>)}
+            {SEASON_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           <div className="flex items-center gap-1 bg-bg-surface border border-bg-border rounded-xl p-1">
             {['batting', 'pitching'].map((t) => (

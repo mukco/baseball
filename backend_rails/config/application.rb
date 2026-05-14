@@ -41,6 +41,8 @@ module BackendRails
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
+    config.middleware.use ActionDispatch::Cookies
+
     config.middleware.insert_before 0, Rack::Cors do
       allow do
         origins "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"

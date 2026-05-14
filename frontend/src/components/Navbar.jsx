@@ -3,7 +3,40 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api'
 
-export default function Navbar() {
+const ALL_TEAMS = [
+  { id: 108, name: 'Los Angeles Angels',       abbreviation: 'LAA', color: '#003263' },
+  { id: 109, name: 'Arizona Diamondbacks',      abbreviation: 'ARI', color: '#A71930' },
+  { id: 110, name: 'Baltimore Orioles',         abbreviation: 'BAL', color: '#DF4601' },
+  { id: 111, name: 'Boston Red Sox',            abbreviation: 'BOS', color: '#BD3039' },
+  { id: 112, name: 'Chicago Cubs',              abbreviation: 'CHC', color: '#0E3386' },
+  { id: 113, name: 'Cincinnati Reds',           abbreviation: 'CIN', color: '#C6011F' },
+  { id: 114, name: 'Cleveland Guardians',       abbreviation: 'CLE', color: '#00385D' },
+  { id: 115, name: 'Colorado Rockies',          abbreviation: 'COL', color: '#33006F' },
+  { id: 116, name: 'Detroit Tigers',            abbreviation: 'DET', color: '#0C2340' },
+  { id: 117, name: 'Houston Astros',            abbreviation: 'HOU', color: '#002D62' },
+  { id: 118, name: 'Kansas City Royals',        abbreviation: 'KC',  color: '#004687' },
+  { id: 119, name: 'Los Angeles Dodgers',       abbreviation: 'LAD', color: '#005A9C' },
+  { id: 120, name: 'Washington Nationals',      abbreviation: 'WSH', color: '#AB0003' },
+  { id: 121, name: 'New York Mets',             abbreviation: 'NYM', color: '#002D72' },
+  { id: 133, name: 'Athletics',                 abbreviation: 'ATH', color: '#003831' },
+  { id: 134, name: 'Pittsburgh Pirates',        abbreviation: 'PIT', color: '#FDB827' },
+  { id: 135, name: 'San Diego Padres',          abbreviation: 'SD',  color: '#2F241D' },
+  { id: 136, name: 'Seattle Mariners',          abbreviation: 'SEA', color: '#0C2C56' },
+  { id: 137, name: 'San Francisco Giants',      abbreviation: 'SF',  color: '#FD5A1E' },
+  { id: 138, name: 'St. Louis Cardinals',       abbreviation: 'STL', color: '#C41E3A' },
+  { id: 139, name: 'Tampa Bay Rays',            abbreviation: 'TB',  color: '#092C5C' },
+  { id: 140, name: 'Texas Rangers',             abbreviation: 'TEX', color: '#003278' },
+  { id: 141, name: 'Toronto Blue Jays',         abbreviation: 'TOR', color: '#134A8E' },
+  { id: 142, name: 'Minnesota Twins',           abbreviation: 'MIN', color: '#002B5C' },
+  { id: 143, name: 'Philadelphia Phillies',     abbreviation: 'PHI', color: '#E81828' },
+  { id: 144, name: 'Atlanta Braves',            abbreviation: 'ATL', color: '#CE1141' },
+  { id: 145, name: 'Chicago White Sox',         abbreviation: 'CWS', color: '#27251F' },
+  { id: 146, name: 'Miami Marlins',             abbreviation: 'MIA', color: '#00A3E0' },
+  { id: 147, name: 'New York Yankees',          abbreviation: 'NYY', color: '#003087' },
+  { id: 158, name: 'Milwaukee Brewers',         abbreviation: 'MIL', color: '#12284B' },
+]
+
+export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen = false, onToggleAssistant }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const inputRef = useRef(null)
@@ -11,12 +44,16 @@ export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const { data: results = [], isFetching } = useQuery({
+  const { data: playerResults = [], isFetching } = useQuery({
     queryKey: ['player-search', query],
     queryFn: () => api.players.search(query),
     enabled: query.length >= 2,
     staleTime: 30_000,
   })
+
+  const teamResults = query.length >= 2
+    ? ALL_TEAMS.filter(t => t.name.toLowerCase().includes(query.toLowerCase()) || t.abbreviation.toLowerCase().includes(query.toLowerCase())).slice(0, 3)
+    : []
 
   useEffect(() => {
     const handler = (e) => {
@@ -28,11 +65,13 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  function handleSelect(player) {
+  function handleSelect(item, type) {
     setQuery('')
     setOpen(false)
-    navigate(`/player/${player.id}`)
+    navigate(type === 'team' ? `/team/${item.id}` : `/player/${item.id}`)
   }
+
+  const hasResults = playerResults.length > 0 || teamResults.length > 0
 
   function handleKeyDown(e) {
     if (e.key === 'Escape') setOpen(false)
@@ -63,7 +102,11 @@ export default function Navbar() {
         {/* Nav links */}
         <div className="hidden sm:flex items-center gap-5">
           {navLink('/', 'Today')}
+          {navLink('/teams', 'Teams')}
           {navLink('/leaderboards', 'Leaderboards')}
+          {navLink('/news', 'News')}
+          {navLink('/digest', 'Digest')}
+          {navLink('/sandbox', 'Sandbox')}
         </div>
 
         {/* Search — grows to fill remaining space */}
@@ -78,7 +121,7 @@ export default function Navbar() {
               onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
               onFocus={() => query.length >= 2 && setOpen(true)}
               onKeyDown={handleKeyDown}
-              placeholder="Search players…"
+              placeholder="Search players & teams…"
               className="bg-transparent text-sm text-content-primary placeholder-content-muted outline-none w-full"
             />
             {isFetching && (
@@ -87,31 +130,103 @@ export default function Navbar() {
           </div>
 
           {/* Dropdown */}
-          {open && results.length > 0 && (
+          {open && hasResults && (
             <div ref={dropdownRef} className="absolute top-full mt-2 w-full bg-bg-elevated border border-bg-border rounded-xl shadow-2xl overflow-hidden z-50">
-              {results.slice(0, 8).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleSelect(p)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-bg-border transition-colors text-left"
-                >
-                  <img
-                    src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_60,q_auto:best/v1/people/${p.id}/headshot/67/current`}
-                    alt={p.name}
-                    className="w-8 h-8 rounded-full object-cover bg-bg-border"
-                    onError={(e) => { e.target.style.display = 'none' }}
-                  />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-content-primary truncate">{p.name}</div>
-                    <div className="text-xs text-content-muted truncate">
-                      {p.position} · {p.team || 'Free Agent'}
-                    </div>
+              {teamResults.length > 0 && (
+                <>
+                  <div className="px-4 pt-2 pb-1">
+                    <span className="text-[10px] font-semibold text-content-muted uppercase tracking-widest">Teams</span>
                   </div>
-                </button>
-              ))}
+                  {teamResults.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => handleSelect(t, 'team')}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-bg-border transition-colors text-left"
+                    >
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shrink-0"
+                        style={{ backgroundColor: t.color, fontSize: 10 }}
+                      >
+                        {t.abbreviation}
+                      </div>
+                      <div className="text-sm font-medium text-content-primary truncate">{t.name}</div>
+                    </button>
+                  ))}
+                </>
+              )}
+              {playerResults.length > 0 && (
+                <>
+                  <div className="px-4 pt-2 pb-1">
+                    <span className="text-[10px] font-semibold text-content-muted uppercase tracking-widest">Players</span>
+                  </div>
+                  {playerResults.slice(0, 6).map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleSelect(p, 'player')}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-bg-border transition-colors text-left"
+                    >
+                      <img
+                        src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_60,q_auto:best/v1/people/${p.id}/headshot/67/current`}
+                        alt={p.name}
+                        className="w-8 h-8 rounded-full object-cover bg-bg-border"
+                        onError={(e) => { e.target.style.display = 'none' }}
+                      />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-content-primary truncate">{p.name}</div>
+                        <div className="text-xs text-content-muted truncate">
+                          {p.position} · {p.team || 'Free Agent'}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => onToggleAssistant?.()}
+          aria-label={assistantOpen ? 'Close Statline Assistant' : 'Open Statline Assistant'}
+          title={assistantOpen ? 'Close Statline Assistant' : 'Open Statline Assistant'}
+          className={`shrink-0 inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border text-sm font-medium transition-colors ${
+            assistantOpen
+              ? 'border-brand bg-brand text-white'
+              : 'border-bg-border bg-bg-surface text-content-secondary hover:text-content-primary hover:bg-bg-elevated'
+          }`}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span className="hidden sm:inline">Statline</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onToggleTheme?.()}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg border border-bg-border bg-bg-surface text-content-secondary hover:text-content-primary hover:bg-bg-elevated transition-colors"
+        >
+          {theme === 'dark' ? (
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2" />
+              <path d="M12 20v2" />
+              <path d="m4.93 4.93 1.41 1.41" />
+              <path d="m17.66 17.66 1.41 1.41" />
+              <path d="M2 12h2" />
+              <path d="M20 12h2" />
+              <path d="m6.34 17.66-1.41 1.41" />
+              <path d="m19.07 4.93-1.41 1.41" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3a7 7 0 1 0 9 9 9 9 0 1 1-9-9z" />
+            </svg>
+          )}
+        </button>
       </div>
     </nav>
   )

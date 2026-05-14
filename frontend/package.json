@@ -9,13 +9,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.50.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "katex": "^0.16.44",
+    "prismjs": "^1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-katex": "^3.1.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^6.24.0",
-    "@tanstack/react-query": "^5.50.0",
+    "react-simple-code-editor": "^0.14.1",
     "recharts": "^2.12.7",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0"
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

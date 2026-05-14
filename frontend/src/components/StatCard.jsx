@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import StatHelpTooltip from './StatHelpTooltip'
 
 /**
  * Percentile → color mapping (like Baseball Savant)
@@ -39,24 +40,56 @@ export function PercentileBar({ percentile, invert = false, className }) {
 /**
  * StatCard — shows a single stat value with optional percentile indicator.
  */
-export function StatCard({ label, value, percentile, invert = false, subtitle, className }) {
+export function StatCard({ label, statKey, value, percentile, invert = false, subtitle, className, comparison, progress }) {
   const hasPercentile = percentile != null
-  const colorClass = hasPercentile ? percentileColor(percentile, invert) : 'text-content-primary'
+  const showPercentile = hasPercentile && !comparison && !progress
+  const colorClass = showPercentile ? percentileColor(percentile, invert) : 'text-content-primary'
+  const progressPct = progress && Number(progress.target) > 0
+    ? Math.max(0, Math.min(100, (Number(progress.current) / Number(progress.target)) * 100))
+    : null
 
   return (
     <div className={clsx('card p-4 flex flex-col gap-2', className)}>
-      <span className="stat-label">{label}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span className="stat-label">{label}</span>
+          <StatHelpTooltip stat={statKey || label} />
+        </span>
+        {comparison && (
+          <span className="flex items-center gap-1" title={comparison.status}>
+            <span className="text-[10px] text-content-muted font-medium">{comparison.projectedLabel}</span>
+            <span className={clsx('text-[10px] font-semibold', comparison.color)}>{comparison.status}</span>
+          </span>
+        )}
+      </div>
       <div className="flex items-end justify-between gap-2">
         <span className={clsx('text-2xl font-bold font-mono leading-none', colorClass)}>
           {value ?? '—'}
         </span>
-        {hasPercentile && (
-          <span className={clsx('text-xs font-medium', percentileColor(percentile, invert))}>
+        {showPercentile && (
+          <span className={clsx('text-xs font-medium', percentileColor(percentile, invert))} title="Approximate MLB percentile">
             {percentile}th
           </span>
         )}
       </div>
-      {hasPercentile && <PercentileBar percentile={percentile} invert={invert} />}
+      {showPercentile && <PercentileBar percentile={percentile} invert={invert} />}
+      {progressPct != null && (
+        <div className="space-y-1">
+          <div className="h-1.5 w-full bg-bg-border rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-brand transition-all duration-300" style={{ width: `${progressPct}%` }} />
+          </div>
+          <div className="flex items-center gap-3 text-[10px] text-content-muted">
+            <span className="inline-flex items-center gap-1" title="Current value">
+              <span className="text-brand">◉</span>
+              <span>{progress.current}</span>
+            </span>
+            <span className="inline-flex items-center gap-1" title="Projected target">
+              <span>◎</span>
+              <span>{progress.target}</span>
+            </span>
+          </div>
+        </div>
+      )}
       {subtitle && <span className="text-xs text-content-muted">{subtitle}</span>}
     </div>
   )

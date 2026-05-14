@@ -148,6 +148,16 @@ npm install
 
 ### Running the App
 
+You can start both backend and frontend from the repo root:
+
+```bash
+./start.sh
+```
+
+The script runs `bundle exec rails db:prepare` first so any pending migrations are applied before the Rails server starts.
+
+Or start each service manually:
+
 Start the Rails backend in one terminal:
 
 ```bash

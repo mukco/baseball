@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import clsx from 'clsx'
+import PlayerLink from './PlayerLink'
 
 const STATUS_COLORS = {
   Final: 'text-content-muted',
@@ -37,13 +38,14 @@ function ProbablePitcher({ pitcher, side }) {
     return <span className="text-xs text-content-muted italic">TBD</span>
   }
   return (
-    <Link
-      to={`/player/${pitcher.id}`}
-      className="text-xs text-content-secondary hover:text-brand-light transition-colors truncate max-w-[100px]"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {pitcher.name}
-    </Link>
+    <PlayerLink
+      playerId={pitcher.id}
+      name={pitcher.name}
+      imageClassName="w-4 h-4"
+      className="max-w-[120px]"
+      textClassName="text-xs"
+      stopPropagation
+    />
   )
 }
 
@@ -75,11 +77,13 @@ function Score({ away, home, status }) {
 }
 
 export default function GameCard({ game }) {
+  const navigate = useNavigate()
   const {
     gamePk, gameDate, status, abstractState,
     away, home, awayProbable, homeProbable,
     venue, currentInning, inningHalf,
   } = game
+  const gameUrl = gamePk ? `/game/${gamePk}` : null
 
   let timeLabel = 'TBD'
   try {
@@ -91,8 +95,30 @@ export default function GameCard({ game }) {
   const isPreview = abstractState === 'Preview'
   const isLive = status === 'In Progress'
 
+  function openGame() {
+    if (!gameUrl) return
+    navigate(gameUrl)
+  }
+
+  function handleKeyDown(e) {
+    if (!gameUrl) return
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      openGame()
+    }
+  }
+
   return (
-    <div className="card hover:border-bg-border/80 hover:bg-bg-elevated transition-all duration-200 cursor-default group">
+    <div
+      className={clsx(
+        'card hover:border-bg-border/80 hover:bg-bg-elevated transition-all duration-200 group',
+        gameUrl && 'cursor-pointer'
+      )}
+      onClick={openGame}
+      onKeyDown={handleKeyDown}
+      role={gameUrl ? 'button' : undefined}
+      tabIndex={gameUrl ? 0 : undefined}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-bg-border">
         <span className={clsx('text-xs font-semibold uppercase tracking-wider', statusColor)}>
@@ -109,9 +135,12 @@ export default function GameCard({ game }) {
       <div className="px-4 py-5">
         <div className="flex items-center justify-between gap-3">
           {/* Away team */}
-          <div className="flex flex-col items-center gap-2 min-w-0 flex-1">
+          <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
             <TeamLogo teamId={away.id} name={away.name} />
             <span className="text-sm font-semibold text-content-primary truncate">{away.abbreviation || away.name}</span>
+            {away.wins != null && (
+              <span className="text-[11px] text-content-muted font-mono">{away.wins}-{away.losses}</span>
+            )}
           </div>
 
           {/* Center: score or "vs" */}
@@ -124,9 +153,12 @@ export default function GameCard({ game }) {
           </div>
 
           {/* Home team */}
-          <div className="flex flex-col items-center gap-2 min-w-0 flex-1">
+          <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
             <TeamLogo teamId={home.id} name={home.name} />
             <span className="text-sm font-semibold text-content-primary truncate">{home.abbreviation || home.name}</span>
+            {home.wins != null && (
+              <span className="text-[11px] text-content-muted font-mono">{home.wins}-{home.losses}</span>
+            )}
           </div>
         </div>
 

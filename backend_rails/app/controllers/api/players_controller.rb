@@ -17,5 +17,11 @@ module Api
         render json: { error: "Player not found" }, status: :not_found
       end
     end
+
+    # GET /api/players/:id/factoids?season=2026
+    def factoids
+      season = params.fetch(:season, Date.today.year).to_i
+      render json: FactoidsService.player(player_id: params[:id].to_i, season: season)
+    end
   end
 end

@@ -3,6 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { api } from '../api'
 import GameCard from '../components/GameCard'
+import FactoidsPanel from '../components/FactoidsPanel'
+import MlbWatchFrame from '../components/MlbWatchFrame'
+import Standings from '../components/Standings'
+import HotGameBanner from '../components/HotGameBanner'
 
 function DateNav({ date, onChange }) {
   const prev = () => onChange(format(subDays(parseISO(date), 1), 'yyyy-MM-dd'))
@@ -21,6 +25,12 @@ function DateNav({ date, onChange }) {
         <span className="text-lg font-bold text-content-primary">
           {format(parseISO(date), 'MMM d, yyyy')}
         </span>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-1 bg-bg-elevated border border-bg-border text-content-secondary text-xs rounded px-2 py-1 outline-none focus:border-brand"
+        />
         {!isToday && (
           <button onClick={today} className="text-xs text-brand-light hover:underline">
             Back to today
@@ -75,13 +85,22 @@ export default function Today() {
   const preview = games.filter((g) => g.abstractState === 'Preview')
   const final = games.filter((g) => g.abstractState === 'Final')
 
-  function GameSection({ title, games: sectionGames }) {
+  function GameSection({ title, games: sectionGames, showEmbeds = false }) {
     if (!sectionGames.length) return null
     return (
       <section>
         <h2 className="text-xs font-semibold text-content-muted uppercase tracking-widest mb-3">{title}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sectionGames.map((g) => <GameCard key={g.gamePk} game={g} />)}
+          {sectionGames.map((g) => (
+            <div key={g.gamePk} className="space-y-2">
+              <GameCard game={g} />
+              {showEmbeds && <MlbWatchFrame gamePk={g.gamePk} />}
+              <FactoidsPanel
+                queryKey={['game-factoids', g.gamePk]}
+                queryFn={() => api.factoids.game(g.gamePk)}
+              />
+            </div>
+          ))}
         </div>
       </section>
     )
@@ -112,11 +131,14 @@ export default function Today() {
 
       {!isLoading && !error && games.length > 0 && (
         <div className="space-y-8">
-          <GameSection title={`Live · ${live.length}`} games={live} />
-          <GameSection title={`Upcoming · ${preview.length}`} games={preview} />
+          <HotGameBanner date={date} hasFinalGames={final.length > 0} />
+          <GameSection title={`Live · ${live.length}`} games={live} showEmbeds />
+          <GameSection title={`Upcoming · ${preview.length}`} games={preview} showEmbeds />
           <GameSection title={`Final · ${final.length}`} games={final} />
         </div>
       )}
+
+      <Standings />
     </div>
   )
 }

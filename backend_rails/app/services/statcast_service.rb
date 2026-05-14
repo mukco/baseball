@@ -29,6 +29,8 @@ class StatcastService
   }.freeze
 
   @@cache = {}
+  @@cache_timestamps = {}
+  CACHE_TTL = 6 * 3600
 
   class << self
     # ---------------------------------------------------------------- #
@@ -36,7 +38,10 @@ class StatcastService
     # ---------------------------------------------------------------- #
     def pitcher(player_id, season)
       key = "pitcher_#{player_id}_#{season}"
-      @@cache[key] ||= fetch_pitcher(player_id, season)
+      return @@cache[key] if cache_fresh?(key)
+      result = fetch_pitcher(player_id, season)
+      cache_set(key, result) unless result[:error]
+      result
     end
 
     # ---------------------------------------------------------------- #
@@ -44,7 +49,10 @@ class StatcastService
     # ---------------------------------------------------------------- #
     def batter(player_id, season)
       key = "batter_#{player_id}_#{season}"
-      @@cache[key] ||= fetch_batter(player_id, season)
+      return @@cache[key] if cache_fresh?(key)
+      result = fetch_batter(player_id, season)
+      cache_set(key, result) unless result[:error]
+      result
     end
 
     # ---------------------------------------------------------------- #
@@ -52,12 +60,20 @@ class StatcastService
     # ---------------------------------------------------------------- #
     def batting_leaderboard(season, min_pa: 100)
       key = "bat_leaders_#{season}_#{min_pa}"
-      @@cache[key] ||= fetch_fangraphs_batting(season, min_pa)
+      return @@cache[key] if cache_fresh?(key)
+
+      data = fetch_fangraphs_batting(season, min_pa)
+      cache_set(key, data) if data.any?
+      data
     end
 
     def pitching_leaderboard(season, min_ip: 30)
       key = "pitch_leaders_#{season}_#{min_ip}"
-      @@cache[key] ||= fetch_fangraphs_pitching(season, min_ip)
+      return @@cache[key] if cache_fresh?(key)
+
+      data = fetch_fangraphs_pitching(season, min_ip)
+      cache_set(key, data) if data.any?
+      data
     end
 
     private
@@ -65,6 +81,15 @@ class StatcastService
     # ---------------------------------------------------------------- #
     # Baseball Savant CSV fetch helpers
     # ---------------------------------------------------------------- #
+
+    def cache_fresh?(key)
+      @@cache.key?(key) && @@cache_timestamps[key].to_i > Time.now.to_i - CACHE_TTL
+    end
+
+    def cache_set(key, value)
+      @@cache[key] = value
+      @@cache_timestamps[key] = Time.now.to_i
+    end
 
     def fetch_pitcher(player_id, season)
       url = "#{SAVANT_BASE}/statcast_search/csv"
@@ -81,7 +106,7 @@ class StatcastService
       return { error: "No data", pitchTypes: [], movementData: [], summary: {}, totalPitches: 0 } if rows.empty?
 
       aggregate_pitcher(rows)
-    rescue => e
+    rescue StandardError => e
       { error: e.message, pitchTypes: [], movementData: [], summary: {}, totalPitches: 0 }
     end
 
@@ -100,7 +125,7 @@ class StatcastService
       return { error: "No data", summary: {}, sprayData: [] } if rows.empty?
 
       aggregate_batter(rows)
-    rescue => e
+    rescue StandardError => e
       { error: e.message, summary: {}, sprayData: [] }
     end
 
@@ -112,14 +137,26 @@ class StatcastService
         f.options.open_timeout = 15
       end
 
-      resp = conn.get(url, params)
+      # Savant uses `|` as a literal multi-value separator in hfGT (e.g. "R|").
+      # Faraday would percent-encode it to `R%7C`, which Savant silently ignores
+      # and returns empty data. Build the query string manually to preserve it.
+      hfgt = params[:hfGT] || params["hfGT"]
+      other = params.reject { |k, _| k.to_s == "hfGT" }
+      query = URI.encode_www_form(other)
+      query += "&hfGT=#{hfgt}" if hfgt
+
+      resp = conn.get("#{url}?#{query}")
       body = resp.body.force_encoding("UTF-8")
 
       # Baseball Savant returns an empty CSV or error string for bad requests
       return [] if body.strip.empty? || body.start_with?("<!DOCTYPE")
 
       csv = CSV.parse(body, headers: true, liberal_parsing: true)
-      csv.map(&:to_h)
+      csv.map do |row|
+        row.to_h.transform_keys do |k|
+          k.to_s.delete_prefix("\uFEFF").delete_prefix('"').delete_suffix('"').strip
+        end
+      end
     rescue Faraday::Error => e
       raise "Baseball Savant fetch failed: #{e.message}"
     end
@@ -131,7 +168,7 @@ class StatcastService
     def aggregate_pitcher(rows)
       rows = rows.reject { |r| r["pitch_type"].nil? || r["pitch_type"].strip.empty? }
       total = rows.size
-      return { pitchTypes: [], movementData: [], summary: {}, totalPitches: 0 } if total.zero?
+      return { pitchTypes: [], movementData: [], locationData: [], pitchOutcomes: {}, summary: {}, totalPitches: 0 } if total.zero?
 
       by_type = rows.group_by { |r| r["pitch_type"] }
 
@@ -189,7 +226,33 @@ class StatcastService
         summary[:hardHitPct]   = (ev.count { |v| v >= 95 }.to_f / ev.size * 100).round(1)
       end
 
-      { pitchTypes: pitch_types, movementData: movement_data, summary: summary, totalPitches: total }
+      # Location data for pitch zone chart
+      location_data = rows
+        .select { |r| r["plate_x"].presence && r["plate_z"].presence }
+        .reject { |r| r["plate_x"].strip.empty? || r["plate_z"].strip.empty? }
+        .map { |r|
+          {
+            px:   r["plate_x"].to_f.round(3),
+            pz:   r["plate_z"].to_f.round(3),
+            type: r["pitch_type"],
+            desc: r["description"].to_s
+          }
+        }
+
+      # Pitch outcomes by type — powers the Sankey chart
+      outcome_buckets = {
+        "ball"            => %w[ball blocked_ball intent_ball pitchout],
+        "called_strike"   => %w[called_strike],
+        "swinging_strike" => %w[swinging_strike swinging_strike_blocked foul_tip],
+        "foul"            => %w[foul foul_bunt],
+        "in_play"         => %w[hit_into_play hit_into_play_no_out hit_into_play_score]
+      }
+      pitch_outcomes = by_type.transform_values do |group|
+        outcome_buckets.transform_values { |descs| group.count { |r| descs.include?(r["description"]) } }
+      end
+
+      { pitchTypes: pitch_types, movementData: movement_data, locationData: location_data,
+        pitchOutcomes: pitch_outcomes, summary: summary, totalPitches: total }
     end
 
     # ---------------------------------------------------------------- #
@@ -246,7 +309,7 @@ class StatcastService
 
     def fetch_fangraphs_batting(season, min_pa)
       # FanGraphs custom leaderboard type=8 = dashboard (includes wRC+, WAR, K%, BB%)
-      url    = "#{FANGRAPHS_BASE}/leaders/major-league/data"
+      url    = "#{FANGRAPHS_BASE}/api/leaders/major-league/data"
       params = {
         pos: "all", stats: "bat", lg: "all",
         qual: min_pa, type: 8,
@@ -255,13 +318,13 @@ class StatcastService
         sortcol: 17, sortdir: "default"   # sort by WAR
       }
       fetch_fangraphs_json(url, params)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error("FanGraphs batting error: #{e.message}")
       []
     end
 
     def fetch_fangraphs_pitching(season, min_ip)
-      url    = "#{FANGRAPHS_BASE}/leaders/major-league/data"
+      url    = "#{FANGRAPHS_BASE}/api/leaders/major-league/data"
       params = {
         pos: "all", stats: "pit", lg: "all",
         qual: min_ip, type: 8,
@@ -270,7 +333,7 @@ class StatcastService
         sortcol: 10, sortdir: "default"   # sort by ERA
       }
       fetch_fangraphs_json(url, params)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error("FanGraphs pitching error: #{e.message}")
       []
     end
@@ -291,9 +354,31 @@ class StatcastService
 
       # FanGraphs wraps rows in json["data"]
       rows = json["data"] || json
-      rows.is_a?(Array) ? rows : []
+      return [] unless rows.is_a?(Array)
+
+      rows.map do |row|
+        next row unless row.is_a?(Hash)
+
+        normalized = row.dup
+        normalized["Name"] = strip_html(normalized["Name"])
+        normalized["Team"] = strip_html(normalized["Team"])
+
+        ["K%", "BB%"].each do |key|
+          val = normalized[key]
+          next unless val.is_a?(Numeric) || val.to_s.match?(/\A-?\d+(\.\d+)?\z/)
+
+          f = val.to_f
+          normalized[key] = f <= 1 ? (f * 100.0) : f
+        end
+
+        normalized
+      end
     rescue JSON::ParserError
       []
+    end
+
+    def strip_html(value)
+      value.to_s.gsub(/<[^>]+>/, "")
     end
 
     # ---------------------------------------------------------------- #

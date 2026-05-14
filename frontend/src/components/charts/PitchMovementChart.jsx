@@ -1,50 +1,41 @@
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { useMemo } from 'react'
 
 const PITCH_COLORS = {
-  FF: '#EF4444', // 4-seam fastball — red
-  SI: '#F97316', // sinker — orange
-  FC: '#F59E0B', // cutter — amber
-  SL: '#22C55E', // slider — green
-  SW: '#10B981', // sweeper — emerald
-  CU: '#3B82F6', // curveball — blue
-  KC: '#6366F1', // knuckle-curve — indigo
-  CH: '#A855F7', // changeup — purple
-  FS: '#EC4899', // split — pink
-  ST: '#14B8A6', // sweeper variant
-  OTHER: '#9CA3AF',
+  FF: '#D22D49', SI: '#FE9D00', FC: '#933F2C',
+  SL: '#EEE716', ST: '#D2E338', CU: '#00D1ED',
+  KC: '#01C8E3', CH: '#1DBE3A', FS: '#3BACAC',
+  KN: '#9C9C9C', EP: '#5A5A5A',
 }
+function pitchColor(type) { return PITCH_COLORS[type] || '#9CA3AF' }
 
-function pitchColor(type) {
-  return PITCH_COLORS[type] || PITCH_COLORS.OTHER
-}
+const VB_W = 340, VB_H = 300
+const PAD  = { top: 16, right: 16, bottom: 44, left: 44 }
+const CW   = VB_W - PAD.left - PAD.right
+const CH   = VB_H - PAD.top  - PAD.bottom
 
-const CustomDot = (props) => {
-  const { cx, cy, payload } = props
-  return (
-    <circle
-      cx={cx}
-      cy={cy}
-      r={3}
-      fill={pitchColor(payload.type)}
-      fillOpacity={0.7}
-      stroke="none"
-    />
-  )
-}
+const H_MIN = -25, H_MAX = 25
+const V_MIN = -30, V_MAX = 30
 
-const CustomTooltip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null
-  const d = payload[0]?.payload
-  return (
-    <div className="bg-bg-elevated border border-bg-border rounded-lg px-3 py-2 text-xs shadow-xl">
-      <div className="font-semibold text-content-primary mb-1">{d.name}</div>
-      <div className="text-content-secondary">H-Break: <span className="text-content-primary font-mono">{d.hBreak?.toFixed(1)}"</span></div>
-      <div className="text-content-secondary">V-Break: <span className="text-content-primary font-mono">{d.vBreak?.toFixed(1)}"</span></div>
-    </div>
-  )
-}
+function mapH(h) { return PAD.left + (h - H_MIN) / (H_MAX - H_MIN) * CW }
+function mapV(v) { return VB_H - PAD.bottom - (v - V_MIN) / (V_MAX - V_MIN) * CH }
 
-export default function PitchMovementChart({ data = [], pitchTypes = [] }) {
+export default function PitchMovementChart({ data = [] }) {
+  const averages = useMemo(() => {
+    const byType = {}
+    for (const d of data) {
+      if (d.hBreak == null || d.vBreak == null) continue
+      if (!byType[d.type]) byType[d.type] = { type: d.type, name: d.name, hSum: 0, vSum: 0, n: 0 }
+      byType[d.type].hSum += d.hBreak
+      byType[d.type].vSum += d.vBreak
+      byType[d.type].n   += 1
+    }
+    return Object.values(byType).map(({ type, name, hSum, vSum, n }) => ({
+      type, name,
+      meanH: hSum / n,
+      meanV: vSum / n,
+    }))
+  }, [data])
+
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-64 text-content-muted text-sm">
@@ -53,56 +44,136 @@ export default function PitchMovementChart({ data = [], pitchTypes = [] }) {
     )
   }
 
-  // Build one Scatter series per pitch type for correct legend colors
-  const types = [...new Set(data.map((d) => d.type))]
+  const gridH = [-20, -15, -10, -5, 0, 5, 10, 15, 20]
+  const gridV = [-25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25]
 
   return (
     <div>
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        {types.map((t) => {
-          const name = data.find((d) => d.type === t)?.name || t
-          return (
-            <div key={t} className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pitchColor(t) }} />
-              <span className="text-xs text-content-secondary">{name}</span>
-            </div>
-          )
-        })}
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-3">
+        {averages.map(({ type, name }) => (
+          <div key={type} className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: pitchColor(type) }} />
+            <span className="text-[11px] text-content-secondary">{name}</span>
+          </div>
+        ))}
       </div>
 
-      <ResponsiveContainer width="100%" height={280}>
-        <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 20 }}>
-          <CartesianGrid stroke="#1C3050" strokeDasharray="3 3" />
-          <XAxis
-            dataKey="hBreak"
-            type="number"
-            domain={[-25, 25]}
-            tickCount={7}
-            tick={{ fill: '#4A5A7A', fontSize: 11 }}
-            label={{ value: 'Horizontal Break (in)', position: 'insideBottom', offset: -10, fill: '#4A5A7A', fontSize: 11 }}
+      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full">
+        <defs>
+          <clipPath id="mv-clip">
+            <rect x={PAD.left} y={PAD.top} width={CW} height={CH} />
+          </clipPath>
+          {/* Soft glow for average markers */}
+          <filter id="mv-glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        {/* Background */}
+        <rect x={PAD.left} y={PAD.top} width={CW} height={CH} fill="#0C1017" rx="3" />
+
+        {/* Minor grid lines */}
+        {gridH.map(h => (
+          <line key={`gh${h}`}
+            x1={mapH(h)} y1={PAD.top} x2={mapH(h)} y2={VB_H - PAD.bottom}
+            stroke={h === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.04)'}
+            strokeWidth={h === 0 ? 1 : 0.5}
           />
-          <YAxis
-            dataKey="vBreak"
-            type="number"
-            domain={[-30, 30]}
-            tickCount={7}
-            tick={{ fill: '#4A5A7A', fontSize: 11 }}
-            label={{ value: 'Vertical Break (in)', angle: -90, position: 'insideLeft', fill: '#4A5A7A', fontSize: 11 }}
+        ))}
+        {gridV.map(v => (
+          <line key={`gv${v}`}
+            x1={PAD.left} y1={mapV(v)} x2={VB_W - PAD.right} y2={mapV(v)}
+            stroke={v === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.04)'}
+            strokeWidth={v === 0 ? 1 : 0.5}
           />
-          <ReferenceLine x={0} stroke="#1C3050" strokeWidth={1.5} />
-          <ReferenceLine y={0} stroke="#1C3050" strokeWidth={1.5} />
-          <Tooltip content={<CustomTooltip />} />
-          {types.map((t) => (
-            <Scatter
-              key={t}
-              data={data.filter((d) => d.type === t)}
-              fill={pitchColor(t)}
-              shape={<CustomDot />}
+        ))}
+
+        {/* Individual pitch scatter — clipped */}
+        <g clipPath="url(#mv-clip)">
+          {data.map((d, i) => {
+            if (d.hBreak == null || d.vBreak == null) return null
+            return (
+              <circle
+                key={i}
+                cx={mapH(d.hBreak)}
+                cy={mapV(d.vBreak)}
+                r={2}
+                fill={pitchColor(d.type)}
+                fillOpacity={0.38}
+              />
+            )
+          })}
+        </g>
+
+        {/* Average markers — rendered above scatter */}
+        {averages.map(({ type, meanH, meanV }) => {
+          const color = pitchColor(type)
+          const cx    = mapH(meanH)
+          const cy    = mapV(meanV)
+          return (
+            <g key={`avg-${type}`} filter="url(#mv-glow)">
+              <circle cx={cx} cy={cy} r={11} fill={color} stroke="rgba(255,255,255,0.85)" strokeWidth={1.5} />
+              <text
+                x={cx} y={cy + 3.5}
+                textAnchor="middle"
+                fontSize={6.5}
+                fontWeight="700"
+                fill="#fff"
+                fontFamily="monospace"
+                letterSpacing="0"
+              >
+                {type}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* X axis ticks & labels */}
+        {[-20, -10, 0, 10, 20].map(h => (
+          <g key={`xt${h}`}>
+            <line
+              x1={mapH(h)} y1={VB_H - PAD.bottom}
+              x2={mapH(h)} y2={VB_H - PAD.bottom + 4}
+              stroke="rgba(255,255,255,0.2)" strokeWidth={0.8}
             />
-          ))}
-        </ScatterChart>
-      </ResponsiveContainer>
+            <text
+              x={mapH(h)} y={VB_H - PAD.bottom + 13}
+              textAnchor="middle" fontSize={8}
+              fill="rgba(255,255,255,0.38)" fontFamily="sans-serif"
+            >{h}</text>
+          </g>
+        ))}
+
+        {/* Y axis ticks & labels */}
+        {[-20, -10, 0, 10, 20].map(v => (
+          <g key={`yt${v}`}>
+            <line
+              x1={PAD.left} y1={mapV(v)}
+              x2={PAD.left - 4} y2={mapV(v)}
+              stroke="rgba(255,255,255,0.2)" strokeWidth={0.8}
+            />
+            <text
+              x={PAD.left - 7} y={mapV(v) + 3}
+              textAnchor="end" fontSize={8}
+              fill="rgba(255,255,255,0.38)" fontFamily="sans-serif"
+            >{v}</text>
+          </g>
+        ))}
+
+        {/* Axis labels */}
+        <text x={PAD.left + CW / 2} y={VB_H - 3}
+          textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.3)" fontFamily="sans-serif">
+          Horizontal Break (in)
+        </text>
+        <text
+          x={10} y={PAD.top + CH / 2}
+          textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.3)" fontFamily="sans-serif"
+          transform={`rotate(-90, 10, ${PAD.top + CH / 2})`}
+        >
+          Induced Vertical Break (in)
+        </text>
+      </svg>
     </div>
   )
 }

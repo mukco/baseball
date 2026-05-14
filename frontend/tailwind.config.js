@@ -5,26 +5,26 @@ export default {
     extend: {
       colors: {
         bg: {
-          base: '#07101F',
-          surface: '#0D1A2D',
-          elevated: '#142236',
-          border: '#1C3050',
+          base: 'rgb(var(--color-bg-base) / <alpha-value>)',
+          surface: 'rgb(var(--color-bg-surface) / <alpha-value>)',
+          elevated: 'rgb(var(--color-bg-elevated) / <alpha-value>)',
+          border: 'rgb(var(--color-bg-border) / <alpha-value>)',
         },
         content: {
-          primary: '#E8EDF5',
-          secondary: '#7A90AF',
-          muted: '#4A5A7A',
+          primary: 'rgb(var(--color-content-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--color-content-secondary) / <alpha-value>)',
+          muted: 'rgb(var(--color-content-muted) / <alpha-value>)',
         },
         brand: {
-          DEFAULT: '#2563EB',
-          light: '#60A5FA',
+          DEFAULT: 'rgb(var(--color-brand) / <alpha-value>)',
+          light: 'rgb(var(--color-brand-light) / <alpha-value>)',
         },
         stat: {
-          elite: '#FF4500',
-          great: '#F97316',
-          avg: '#9CA3AF',
-          below: '#60A5FA',
-          poor: '#2563EB',
+          elite: 'rgb(var(--color-stat-elite) / <alpha-value>)',
+          great: 'rgb(var(--color-stat-great) / <alpha-value>)',
+          avg: 'rgb(var(--color-stat-avg) / <alpha-value>)',
+          below: 'rgb(var(--color-stat-below) / <alpha-value>)',
+          poor: 'rgb(var(--color-stat-poor) / <alpha-value>)',
         },
       },
       fontFamily: {
