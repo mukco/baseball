@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_16_230000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_17_000003) do
   create_table "player_projections", force: :cascade do |t|
     t.text "accuracy_delta"
     t.text "actual_stats"
@@ -62,6 +62,63 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_16_230000) do
     t.float "year3_weight", default: 3.0, null: false
   end
 
+  create_table "simulation_games", force: :cascade do |t|
+    t.integer "away_pitcher_id"
+    t.string "away_pitcher_name"
+    t.integer "away_score"
+    t.string "away_team_abbr"
+    t.string "away_team_color"
+    t.integer "away_team_id", null: false
+    t.string "away_team_name"
+    t.text "box_score_json"
+    t.datetime "created_at", null: false
+    t.date "game_date", null: false
+    t.integer "game_pk"
+    t.integer "home_pitcher_id"
+    t.string "home_pitcher_name"
+    t.integer "home_score"
+    t.string "home_team_abbr"
+    t.string "home_team_color"
+    t.integer "home_team_id", null: false
+    t.string "home_team_name"
+    t.boolean "is_real", default: false, null: false
+    t.datetime "simulated_at"
+    t.integer "simulation_league_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["simulation_league_id", "game_date"], name: "index_simulation_games_on_simulation_league_id_and_game_date"
+    t.index ["simulation_league_id", "game_pk"], name: "index_simulation_games_on_simulation_league_id_and_game_pk", unique: true, where: "game_pk IS NOT NULL"
+    t.index ["simulation_league_id"], name: "index_simulation_games_on_simulation_league_id"
+  end
+
+  create_table "simulation_leagues", force: :cascade do |t|
+    t.float "batter_pitcher_blend", default: 0.45, null: false
+    t.datetime "created_at", null: false
+    t.date "current_sim_date"
+    t.string "name", null: false
+    t.integer "scenario_id"
+    t.integer "season", default: -> { "strftime('%Y', 'now')" }, null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["scenario_id"], name: "index_simulation_leagues_on_scenario_id"
+  end
+
+  create_table "simulation_rosters", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "lineup_order_json"
+    t.text "roster_json"
+    t.text "rotation_json"
+    t.integer "simulation_league_id", null: false
+    t.string "team_abbr"
+    t.string "team_color"
+    t.integer "team_id", null: false
+    t.string "team_name"
+    t.datetime "updated_at", null: false
+    t.index ["simulation_league_id", "team_id"], name: "index_simulation_rosters_on_simulation_league_id_and_team_id", unique: true
+    t.index ["simulation_league_id"], name: "index_simulation_rosters_on_simulation_league_id"
+  end
+
   add_foreign_key "player_projections", "projection_runs"
   add_foreign_key "projection_runs", "projection_scenarios"
+  add_foreign_key "simulation_games", "simulation_leagues"
+  add_foreign_key "simulation_rosters", "simulation_leagues"
 end

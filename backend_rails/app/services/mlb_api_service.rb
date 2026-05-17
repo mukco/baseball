@@ -103,6 +103,42 @@ class MlbApiService
   # Schedule
   # ------------------------------------------------------------------ #
 
+  def season_schedule(season)
+    cache_key = "season_schedule:#{season}"
+    ttl       = season.to_i == Date.today.year ? 3600 : 24 * 3600
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
+    data  = get("schedule", { sportId: 1, season: season, gameType: "R", hydrate: "team" })
+    games = (data["dates"] || []).flat_map do |d|
+      date = d["date"]
+      (d["games"] || []).filter_map do |g|
+        game_pk = g["gamePk"]
+        next unless game_pk
+        home = g.dig("teams", "home", "team") || {}
+        away = g.dig("teams", "away", "team") || {}
+        status = g.dig("status", "abstractGameState")
+        {
+          game_pk:        game_pk,
+          game_date:      date,
+          home_team_id:   home["id"],
+          away_team_id:   away["id"],
+          home_team_abbr: home["abbreviation"],
+          away_team_abbr: away["abbreviation"],
+          home_team_name: home["name"],
+          away_team_name: away["name"],
+          status:         status,
+          home_score:     status == "Final" ? g.dig("teams", "home", "score") : nil,
+          away_score:     status == "Final" ? g.dig("teams", "away", "score") : nil,
+        }
+      end
+    end
+
+    self.class.cache_set(cache_key, games, ttl)
+    games
+  rescue StandardError => e
+    { error: e.message }
+  end
+
   def schedule(date)
     cache_key = "schedule:#{date}"
     ttl = date == Date.today.iso8601 ? CACHE_TTLS[:schedule_today] : CACHE_TTLS[:schedule_past]

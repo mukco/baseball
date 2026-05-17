@@ -23,7 +23,11 @@ import YahooFantasy from './pages/YahooFantasy'
 import Gambling from './pages/Gambling'
 import Transactions from './pages/Transactions'
 import Projections from './pages/Projections'
-import ScenarioBuilder from './pages/ScenarioBuilder' 
+import ScenarioBuilder from './pages/ScenarioBuilder'
+import Simulation from './pages/Simulation'
+import SimulationLeague from './pages/SimulationLeague'
+import SimulationRoster from './pages/SimulationRoster'
+import SimulationBoxScore from './pages/SimulationBoxScore'
 
 const THEME_STORAGE_KEY = 'statline-theme'
 
@@ -88,6 +92,10 @@ function AppContent() {
               <Route path="/gambling" element={<Gambling />} />
               <Route path="/projections" element={<Projections />} />
               <Route path="/projections/scenarios" element={<ScenarioBuilder />} />
+              <Route path="/simulation" element={<Simulation />} />
+              <Route path="/simulation/:id" element={<SimulationLeague />} />
+              <Route path="/simulation/:id/roster/:teamId" element={<SimulationRoster />} />
+              <Route path="/simulation/:id/game/:gameId" element={<SimulationBoxScore />} />
             </Routes>
           </main>
         </div>

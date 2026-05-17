@@ -196,4 +196,35 @@ export const api = {
     }),
     destroy: (id) => fetchJSON(`/scenarios/${id}`, { method: 'DELETE' }),
   },
+  simulations: {
+    list: () => fetchJSON('/simulations'),
+    create: (body) => fetchJSON('/simulations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    show: (id) => fetchJSON(`/simulations/${id}`),
+    destroy: (id) => fetchJSON(`/simulations/${id}`, { method: 'DELETE' }),
+    sync: (id, throughDate) => fetchJSON(`/simulations/${id}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ through_date: throughDate }),
+    }),
+    simulateDay: (id, date) => fetchJSON(`/simulations/${id}/simulate_day`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date }),
+    }),
+    simulateGame: (id, gameId) => fetchJSON(`/simulations/${id}/games/${gameId}/simulate`, {
+      method: 'POST',
+    }),
+    gameShow: (id, gameId) => fetchJSON(`/simulations/${id}/games/${gameId}`),
+    schedule: (id, date) => fetchJSON(`/simulations/${id}/schedule${date ? `?date=${date}` : ''}`),
+    roster: (id, teamId) => fetchJSON(`/simulations/${id}/rosters/${teamId}`),
+    updateRoster: (id, teamId, body) => fetchJSON(`/simulations/${id}/rosters/${teamId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  },
 }

@@ -105,5 +105,18 @@ Rails.application.routes.draw do
     get    "scenarios/:id", to: "scenarios#show"
     patch  "scenarios/:id", to: "scenarios#update"
     delete "scenarios/:id", to: "scenarios#destroy"
+
+    # Simulation
+    get    "simulations",                                    to: "simulations#index"
+    post   "simulations",                                    to: "simulations#create"
+    get    "simulations/:id",                                to: "simulations#show"
+    delete "simulations/:id",                                to: "simulations#destroy"
+    post   "simulations/:id/sync",                           to: "simulations#sync"
+    post   "simulations/:id/simulate_day",                   to: "simulations#simulate_day"
+    post   "simulations/:id/games/:game_id/simulate",        to: "simulations#simulate_game"
+    get    "simulations/:id/games/:game_id",                 to: "simulations#game_show"
+    get    "simulations/:id/schedule",                       to: "simulations#schedule"
+    get    "simulations/:id/rosters/:team_id",               to: "simulations#roster"
+    patch  "simulations/:id/rosters/:team_id",               to: "simulations#update_roster"
   end
 end

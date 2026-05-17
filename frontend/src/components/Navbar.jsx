@@ -168,6 +168,7 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
     const ITEMS = [
       { to: '/leaderboards', label: 'Stats'        },
       { to: '/projections',  label: 'Projections'  },
+      { to: '/simulation',   label: 'Simulation'   },
       { to: '/sandbox',      label: 'Sandbox'      },
       { to: '/ml',           label: 'ML Builder'   },
     ]
