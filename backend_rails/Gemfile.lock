@@ -312,6 +312,14 @@ GEM
       rubocop-rails (>= 2.30)
     ruby-progressbar (1.13.0)
     securerandom (0.4.1)
+    sqlite3 (2.9.4-aarch64-linux-gnu)
+    sqlite3 (2.9.4-aarch64-linux-musl)
+    sqlite3 (2.9.4-arm-linux-gnu)
+    sqlite3 (2.9.4-arm-linux-musl)
+    sqlite3 (2.9.4-arm64-darwin)
+    sqlite3 (2.9.4-x86_64-darwin)
+    sqlite3 (2.9.4-x86_64-linux-gnu)
+    sqlite3 (2.9.4-x86_64-linux-musl)
     sshkit (1.25.0)
       base64
       logger
@@ -367,11 +375,13 @@ DEPENDENCIES
   faraday
   faraday-retry
   kamal
+  nokogiri
   puma (>= 5.0)
   rack-cors
   rails (~> 8.1.3)
   rspec-rails (~> 7.0)
   rubocop-rails-omakase
+  sqlite3 (~> 2.1)
   thruster
   tzinfo-data
   webmock

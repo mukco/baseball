@@ -9,6 +9,12 @@
 !/log/.keep
 !/tmp/.keep
 
+# SQLite databases
+/db/*.sqlite3
+/db/*.sqlite3-journal
+/db/*.sqlite3-wal
+/db/*.sqlite3-shm
+
 # Environment files
 .env
 .env.*

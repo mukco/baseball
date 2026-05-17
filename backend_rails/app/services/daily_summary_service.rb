@@ -11,9 +11,11 @@ class DailySummaryService
 
       Rails.cache.delete(cache_key) if refresh
 
-      Rails.cache.fetch(cache_key, expires_in: expires_in) do
-        generate(parsed_date)
-      end
+      normalize_output(
+        Rails.cache.fetch(cache_key, expires_in: expires_in) do
+          generate(parsed_date)
+        end
+      )
     end
 
     private
@@ -44,10 +46,63 @@ class DailySummaryService
         item.merge("players" => players)
       }
 
-      output.merge(
-        "stories" => Array(output["stories"]).map(&resolve),
-        "trends"  => Array(output["trends"]).map(&resolve)
+      normalize_output(
+        output.merge(
+          "stories" => Array(output["stories"]).map(&resolve),
+          "trends"  => Array(output["trends"]).map(&resolve)
+        )
       )
+    end
+
+    def normalize_output(output)
+      return output unless output.is_a?(Hash)
+
+      output.merge(
+        "trends" => Array(output["trends"]).map { |trend| normalize_trend_chart(trend) }
+      )
+    end
+
+    def normalize_trend_chart(trend)
+      return trend unless trend.is_a?(Hash)
+
+      chart = trend["chart"]
+      return trend unless chart.is_a?(Hash)
+
+      data  = Array(chart["data"]).select { |row| row.is_a?(Hash) }
+      type  = chart["type"].to_s
+      x_key = chart["xKey"].to_s
+      y_key = chart["yKey"].to_s
+
+      return trend.except("chart") if data.empty? || x_key.blank? || y_key.blank?
+
+      x_numeric = numeric_series?(data, x_key)
+      y_numeric = numeric_series?(data, y_key)
+
+      normalized_chart = case type
+      when "bar", "horizontal_bar", "line"
+        if y_numeric
+          chart.merge("data" => data)
+        elsif x_numeric
+          chart.merge("xKey" => y_key, "yKey" => x_key, "data" => data)
+        end
+      when "scatter"
+        chart.merge("data" => data) if x_numeric && y_numeric
+      end
+
+      normalized_chart ? trend.merge("chart" => normalized_chart) : trend.except("chart")
+    end
+
+    def numeric_series?(data, key)
+      return false if key.blank?
+
+      data.all? { |row| numeric_value?(row[key]) }
+    end
+
+    def numeric_value?(value)
+      Float(value)
+      true
+    rescue ArgumentError, TypeError
+      false
     end
 
     def assemble_context(date)
@@ -150,14 +205,16 @@ class DailySummaryService
         Tone: confident, analytical, slightly irreverent. Write for fans who know what wRC+ means.
         Be concise — each body 2–3 sentences max.
 
-        Some trends lend themselves to a small chart. When a trend compares multiple players or
-        teams on a single stat (e.g. top HR leaders, ERA comparison, wRC+ leaderboard), include
-        an optional "chart" field using only data points already present in the provided context.
-        Never invent numbers. Limit chart data to 6–8 items. Use "horizontal_bar" for ranked
-        player lists, "bar" for team comparisons, "scatter" for two-stat correlations, "line"
-        for a trend over time. Omit "chart" entirely if no real data supports it.
+         Some trends lend themselves to a small chart. When a trend compares multiple players or
+         teams on a single stat (e.g. top HR leaders, ERA comparison, wRC+ leaderboard), include
+         an optional "chart" field using only data points already present in the provided context.
+         Never invent numbers. Limit chart data to 6–8 items. Use "horizontal_bar" for ranked
+         player lists, "bar" for team comparisons, "scatter" for two-stat correlations, "line"
+         for a trend over time. Omit "chart" entirely if no real data supports it.
+         For "bar" and "horizontal_bar" charts, xKey must be the label/category field and yKey
+         must be the numeric value field. Example: xKey="Name", yKey="HR".
 
-        Return ONLY valid JSON matching this exact schema — no extra keys, no markdown:
+         Return ONLY valid JSON matching this exact schema — no extra keys, no markdown:
         {
           "stories": [
             { "headline": string, "body": string, "category": "game|transaction|milestone|storyline", "player_names": [string] }

@@ -13,28 +13,30 @@ function rollingAvg(data, key, window) {
   })
 }
 
-const BORDER  = '#2D2D3A'
-const MUTED   = '#6B7280'
+const BORDER = 'rgb(var(--color-bg-border-strong))'
+const MUTED  = 'rgb(var(--color-content-muted))'
 
-function CustomTooltip({ active, payload, valueKey, valueLabel }) {
+function CustomTooltip({ active, payload, valueKey, valueLabel, formatValue }) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload || {}
+  let dateLabel = ''
+  if (d.date) {
+    try { dateLabel = format(parseISO(d.date), 'MMM d') } catch {}
+  }
   return (
     <div className="bg-bg-elevated border border-bg-border rounded-lg px-3 py-2 text-xs shadow-xl space-y-1">
-      <div className="font-semibold text-content-primary">
-        {d.date ? format(parseISO(d.date), 'MMM d') : ''}
-      </div>
+      <div className="font-semibold text-content-primary">{dateLabel}</div>
       {d.opponent && (
         <div className="text-content-muted">{d.isHome ? 'vs' : '@'} {d.opponent}</div>
       )}
       {d[valueKey] != null && (
         <div className="text-content-secondary">
-          {valueLabel}: <span className="text-content-primary font-mono">{Number(d[valueKey]).toFixed(3)}</span>
+          {valueLabel}: <span className="text-content-primary font-mono">{formatValue(Number(d[valueKey]))}</span>
         </div>
       )}
       {d._avg != null && (
         <div className="text-content-muted">
-          Rolling: <span className="text-content-primary font-mono">{d._avg.toFixed(3)}</span>
+          Rolling: <span className="text-content-primary font-mono">{d._avg.toFixed(1)}</span>
         </div>
       )}
     </div>
@@ -43,12 +45,13 @@ function CustomTooltip({ active, payload, valueKey, valueLabel }) {
 
 export default function RollingAverageChart({
   data = [],
-  valueKey   = 'ops',
-  valueLabel = 'OPS',
-  color      = '#6366F1',
-  windowSize = 10,
-  reference  = null,
-  height     = 200,
+  valueKey    = 'ops',
+  valueLabel  = 'OPS',
+  color       = '#6366F1',
+  windowSize  = 10,
+  reference   = null,
+  height      = 200,
+  formatValue = (v) => Number(v).toFixed(3),
 }) {
   const processed = useMemo(() => rollingAvg(data, valueKey, windowSize), [data, valueKey, windowSize])
 
@@ -61,11 +64,13 @@ export default function RollingAverageChart({
   const max = Math.max(...vals)
   const pad = Math.max((max - min) * 0.12, 0.05)
 
-  const tickData = processed.map((d, i) => ({
-    ...d,
-    _idx:   i,
-    _label: d.date ? format(parseISO(d.date), 'M/d') : String(i + 1),
-  }))
+  const tickData = processed.map((d, i) => {
+    let label = String(i + 1)
+    if (d.date) {
+      try { label = format(parseISO(d.date), 'M/d') } catch {}
+    }
+    return { ...d, _idx: i, _label: label }
+  })
 
   const step   = Math.max(1, Math.floor(tickData.length / 6))
   const ticks  = tickData.filter((_, i) => i % step === 0).map(d => d._idx)
@@ -81,7 +86,7 @@ export default function RollingAverageChart({
           </linearGradient>
         </defs>
 
-        <CartesianGrid stroke={BORDER} strokeDasharray="3 3" vertical={false} />
+        <CartesianGrid stroke={BORDER} strokeDasharray="3 3" strokeOpacity={0.6} vertical={false} />
 
         <XAxis
           dataKey="_idx"
@@ -89,18 +94,25 @@ export default function RollingAverageChart({
           domain={[0, tickData.length - 1]}
           ticks={ticks}
           tickFormatter={i => tickData[i]?._label || ''}
-          tick={{ fill: MUTED, fontSize: 10 }}
+          tick={{ fill: MUTED, fontSize: 11 }}
           axisLine={{ stroke: BORDER }}
           tickLine={false}
         />
         <YAxis
           domain={[Math.max(0, min - pad), max + pad]}
-          tick={{ fill: MUTED, fontSize: 10 }}
+          tickFormatter={(v) => {
+            const n = Number(v)
+            if (!Number.isFinite(n)) return v
+            if (Number.isInteger(n)) return String(n)
+            if (Math.abs(n) >= 1) return n.toFixed(1)
+            return n.toFixed(2)
+          }}
+          tick={{ fill: MUTED, fontSize: 11 }}
           axisLine={{ stroke: BORDER }}
           tickLine={false}
           width={40}
         />
-        <Tooltip content={<CustomTooltip valueKey={valueKey} valueLabel={valueLabel} />} cursor={{ stroke: BORDER }} />
+        <Tooltip content={<CustomTooltip valueKey={valueKey} valueLabel={valueLabel} formatValue={formatValue} />} cursor={{ stroke: BORDER }} />
 
         {reference != null && (
           <ReferenceLine y={reference} stroke={MUTED} strokeDasharray="4 4" strokeWidth={1} />

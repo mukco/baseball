@@ -44,11 +44,12 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
   const navigate = useNavigate()
   const location = useLocation()
 
-  const { data: playerResults = [], isFetching } = useQuery({
+  const { data: playerResults = [], isFetching, isError: searchError } = useQuery({
     queryKey: ['player-search', query],
     queryFn: () => api.players.search(query),
     enabled: query.length >= 2,
     staleTime: 30_000,
+    retry: false,
   })
 
   const teamResults = query.length >= 2
@@ -77,42 +78,234 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
     if (e.key === 'Escape') setOpen(false)
   }
 
-  const navLink = (path, label) => (
-    <Link
-      to={path}
-      className={`text-sm font-medium transition-colors ${
-        location.pathname === path
-          ? 'text-content-primary'
-          : 'text-content-secondary hover:text-content-primary'
-      }`}
-    >
-      {label}
-    </Link>
-  )
+  const navLink = (path, label) => {
+    const active = location.pathname === path
+    return (
+      <Link
+        to={path}
+        className={`text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors ${
+          active
+            ? 'bg-bg-elevated text-content-primary'
+            : 'text-content-secondary hover:text-content-primary'
+        }`}
+      >
+        {label}
+      </Link>
+    )
+  }
+
+  function NewsDropdown({ location }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef(null)
+
+    useEffect(() => {
+      const handler = (e) => {
+        if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      }
+      document.addEventListener('mousedown', handler)
+      return () => document.removeEventListener('mousedown', handler)
+    }, [])
+
+    const NEWS_ITEMS = [
+      { to: '/news',         label: 'News'         },
+      { to: '/digest',       label: 'Digest'       },
+      { to: '/transactions', label: 'Transactions' },
+      { to: '/gambling',     label: 'Picks'        },
+    ]
+
+    const active = NEWS_ITEMS.some(i => location.pathname === i.to)
+
+    return (
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors ${
+            active
+              ? 'bg-bg-elevated text-content-primary'
+              : 'text-content-secondary hover:text-content-primary'
+          }`}
+        >
+          News
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute top-full mt-1 left-0 z-50 bg-bg-elevated border border-bg-border rounded-lg shadow-2xl py-1 min-w-[140px]">
+              {NEWS_ITEMS.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setOpen(false)}
+                  className={`block px-3 py-2 text-sm transition-colors ${
+                    location.pathname === to
+                      ? 'text-content-primary bg-bg-border/40'
+                      : 'text-content-secondary hover:text-content-primary hover:bg-bg-border/20'
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  function ResearchDropdown({ location }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef(null)
+
+    useEffect(() => {
+      const handler = (e) => {
+        if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      }
+      document.addEventListener('mousedown', handler)
+      return () => document.removeEventListener('mousedown', handler)
+    }, [])
+
+    const ITEMS = [
+      { to: '/leaderboards', label: 'Stats'        },
+      { to: '/projections',  label: 'Projections'  },
+      { to: '/sandbox',      label: 'Sandbox'      },
+      { to: '/ml',           label: 'ML Builder'   },
+    ]
+
+    const active = ITEMS.some(i => location.pathname === i.to)
+
+    return (
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors ${
+            active
+              ? 'bg-bg-elevated text-content-primary'
+              : 'text-content-secondary hover:text-content-primary'
+          }`}
+        >
+          Research
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute top-full mt-1 left-0 z-50 bg-bg-elevated border border-bg-border rounded-lg shadow-2xl py-1 min-w-[140px]">
+              {ITEMS.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setOpen(false)}
+                  className={`block px-3 py-2 text-sm transition-colors ${
+                    location.pathname === to
+                      ? 'text-content-primary bg-bg-border/40'
+                      : 'text-content-secondary hover:text-content-primary hover:bg-bg-border/20'
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  function DefinitionsDropdown({ location, navLink }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef(null)
+
+    useEffect(() => {
+      const handler = (e) => {
+        if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      }
+      document.addEventListener('mousedown', handler)
+      return () => document.removeEventListener('mousedown', handler)
+    }, [])
+
+    const active = location.pathname === '/stats-reference' || location.pathname === '/gambling-reference' || location.pathname === '/baseball-reference'
+
+    return (
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors ${
+            active
+              ? 'bg-bg-elevated text-content-primary'
+              : 'text-content-secondary hover:text-content-primary'
+          }`}
+        >
+          Definitions
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute top-full mt-1 left-0 z-50 bg-bg-elevated border border-bg-border rounded-lg shadow-2xl py-1 min-w-[140px]">
+              <Link
+                to="/stats-reference"
+                onClick={() => setOpen(false)}
+                className={`block px-3 py-2 text-sm transition-colors ${
+                  location.pathname === '/stats-reference'
+                    ? 'text-content-primary bg-bg-border/40'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-bg-border/20'
+                }`}
+              >
+                Stats
+              </Link>
+              <Link
+                to="/gambling-reference"
+                onClick={() => setOpen(false)}
+                className={`block px-3 py-2 text-sm transition-colors ${
+                  location.pathname === '/gambling-reference'
+                    ? 'text-content-primary bg-bg-border/40'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-bg-border/20'
+                }`}
+              >
+                Gambling
+              </Link>
+              <Link
+                to="/baseball-reference"
+                onClick={() => setOpen(false)}
+                className={`block px-3 py-2 text-sm transition-colors ${
+                  location.pathname === '/baseball-reference'
+                    ? 'text-content-primary bg-bg-border/40'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-bg-border/20'
+                }`}
+              >
+                Baseball
+              </Link>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <nav className="sticky top-0 z-50 border-b border-bg-border bg-bg-base/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-6">
-        {/* Logo */}
+        {/* Logo lockup */}
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <span className="text-xl">⚾</span>
-          <span className="font-bold text-content-primary tracking-tight">Statline</span>
+          <span className="text-xl leading-none" aria-label="Statline">⚾</span>
+          <span className="font-semibold text-content-primary tracking-tight">Statline</span>
         </Link>
 
         {/* Nav links */}
-        <div className="hidden sm:flex items-center gap-5">
+        <div className="hidden sm:flex items-center gap-1">
           {navLink('/', 'Today')}
+          <NewsDropdown location={location} />
           {navLink('/teams', 'Teams')}
-          {navLink('/leaderboards', 'Leaderboards')}
-          {navLink('/news', 'News')}
-          {navLink('/digest', 'Digest')}
-          {navLink('/sandbox', 'Sandbox')}
-          {navLink('/ml', 'ML Builder')}
+          <ResearchDropdown location={location} />
+          <DefinitionsDropdown location={location} navLink={navLink} />
+          {navLink('/fantasy', 'Fantasy')}
+          {navLink('/prospects', 'Prospects')}
         </div>
 
         {/* Search — grows to fill remaining space */}
-        <div className="relative flex-1 max-w-md ml-auto">
-          <div className="flex items-center gap-2 bg-bg-surface border border-bg-border rounded-lg px-3 py-2 focus-within:border-brand transition-colors">
+        <div className="relative flex-1 w-72 lg:w-96 max-w-md ml-auto">
+          <div className="flex items-center gap-2 bg-bg-surface border border-bg-border rounded-md px-3 py-2 focus-within:border-brand transition-colors">
             <svg className="w-4 h-4 text-content-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
             </svg>
@@ -128,10 +321,18 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
             {isFetching && (
               <div className="w-3 h-3 border-2 border-brand border-t-transparent rounded-full animate-spin shrink-0" />
             )}
+            <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-bg-elevated border border-bg-border text-[10px] text-content-muted font-mono leading-none shrink-0">
+              <span>⌘K</span>
+            </kbd>
           </div>
 
           {/* Dropdown */}
-          {open && hasResults && (
+          {open && searchError && query.length >= 2 && (
+            <div ref={dropdownRef} className="absolute top-full mt-2 w-full bg-bg-elevated border border-bg-border rounded-xl shadow-2xl overflow-hidden z-50">
+              <div className="px-4 py-3 text-xs text-content-muted italic">Player search temporarily unavailable — check connection.</div>
+            </div>
+          )}
+          {open && !searchError && hasResults && (
             <div ref={dropdownRef} className="absolute top-full mt-2 w-full bg-bg-elevated border border-bg-border rounded-xl shadow-2xl overflow-hidden z-50">
               {teamResults.length > 0 && (
                 <>
@@ -175,7 +376,7 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-content-primary truncate">{p.name}</div>
                         <div className="text-xs text-content-muted truncate">
-                          {p.position} · {p.team || 'Free Agent'}
+                          {p.position}{p.team ? ` · ${p.team}` : p.active ? '' : ' · Inactive'}
                         </div>
                       </div>
                     </button>
@@ -200,7 +401,7 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <span className="hidden sm:inline">Statline</span>
+          <span className="hidden sm:inline">Assistant</span>
         </button>
 
         <button

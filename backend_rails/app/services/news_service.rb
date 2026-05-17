@@ -78,6 +78,27 @@ class NewsService
       extract_player_mentions(Array(names).join(" "))
     end
 
+    def search_by_player(name:)
+      return { items: [] } if name.blank?
+
+      result = fetch(topic: "all", limit: 50)
+      name_lower = name.downcase.strip
+      matched = result[:items].select do |item|
+        title = item[:title].to_s.downcase
+        summary = item[:summary].to_s.downcase
+
+        mentioned_in_mentions = item[:mentions]&.any? { |m| m[:name]&.downcase&.include?(name_lower) || name_lower.include?(m[:name]&.downcase.to_s) }
+        mentioned_in_text = title.include?(name_lower) || summary.include?(name_lower)
+        mentioned_in_mentions || mentioned_in_text
+      end
+
+      {
+        query: name,
+        count: matched.size,
+        items: matched.first(10).map { |item| item.slice(:source, :title, :url, :summary, :publishedAt, :mentions, :teamMentions) }
+      }
+    end
+
     private
 
     def connection

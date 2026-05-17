@@ -4,7 +4,6 @@ import { format, addDays, subDays, parseISO } from 'date-fns'
 import { api } from '../api'
 import GameCard from '../components/GameCard'
 import FactoidsPanel from '../components/FactoidsPanel'
-import MlbWatchFrame from '../components/MlbWatchFrame'
 import Standings from '../components/Standings'
 import HotGameBanner from '../components/HotGameBanner'
 
@@ -74,6 +73,7 @@ function Skeleton() {
 
 export default function Today() {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [insightsHidden, setInsightsHidden] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['schedule', date],
@@ -81,36 +81,33 @@ export default function Today() {
   })
 
   const games = data?.games ?? []
-  const live = games.filter((g) => g.abstractState === 'Live' || g.status === 'In Progress')
-  const preview = games.filter((g) => g.abstractState === 'Preview')
-  const final = games.filter((g) => g.abstractState === 'Final')
+  const sorted = [...games].sort((a, b) => {
+    const aLive = a.abstractState === 'Live'
+    const bLive = b.abstractState === 'Live'
+    if (aLive && !bLive) return -1
+    if (!aLive && bLive) return 1
 
-  function GameSection({ title, games: sectionGames, showEmbeds = false }) {
-    if (!sectionGames.length) return null
-    return (
-      <section>
-        <h2 className="text-xs font-semibold text-content-muted uppercase tracking-widest mb-3">{title}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sectionGames.map((g) => (
-            <div key={g.gamePk} className="space-y-2">
-              <GameCard game={g} />
-              {showEmbeds && <MlbWatchFrame gamePk={g.gamePk} />}
-              <FactoidsPanel
-                queryKey={['game-factoids', g.gamePk]}
-                queryFn={() => api.factoids.game(g.gamePk)}
-              />
-            </div>
-          ))}
-        </div>
-      </section>
-    )
-  }
+    if (aLive && bLive) {
+      const aInn = a.currentInning || 0
+      const bInn = b.currentInning || 0
+      if (aInn !== bInn) return bInn - aInn
+      return a.inningHalf === 'Bottom' ? -1 : 1
+    }
+
+    const aPrev = a.abstractState === 'Preview'
+    const bPrev = b.abstractState === 'Preview'
+    if (aPrev && !bPrev) return -1
+    if (!aPrev && bPrev) return 1
+
+    return (a.gameDate || '').localeCompare(b.gameDate || '')
+  })
+  const liveCount = games.filter((g) => g.abstractState === 'Live').length
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10 py-10">
       {/* Date nav */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-content-primary">Schedule</h1>
+        <h1 className="text-[32px] font-semibold tracking-[-0.02em] text-content-primary">Schedule</h1>
         <DateNav date={date} onChange={setDate} />
       </div>
 
@@ -124,17 +121,47 @@ export default function Today() {
 
       {!isLoading && !error && games.length === 0 && (
         <div className="card p-16 text-center">
-          <div className="text-4xl mb-3">⚾</div>
+          <div className="flex justify-center mb-3">
+            <svg className="w-8 h-8 text-content-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" strokeWidth="1.5"/>
+              <path d="M5.5 8.5c2 1 5 1 7 0" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M5.5 15.5c2-1 5-1 7 0" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
           <div className="text-content-secondary font-medium">No games scheduled for this date.</div>
         </div>
       )}
 
       {!isLoading && !error && games.length > 0 && (
-        <div className="space-y-8">
-          <HotGameBanner date={date} hasFinalGames={final.length > 0} />
-          <GameSection title={`Live · ${live.length}`} games={live} showEmbeds />
-          <GameSection title={`Upcoming · ${preview.length}`} games={preview} showEmbeds />
-          <GameSection title={`Final · ${final.length}`} games={final} />
+        <div className="space-y-10">
+          <HotGameBanner date={date} hasFinalGames={games.some((g) => g.abstractState === 'Final')} />
+
+          <div className="flex items-center justify-between">
+            <h2 className="text-[11px] font-semibold text-content-muted uppercase tracking-[0.08em]">
+              Games{liveCount > 0 ? ` · ${liveCount} live` : ''}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setInsightsHidden((o) => !o)}
+              className="text-xs px-2.5 py-1 rounded-md border border-bg-border bg-bg-elevated text-content-secondary hover:text-content-primary transition-colors"
+            >
+              {insightsHidden ? 'Show insights' : 'Hide insights'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {sorted.map((g) => (
+              <div key={g.gamePk} className="space-y-2">
+                <GameCard game={g} />
+                {!insightsHidden && (
+                  <FactoidsPanel
+                    queryKey={['game-factoids', g.gamePk]}
+                    queryFn={() => api.factoids.game(g.gamePk)}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

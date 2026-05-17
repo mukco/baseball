@@ -1,19 +1,19 @@
 // Baseball Savant-style percentile gauge bars — pure CSS, fully responsive.
 
 function pctColor(p) {
-  if (p >= 90) return '#DC2626'
-  if (p >= 70) return '#F97316'
-  if (p >= 30) return '#9CA3AF'
-  if (p >= 10) return '#60A5FA'
-  return '#1D4ED8'
+  if (p >= 85) return 'var(--color-stat-elite)'
+  if (p >= 65) return 'var(--color-stat-great)'
+  if (p >= 40) return 'var(--color-stat-avg)'
+  if (p >= 20) return 'var(--color-stat-below)'
+  return 'var(--color-stat-poor)'
 }
 
 const ZONES = [
-  { from: 0,  to: 10, fill: '#1D4ED8' },
-  { from: 10, to: 30, fill: '#3B82F6' },
-  { from: 30, to: 70, fill: '#4B5563' },
-  { from: 70, to: 90, fill: '#F97316' },
-  { from: 90, to: 100, fill: '#DC2626' },
+  { from: 0,   to: 20,  fill: 'var(--color-stat-poor)'  },
+  { from: 20,  to: 40,  fill: 'var(--color-stat-below)' },
+  { from: 40,  to: 65,  fill: 'var(--color-stat-avg)'   },
+  { from: 65,  to: 85,  fill: 'var(--color-stat-great)' },
+  { from: 85,  to: 100, fill: 'var(--color-stat-elite)' },
 ]
 
 const TICKS = [10, 25, 50, 75, 90]
@@ -48,8 +48,8 @@ function GaugeRow({ label, value, percentile }) {
 
         {/* Border overlay */}
         <div
-          className="absolute rounded-full pointer-events-none"
-          style={{ left: 0, right: 0, top: 5, height: 10, border: '0.5px solid rgba(255,255,255,0.1)' }}
+          className="absolute rounded-full pointer-events-none border border-bg-border/40"
+          style={{ left: 0, right: 0, top: 5, height: 10 }}
         />
 
         {/* Tick marks */}
@@ -62,26 +62,10 @@ function GaugeRow({ label, value, percentile }) {
               top: 3,
               bottom: 3,
               width: 1,
-              backgroundColor: 'rgba(0,0,0,0.3)',
+              backgroundColor: 'rgb(var(--color-bg-border-strong))',
             }}
           />
         ))}
-
-        {/* Glow halo */}
-        <div
-          style={{
-            position: 'absolute',
-            left: `${markerPos}%`,
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            backgroundColor: numColor,
-            opacity: 0.25,
-            filter: 'blur(4px)',
-          }}
-        />
 
         {/* Marker dot */}
         <div
@@ -93,9 +77,8 @@ function GaugeRow({ label, value, percentile }) {
             width: 14,
             height: 14,
             borderRadius: '50%',
-            backgroundColor: 'white',
-            border: '1.5px solid rgba(0,0,0,0.4)',
-            boxShadow: `0 0 5px ${numColor}99, 0 1px 3px rgba(0,0,0,0.5)`,
+            backgroundColor: numColor,
+            border: '2px solid rgb(var(--color-bg-surface))',
           }}
         />
       </div>

@@ -24,6 +24,7 @@ gem "thruster", require: false
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"
+gem "sqlite3", "~> 2.1"
 
 # HTTP client
 gem "faraday"
@@ -31,6 +32,7 @@ gem "faraday-retry"
 
 # CSV parsing for Statcast / FanGraphs responses
 gem "csv"
+gem "nokogiri"
 
 group :development, :test do
   # Loads environment variables from .env files locally

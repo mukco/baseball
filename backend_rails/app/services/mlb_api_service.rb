@@ -41,6 +41,41 @@ class MlbApiService
     158 => { abbr: "MIL", color: "#12284B" }
   }.freeze
 
+  # ------------------------------------------------------------------ #
+  # In-memory cache shared across all instances (class-level)
+  # ------------------------------------------------------------------ #
+
+  @@cache            = {}
+  @@cache_timestamps = {}
+  @@cache_ttls       = {}
+
+  CACHE_TTLS = {
+    standings_map:       5  * 60,   # hot internal call, 5 min
+    standings:           5  * 60,
+    all_teams:           60 * 60,   # very static
+    schedule_today:      2  * 60,   # live game data
+    schedule_past:       24 * 3600, # historical
+    team_info:           10 * 60,
+    player_info:         20 * 60,
+    player_season_stats: 15 * 60,
+    player_career_stats: 60 * 60,
+    player_game_log:     10 * 60,
+    transactions:        10 * 60,
+  }.freeze
+
+  def self.cache_fresh?(key)
+    ts = @@cache_timestamps[key]
+    ts && (Time.now.to_i - ts) < (@@cache_ttls[key] || 600)
+  end
+
+  def self.cache_get(key) = @@cache[key]
+
+  def self.cache_set(key, value, ttl)
+    @@cache[key]            = value
+    @@cache_timestamps[key] = Time.now.to_i
+    @@cache_ttls[key]       = ttl
+  end
+
   def initialize
     @conn = Faraday.new(url: BASE_URL) do |f|
       f.request  :retry, max: 2, interval: 0.5
@@ -55,6 +90,13 @@ class MlbApiService
       f.options.timeout      = 15
       f.options.open_timeout = 8
     end
+
+    # No retries, short timeouts — for search-as-you-type UX
+    @conn_fast = Faraday.new(url: BASE_URL) do |f|
+      f.response :raise_error
+      f.options.timeout      = 5
+      f.options.open_timeout = 3
+    end
   end
 
   # ------------------------------------------------------------------ #
@@ -62,6 +104,10 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def schedule(date)
+    cache_key = "schedule:#{date}"
+    ttl = date == Date.today.iso8601 ? CACHE_TTLS[:schedule_today] : CACHE_TTLS[:schedule_past]
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("schedule", {
       sportId: 1,
       date: date,
@@ -74,7 +120,9 @@ class MlbApiService
       (d["games"] || []).map { |g| parse_game(g, standings) }
     end
 
-    { date: date, games: games }
+    result = { date: date, games: games }
+    self.class.cache_set(cache_key, result, ttl)
+    result
   end
 
   # ------------------------------------------------------------------ #
@@ -82,10 +130,13 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def all_teams
+    cache_key = "all_teams:#{Date.today.year}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("teams", { sportId: 1, season: Date.today.year, hydrate: "league,division" })
     standings = standings_map
 
-    (data["teams"] || [])
+    result = (data["teams"] || [])
       .select { |t| TEAM_META.key?(t["id"]) }
       .map do |t|
         id = t["id"]
@@ -107,6 +158,28 @@ class MlbApiService
         }
       end
       .sort_by { |t| [t[:leagueId].to_i, t[:divisionId].to_i, t[:name]] }
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:all_teams])
+    result
+  end
+
+  def search_teams(query, limit: 10)
+    q = query.to_s.strip.downcase
+    return [] if q.blank?
+
+    all_teams
+      .select do |team|
+        [team[:name], team[:abbreviation], team[:location], team[:teamName]].compact.any? { |value| value.to_s.downcase.include?(q) }
+      end
+      .first(limit)
+      .map do |team|
+        {
+          id: team[:id],
+          name: team[:name],
+          abbreviation: team[:abbreviation],
+          league: team[:league],
+          division: team[:division]
+        }
+      end
   end
 
   # ------------------------------------------------------------------ #
@@ -114,13 +187,11 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def search_players(query, limit: 20)
-    data = get("people/search", {
-      names: query,
-      sportId: 1,
-      limit: limit,
+    resp = @conn_fast.get("people/search", {
+      names: query, sportId: 1, limit: limit,
       fields: "people,id,fullName,currentTeam,primaryPosition,active"
     })
-
+    data = JSON.parse(resp.body)
     (data["people"] || []).map do |p|
       {
         id:       p["id"],
@@ -131,6 +202,8 @@ class MlbApiService
         active:   p.fetch("active", true)
       }
     end
+  rescue Faraday::Error => e
+    raise "MLB API error (people/search): #{e.message}"
   end
 
   # ------------------------------------------------------------------ #
@@ -138,6 +211,9 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def player_info(player_id)
+    cache_key = "player_info:#{player_id}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("people/#{player_id}", {
       hydrate: "currentTeam,stats(type=season,season=2024,group=[hitting,pitching,fielding])"
     })
@@ -146,8 +222,14 @@ class MlbApiService
     return nil unless p
 
     team_id = p.dig("currentTeam", "id")
+    metadata = PlayerMetadataService.fetch(
+      player_id: p["id"],
+      team_id: team_id,
+      player_name: p["fullName"],
+      season: Date.today.year
+    )
 
-    {
+    result = {
       id:           p["id"],
       name:         p["fullName"],
       firstName:    p["firstName"],
@@ -159,13 +241,30 @@ class MlbApiService
       teamId:       team_id,
       teamAbbrev:   p.dig("currentTeam", "abbreviation"),
       birthDate:    p["birthDate"],
+      currentAge:   p["currentAge"],
+      mlbDebutDate: p["mlbDebutDate"],
       height:       p["height"],
       weight:       p["weight"],
       batSide:      p.dig("batSide", "code"),
       pitchHand:    p.dig("pitchHand", "code"),
       active:       p.fetch("active", true),
-      headshotUrl:  "https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/#{p["id"]}/headshot/67/current"
+      rosterStatus: player_roster_status(p["id"], team_id),
+      headshotUrl:  "https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/#{p["id"]}/headshot/67/current",
+      awards:       metadata[:error] ? [] : metadata[:awards],
+      contract:     metadata[:error] ? nil : metadata[:contract]
     }
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:player_info])
+    result
+  end
+
+  def player_roster_status(player_id, team_id)
+    return nil unless team_id
+
+    data = get("teams/#{team_id}/roster", { rosterType: "fullRoster" })
+    entry = (data["roster"] || []).find { |e| e.dig("person", "id") == player_id }
+    entry&.dig("status", "description")
+  rescue
+    nil
   end
 
   # ------------------------------------------------------------------ #
@@ -173,6 +272,9 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def team_info(team_id)
+    cache_key = "team_info:#{team_id}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("teams/#{team_id}", {
       hydrate: "league,division,venue"
     })
@@ -180,7 +282,10 @@ class MlbApiService
     team = (data["teams"] || []).first
     return nil unless team
 
-    {
+    finance = TeamFinanceService.fetch(team_id: team["id"], season: Date.today.year)
+    front_office = TeamFrontOfficeService.fetch(team_id: team["id"])
+
+    result = {
       id: team["id"],
       name: team["name"],
       abbreviation: team["abbreviation"] || TEAM_META.dig(team["id"], :abbr),
@@ -195,12 +300,19 @@ class MlbApiService
       standing: team_standing(team["id"]),
       seasonStats: team_season_stats(team["id"]),
       roster: team_roster(team["id"]),
-      recentGames: team_recent_games(team["id"])
+      recentGames: team_recent_games(team["id"]),
+      finance: finance[:error] ? nil : finance,
+      frontOffice: front_office[:error] ? nil : front_office
     }
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:team_info])
+    result
   end
 
-  def team_season_stats(team_id)
-    season = Date.today.year
+  def team_season_stats(team_id, season: Date.today.year)
+    cache_key = "team_season_stats:#{team_id}:#{season}"
+    ttl = season.to_i == Date.today.year ? 15 * 60 : 24 * 3600
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     hitting = begin
       get("teams/#{team_id}/stats", { stats: "season", group: "hitting", season: season })
     rescue StandardError
@@ -217,36 +329,236 @@ class MlbApiService
 
     ranks = league_ranks_for_team(team_id.to_i, season)
 
-    {
+    ab      = h["atBats"].to_i
+    hits    = h["hits"].to_i
+    hr      = h["homeRuns"].to_i
+    so      = h["strikeOuts"].to_i
+    bb      = h["baseOnBalls"].to_i
+    ibb     = h["intentionalWalks"].to_i
+    hbp     = h["hitByPitch"].to_i
+    sf      = h["sacFlies"].to_i
+    pa      = h["plateAppearances"].to_i
+    doubles = h["doubles"].to_i
+    triples = h["triples"].to_i
+    singles = [hits - doubles - triples - hr, 0].max
+    pa = (ab + bb + hbp + sf) if pa <= 0
+    slg_f   = to_f(h["slg"])
+    avg_f   = to_f(h["avg"])
+
+    ip_str = p["inningsPitched"]
+    ip     = innings_to_float(ip_str)
+    p_hr   = p["homeRuns"].to_i
+    p_bb   = p["baseOnBalls"].to_i
+    p_hbp  = p["hitByPitch"].to_i
+    p_so   = p["strikeOuts"].to_i
+    p_bf   = p["battersFaced"].to_i
+
+    result = {
+      season: season,
       batting: {
         avg:   h["avg"],
         obp:   h["obp"],
         slg:   h["slg"],
         ops:   h["ops"],
-        hr:    h["homeRuns"],
+        hr:    hr,
         r:     h["runs"],
         rbi:   h["rbi"],
         sb:    h["stolenBases"],
-        hits:  h["hits"],
-        bb:    h["baseOnBalls"],
-        so:    h["strikeOuts"],
+        hits:  hits,
+        bb:    bb,
+        so:    so,
+        pa:    pa,
+        g:     h["gamesPlayed"],
+        iso:   slg_f && avg_f ? (slg_f - avg_f).round(3) : nil,
+        babip: babip(hits, hr, ab, so, sf),
+        kPct:  ratio(so, pa),
+        bbPct: ratio(bb, pa),
+        woba:  woba(singles, doubles, triples, hr, bb, ibb, hbp, ab, sf),
         ranks: ranks[:batting]
       },
       pitching: {
-        era:   p["era"],
-        whip:  p["whip"],
-        so:    p["strikeOuts"],
-        bb:    p["baseOnBalls"],
-        hr:    p["homeRuns"],
-        hits:  p["hits"],
-        ip:    p["inningsPitched"],
-        sv:    p["saves"],
-        svo:   p["saveOpportunities"],
-        ranks: ranks[:pitching]
+        era:         p["era"],
+        whip:        p["whip"],
+        so:          p_so,
+        bb:          p_bb,
+        hr:          p_hr,
+        hits:        p["hits"],
+        ip:          ip_str,
+        sv:          p["saves"],
+        svo:         p["saveOpportunities"],
+        fip:         fip(p_hr, p_bb, p_hbp, p_so, ip),
+        kPer9:       ip > 0 ? (p_so * 9.0 / ip).round(2) : nil,
+        bbPer9:      ip > 0 ? (p_bb * 9.0 / ip).round(2) : nil,
+        kMinusBbPct: ratio(p_so, p_bf) && ratio(p_bb, p_bf) ? (ratio(p_so, p_bf) - ratio(p_bb, p_bf)).round(3) : nil,
+        ranks:       ranks[:pitching]
       }
     }
-  rescue StandardError
-    {}
+    self.class.cache_set(cache_key, result, ttl)
+    result
+  rescue StandardError => e
+    { error: e.message }
+  end
+
+  def all_team_season_stats(season, group)
+    cache_key = "all_team_season_stats:#{season}:#{group}"
+    ttl = season.to_i == Date.today.year ? 30 * 60 : 24 * 3600
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
+    splits = get("teams/stats", {
+      stats: "season", group: group, sportId: 1, season: season
+    }).dig("stats", 0, "splits") || []
+
+    result = splits.filter_map do |split|
+      team = split["team"] || {}
+      id   = team["id"].to_i
+      meta = TEAM_META[id]
+      next unless meta
+
+      info = Warehouse::TeamIngester::TEAM_INFO[id] || {}
+      stat = split["stat"] || {}
+
+      if group.to_s == "pitching"
+        build_team_pitching_row(id, team["name"], meta, info, stat)
+      else
+        build_team_batting_row(id, team["name"], meta, info, stat)
+      end
+    end.sort_by { |r| r["Name"].to_s }
+
+    self.class.cache_set(cache_key, result, ttl)
+    result
+  rescue StandardError => e
+    { error: e.message }
+  end
+
+  def team_game_log(team_id, season)
+    cache_key = "team_game_log:#{team_id}:#{season}"
+    ttl = season.to_i == Date.today.year ? 5 * 60 : 24 * 3600
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
+    data = get("schedule", {
+      sportId:  1,
+      teamId:   team_id,
+      season:   season,
+      gameType: "R",
+      hydrate:  "linescore,team"
+    })
+
+    games = (data["dates"] || []).flat_map { |d| d["games"] || [] }
+
+    result = games.filter_map do |g|
+      next unless g.dig("status", "abstractGameState") == "Final"
+
+      away    = g.dig("teams", "away") || {}
+      home    = g.dig("teams", "home") || {}
+      is_home = home.dig("team", "id").to_i == team_id.to_i
+      opp     = is_home ? away : home
+      ls      = g["linescore"] || {}
+      ls_t    = ls["teams"] || {}
+      team_ls = ls_t[is_home ? "home" : "away"] || {}
+      opp_ls  = ls_t[is_home ? "away" : "home"] || {}
+
+      team_r = (team_ls["runs"] || (is_home ? home["score"] : away["score"])).to_i
+      opp_r  = (opp_ls["runs"]  || (is_home ? away["score"] : home["score"])).to_i
+
+      {
+        gamePk:      g["gamePk"],
+        date:        g["gameDate"]&.slice(0, 10),
+        isHome:      is_home,
+        opponent:    opp.dig("team", "abbreviation") || opp.dig("team", "name"),
+        runsScored:  team_r,
+        runsAllowed: opp_r,
+        hits:        team_ls["hits"].to_i,
+        won:         team_r > opp_r
+      }
+    end.sort_by { |g| g[:date].to_s }
+
+    self.class.cache_set(cache_key, result, ttl)
+    result
+  rescue StandardError => e
+    { error: e.message }
+  end
+
+  def team_history(team_id)
+    cache_key = "team_history:#{team_id}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
+    hit_data = get("teams/#{team_id}/stats", { stats: "yearByYear", group: "hitting",  gameType: "R" })
+    pit_data = get("teams/#{team_id}/stats", { stats: "yearByYear", group: "pitching", gameType: "R" })
+
+    hit_by_year = {}
+    (hit_data.dig("stats", 0, "splits") || []).each do |split|
+      year = split["season"]
+      next if year.blank?
+      hit_by_year[year] = split["stat"] || {}
+    end
+
+    pit_by_year = {}
+    (pit_data.dig("stats", 0, "splits") || []).each do |split|
+      year = split["season"]
+      next if year.blank?
+      pit_by_year[year] = split["stat"] || {}
+    end
+
+    years = (hit_by_year.keys + pit_by_year.keys).uniq.sort.reverse
+
+    result = years.filter_map do |year|
+      h = hit_by_year[year] || {}
+      p = pit_by_year[year] || {}
+      next if h.empty? && p.empty?
+
+      ab      = h["atBats"].to_i
+      hits    = h["hits"].to_i
+      hr      = h["homeRuns"].to_i
+      so      = h["strikeOuts"].to_i
+      bb      = h["baseOnBalls"].to_i
+      ibb     = h["intentionalWalks"].to_i
+      hbp     = h["hitByPitch"].to_i
+      sf      = h["sacFlies"].to_i
+      pa      = h["plateAppearances"].to_i
+      pa = (ab + bb + hbp + sf) if pa <= 0
+      doubles = h["doubles"].to_i
+      triples = h["triples"].to_i
+      singles = [hits - doubles - triples - hr, 0].max
+
+      ip_str = p["inningsPitched"]
+      ip     = innings_to_float(ip_str)
+      p_hr   = p["homeRuns"].to_i
+      p_bb   = p["baseOnBalls"].to_i
+      p_hbp  = p["hitByPitch"].to_i
+      p_so   = p["strikeOuts"].to_i
+      p_bf   = p["battersFaced"].to_i
+
+      {
+        season: year,
+        g:      h["gamesPlayed"],
+        avg:    h["avg"],
+        obp:    h["obp"],
+        slg:    h["slg"],
+        ops:    h["ops"],
+        hr:     hr,
+        r:      h["runs"],
+        rbi:    h["rbi"],
+        sb:     h["stolenBases"],
+        bb:     bb,
+        so:     so,
+        woba:   woba(singles, doubles, triples, hr, bb, ibb, hbp, ab, sf),
+        era:    p["era"],
+        whip:   p["whip"],
+        ip:     ip_str,
+        sv:     p["saves"],
+        pSo:    p_so,
+        pBb:    p_bb,
+        pHr:    p_hr,
+        fip:    fip(p_hr, p_bb, p_hbp, p_so, ip),
+        kPer9:  ip > 0 ? (p_so * 9.0 / ip).round(2) : nil,
+        bbPer9: ip > 0 ? (p_bb * 9.0 / ip).round(2) : nil
+      }
+    end
+
+    self.class.cache_set(cache_key, result, 60 * 60)
+    result
+  rescue StandardError => e
+    { error: e.message }
   end
 
   # ------------------------------------------------------------------ #
@@ -254,6 +566,9 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def player_season_stats(player_id, season)
+    cache_key = "player_season_stats:#{player_id}:#{season}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("people/#{player_id}/stats", {
       stats: "season",
       season: season,
@@ -267,6 +582,7 @@ class MlbApiService
       split = group.dig("splits", 0)
       result[key] = split["stat"] if key && split
     end
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:player_season_stats])
     result
   end
 
@@ -275,18 +591,23 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def player_career_stats(player_id, group: "hitting")
+    cache_key = "player_career_stats:#{player_id}:#{group}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("people/#{player_id}/stats", {
       stats: "yearByYear",
       group: group,
       gameType: "R"
     })
 
-    (data["stats"] || []).flat_map do |sg|
+    result = (data["stats"] || []).flat_map do |sg|
       (sg["splits"] || []).filter_map do |split|
         next unless split.dig("sport", "id") == 1
         { season: split["season"] }.merge(split.fetch("stat", {}))
       end
     end
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:player_career_stats])
+    result
   end
 
   # ------------------------------------------------------------------ #
@@ -294,6 +615,9 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def player_game_log(player_id, season, group: "hitting", limit: 30)
+    cache_key = "player_game_log:#{player_id}:#{season}:#{group}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("people/#{player_id}/stats", {
       stats: "gameLog",
       season: season,
@@ -302,19 +626,21 @@ class MlbApiService
     })
 
     raw_games = data.dig("stats", 0, "splits") || []
-    games = raw_games.filter_map do |split|
+    all_games = raw_games.filter_map do |split|
       next unless split.dig("sport", "id") == 1
       normalize_game_log_row(split, group)
     end.sort_by { |g| g[:date] || "" }.reverse
 
     capped_limit = [[limit.to_i, 10].max, 60].min
 
-    {
+    result = {
       season: season,
       group: group,
-      totalGames: games.length,
-      games: games.first(capped_limit)
+      totalGames: all_games.length,
+      games: all_games.first(capped_limit)
     }
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:player_game_log])
+    result
   end
 
   # ------------------------------------------------------------------ #
@@ -344,6 +670,9 @@ class MlbApiService
   # ------------------------------------------------------------------ #
 
   def standings(season)
+    cache_key = "standings:#{season}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
     data = get("standings", {
       leagueId: "103,104",
       season: season,
@@ -351,7 +680,7 @@ class MlbApiService
       hydrate: "team,division,league"
     })
 
-    (data["records"] || []).map do |record|
+    result = (data["records"] || []).map do |record|
       division = record["division"] || {}
       league   = record["league"]   || {}
       teams    = (record["teamRecords"] || [])
@@ -366,6 +695,8 @@ class MlbApiService
         teams:        teams
       }
     end.sort_by { |d| [d[:leagueId].to_i, d[:divisionName].to_s] }
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:standings])
+    result
   end
 
   # ------------------------------------------------------------------ #
@@ -492,6 +823,27 @@ class MlbApiService
           }
         }
       },
+      linescore: {
+        innings: (linescore["innings"] || []).map do |inn|
+          {
+            num:  inn["num"],
+            away: inn.dig("away", "runs"),
+            home: inn.dig("home", "runs")
+          }
+        end,
+        totals: {
+          away: {
+            r: lines_teams.dig("away", "runs"),
+            h: lines_teams.dig("away", "hits"),
+            e: lines_teams.dig("away", "errors")
+          },
+          home: {
+            r: lines_teams.dig("home", "runs"),
+            h: lines_teams.dig("home", "hits"),
+            e: lines_teams.dig("home", "errors")
+          }
+        }
+      },
       boxscore: {
         teamTotals: {
           away: team_boxscore_totals(away_box, lines_teams.dig("away")),
@@ -507,6 +859,39 @@ class MlbApiService
         }
       }
     }
+  end
+
+  # SC (Status Change) encodes IL placements, activations, and generic noise.
+  # We parse those by description in normalize_transaction and drop the noise.
+  TRANSACTION_ALLOWLIST = %w[
+    CU OPT DES ACT TRD TR REL SFA SIG ASG RTN OUT CLW SE SC
+    IL IL10 IL15 IL60 IL7
+  ].freeze
+
+  def transactions(team_id: nil, player_id: nil, start_date: nil, end_date: nil, limit: 50)
+    cache_key = "transactions:#{team_id}:#{player_id}:#{start_date}:#{end_date}:#{limit}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
+    query = { sportId: 1, limit: limit.to_i.clamp(1, 500) }
+    query[:teamId]    = team_id.to_i   if team_id.present?
+    query[:playerId]  = player_id.to_i if player_id.present?
+    query[:startDate] = start_date     if start_date.present?
+    query[:endDate]   = end_date       if end_date.present?
+
+    data = get('transactions', query)
+    raw  = Array(data["transactions"])
+
+    normalized = raw
+      .select      { |t| TRANSACTION_ALLOWLIST.include?((t[:typeCode] || t["typeCode"]).to_s) }
+      .filter_map  { |t| normalize_transaction(t) }
+      .sort_by     { |t| [t[:date].to_s, t[:id].to_i] }
+      .reverse
+
+    result = { transactions: normalized }
+    self.class.cache_set(cache_key, result, CACHE_TTLS[:transactions])
+    result
+  rescue => e
+    { error: e.message }
   end
 
   def win_probability(game_pk)
@@ -527,6 +912,80 @@ class MlbApiService
   end
 
   private
+
+  def build_team_batting_row(id, name, meta, info, h)
+    ab      = h["atBats"].to_i
+    hits    = h["hits"].to_i
+    hr      = h["homeRuns"].to_i
+    so      = h["strikeOuts"].to_i
+    bb      = h["baseOnBalls"].to_i
+    ibb     = h["intentionalWalks"].to_i
+    hbp     = h["hitByPitch"].to_i
+    sf      = h["sacFlies"].to_i
+    pa      = h["plateAppearances"].to_i
+    doubles = h["doubles"].to_i
+    triples = h["triples"].to_i
+    singles = [hits - doubles - triples - hr, 0].max
+    pa = (ab + bb + hbp + sf) if pa <= 0
+    slg_f = to_f(h["slg"])
+    avg_f = to_f(h["avg"])
+
+    {
+      "Name"     => name,
+      "team_id"  => id,
+      "Abbr"     => meta[:abbr],
+      "League"   => info[:league],
+      "Division" => info[:division],
+      "G"        => h["gamesPlayed"].to_i,
+      "AVG"      => to_f(h["avg"]),
+      "OBP"      => to_f(h["obp"]),
+      "SLG"      => to_f(h["slg"]),
+      "OPS"      => to_f(h["ops"]),
+      "HR"       => hr,
+      "R"        => h["runs"].to_i,
+      "RBI"      => h["rbi"].to_i,
+      "SB"       => h["stolenBases"].to_i,
+      "BB"       => bb,
+      "SO"       => so,
+      "ISO"      => (slg_f && avg_f) ? (slg_f - avg_f).round(3) : nil,
+      "BABIP"    => babip(hits, hr, ab, so, sf),
+      "K%"       => pa > 0 ? (so.to_f / pa * 100).round(1) : nil,
+      "BB%"      => pa > 0 ? (bb.to_f / pa * 100).round(1) : nil,
+      "wOBA"     => woba(singles, doubles, triples, hr, bb, ibb, hbp, ab, sf)
+    }
+  end
+
+  def build_team_pitching_row(id, name, meta, info, p)
+    ip    = innings_to_float(p["inningsPitched"])
+    p_hr  = p["homeRuns"].to_i
+    p_bb  = p["baseOnBalls"].to_i
+    p_hbp = p["hitByPitch"].to_i
+    p_so  = p["strikeOuts"].to_i
+    p_bf  = p["battersFaced"].to_i
+    k_pct_val  = p_bf > 0 ? (p_so.to_f / p_bf * 100).round(1) : nil
+    bb_pct_val = p_bf > 0 ? (p_bb.to_f / p_bf * 100).round(1) : nil
+
+    {
+      "Name"     => name,
+      "team_id"  => id,
+      "Abbr"     => meta[:abbr],
+      "League"   => info[:league],
+      "Division" => info[:division],
+      "ERA"      => to_f(p["era"]),
+      "WHIP"     => to_f(p["whip"]),
+      "FIP"      => fip(p_hr, p_bb, p_hbp, p_so, ip),
+      "K/9"      => ip > 0 ? (p_so * 9.0 / ip).round(1) : nil,
+      "BB/9"     => ip > 0 ? (p_bb * 9.0 / ip).round(1) : nil,
+      "K-BB%"    => k_pct_val && bb_pct_val ? (k_pct_val - bb_pct_val).round(1) : nil,
+      "SO"       => p_so,
+      "BB"       => p_bb,
+      "HR"       => p_hr,
+      "SV"       => p["saves"].to_i,
+      "IP"       => ip,
+      "K%"       => k_pct_val,
+      "BB%"      => bb_pct_val
+    }
+  end
 
   def parse_team_record(tr)
     team = tr["team"] || {}
@@ -554,39 +1013,44 @@ class MlbApiService
   end
 
   def standings_map
-    data = get("standings", {
-      leagueId: "103,104",
-      season: Date.today.year,
-      standingsType: "regularSeason",
-      hydrate: "team"
-    })
-    map = {}
-    (data["records"] || []).each do |record|
-      (record["teamRecords"] || []).each do |tr|
-        id = tr.dig("team", "id").to_i
-        map[id] = { wins: tr["wins"].to_i, losses: tr["losses"].to_i, pct: tr.dig("leagueRecord", "pct") }
-      end
-    end
-    map
-  rescue StandardError
-    {}
-  end
+    cache_key = "standings_map:#{Date.today.year}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
 
-  def team_standing(team_id)
     data = get("standings", {
       leagueId: "103,104",
       season: Date.today.year,
       standingsType: "regularSeason",
       hydrate: "team,division,league"
     })
-
+    map = {}
     (data["records"] || []).each do |record|
       (record["teamRecords"] || []).each do |tr|
-        return parse_team_record(tr) if tr.dig("team", "id").to_i == team_id.to_i
+        id = tr.dig("team", "id").to_i
+        map[id] = {
+          wins:                      tr["wins"].to_i,
+          losses:                    tr["losses"].to_i,
+          pct:                       tr.dig("leagueRecord", "pct"),
+          gamesBack:                 tr["gamesBack"],
+          wildCardGamesBack:         tr["wildCardGamesBack"],
+          divisionRank:              tr["divisionRank"].to_i,
+          wildCardRank:              tr["wildCardRank"].to_i,
+          leagueRank:                tr["leagueRank"].to_i,
+          streak:                    tr.dig("streak", "streakCode"),
+          lastTen:                   (tr.dig("records", "splitRecords") || []).then { |r| r.find { |s| s["type"] == "lastTen" } }&.then { |l| "#{l["wins"]}-#{l["losses"]}" },
+          clinched:                  tr["clinched"] == true,
+          eliminationNumber:         tr["eliminationNumber"],
+          wildCardEliminationNumber: tr["wildCardEliminationNumber"]
+        }
       end
     end
-
+    self.class.cache_set(cache_key, map, CACHE_TTLS[:standings_map])
+    map
+  rescue StandardError
     {}
+  end
+
+  def team_standing(team_id)
+    standings_map[team_id.to_i] || {}
   rescue StandardError
     {}
   end
@@ -1083,6 +1547,55 @@ class MlbApiService
     []
   end
 
+  def normalize_transaction(t)
+    type_code   = (t[:typeCode]   || t["typeCode"]).to_s
+    type_desc   = (t[:typeDesc]   || t["typeDesc"]).to_s
+    description = (t[:description] || t["description"]).to_s
+    return nil if type_code.blank?
+
+    # Normalize aliases so the frontend only needs one set of codes
+    type_code = 'TRD' if type_code == 'TR'   # Trade
+    type_code = 'CU'  if type_code == 'SE'   # Selected / contract selected ≈ call-up
+
+    # SC (Status Change) encodes IL placements and activations via description text.
+    # Drop the generic "roster status changed" noise and remap real events.
+    if type_code == 'SC'
+      desc_lc = description.downcase
+      if desc_lc.match?(/placed.+injured list|transferred.+injured list/)
+        il_days = description[/(\d+)-day/i, 1]
+        type_code = il_days ? "IL#{il_days}" : 'IL'
+        type_desc = il_days ? "#{il_days}-Day IL" : 'Injured List'
+      elsif desc_lc.match?(/activated|reinstated/)
+        type_code = 'ACT'
+        type_desc = 'Activated'
+      else
+        return nil
+      end
+    end
+
+    person    = t[:person]    || t["person"]    || {}
+    from_team = t[:fromTeam]  || t["fromTeam"]
+    to_team   = t[:toTeam]    || t["toTeam"]
+
+    person_id   = (person["id"]       || person[:id]).to_i
+    person_name = (person["fullName"] || person[:fullName]).to_s.strip
+    return nil if person_name.blank? || person_name == '0' || person_id == 0
+
+    {
+      id:          (t[:id] || t["id"]).to_i,
+      type_code:   type_code,
+      type_desc:   type_desc,
+      description: description,
+      date:        (t[:effectiveDate] || t["effectiveDate"] || t[:date] || t["date"]).to_s,
+      person: {
+        id:   (person["id"] || person[:id]).to_i,
+        name: (person["fullName"] || person[:fullName]).to_s,
+      },
+      from_team: from_team.present? ? { id: (from_team["id"] || from_team[:id]).to_i, name: (from_team["name"] || from_team[:name]).to_s } : nil,
+      to_team:   to_team.present?   ? { id: (to_team["id"]   || to_team[:id]).to_i,   name: (to_team["name"]   || to_team[:name]).to_s   } : nil,
+    }
+  end
+
   def person_stats_snapshot(person)
     hitting  = nil
     pitching = nil
@@ -1123,16 +1636,23 @@ class MlbApiService
                    .dig("stats", 0, "splits") || []
 
     batting_ranks  = compute_stat_ranks(hit_splits, team_id, {
-      avg: ["avg",        :desc],
-      obp: ["obp",        :desc],
-      ops: ["ops",        :desc],
-      hr:  ["homeRuns",   :desc],
-      r:   ["runs",       :desc]
+      avg: ["avg",          :desc],
+      obp: ["obp",          :desc],
+      slg: ["slg",          :desc],
+      ops: ["ops",          :desc],
+      hr:  ["homeRuns",     :desc],
+      r:   ["runs",         :desc],
+      rbi: ["rbi",          :desc],
+      sb:  ["stolenBases",  :desc],
+      bb:  ["baseOnBalls",  :desc],
+      so:  ["strikeOuts",   :asc]
     })
     pitching_ranks = compute_stat_ranks(pit_splits, team_id, {
-      era:  ["era",        :asc],
-      whip: ["whip",       :asc],
-      so:   ["strikeOuts", :desc]
+      era:  ["era",          :asc],
+      whip: ["whip",         :asc],
+      so:   ["strikeOuts",   :desc],
+      bb:   ["baseOnBalls",  :asc],
+      hr:   ["homeRuns",     :asc]
     })
 
     { batting: batting_ranks, pitching: pitching_ranks }

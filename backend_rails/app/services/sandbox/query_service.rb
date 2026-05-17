@@ -10,9 +10,10 @@ module Sandbox
         cleaned_sql = validate_sql!(sql.to_s)
 
         request = {
-          sql: cleaned_sql,
-          limit: [[limit.to_i, 1].max, MAX_LIMIT].min,
-          tables: DatasetRegistry.tables_for_query
+          sql:         cleaned_sql,
+          limit:       [[limit.to_i, 1].max, MAX_LIMIT].min,
+          duckdb_path: Warehouse::Manager.duckdb_path,
+          tables:      DatasetRegistry.tables_for_query
         }
 
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -25,12 +26,12 @@ module Sandbox
         raise parsed["error"] if parsed["error"].present?
 
         {
-          columns: parsed["columns"] || [],
-          rows: parsed["rows"] || [],
-          rowCount: parsed["row_count"] || 0,
+          columns:   parsed["columns"] || [],
+          rows:      parsed["rows"] || [],
+          rowCount:  parsed["row_count"] || 0,
           truncated: parsed["truncated"] || false,
           runtimeMs: runtime_ms,
-          datasets: DatasetRegistry.datasets
+          datasets:  DatasetRegistry.datasets
         }
       end
 

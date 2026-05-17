@@ -2,6 +2,11 @@
 
 ## Project Guidance
 
+### Use Global Claude Skills
+
+- In addition to the repo-local guidance in this file, also consult and follow any applicable global Claude skills available under `~/.claude/skills/` (and related global skill directories) whenever they match the task at hand.
+- Prefer repo-specific conventions when they conflict with global guidance.
+
 - For Ruby/Rails code changes, follow conventions from `/home/mukco/Documents/code/tools/ruby`.
 - Treat those docs as the source of truth for Rails controller, service object, Active Record, Active Job, and testing patterns.
 - Prefer existing project style when it conflicts with generic defaults.
