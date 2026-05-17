@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { api } from '../api'
@@ -48,11 +49,28 @@ function PlayerChips({ players = [], names = [] }) {
 }
 
 function StoryCard({ story }) {
+  const [expanded, setExpanded] = useState(false)
+  const [clamped, setClamped] = useState(false)
+  const bodyRef = useRef(null)
+
+  useEffect(() => {
+    const el = bodyRef.current
+    if (el) setClamped(el.scrollHeight > el.clientHeight)
+  }, [])
+
   return (
-    <article className="card p-5 flex flex-col gap-3 h-full">
+    <article className="card p-5 flex flex-col gap-3">
       <CategoryBadge category={story.category} />
       <h3 className="news-headline line-clamp-3">{story.headline}</h3>
-      <p className="news-summary line-clamp-4 flex-1">{story.body}</p>
+      <p ref={bodyRef} className={`news-summary flex-1 ${expanded ? '' : 'line-clamp-4'}`}>{story.body}</p>
+      {(clamped || expanded) && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="self-start text-xs text-brand-light hover:text-brand transition-colors -mt-1"
+        >
+          {expanded ? 'Show less' : 'Read more'}
+        </button>
+      )}
       <PlayerChips players={story.players} names={story.player_names} />
     </article>
   )
@@ -145,7 +163,7 @@ function GeneratedAt({ ts }) {
 function SectionHeader({ label, count }) {
   return (
     <div className="flex items-baseline gap-3">
-      <h2 className="text-xs font-semibold text-content-muted uppercase tracking-widest">{label}</h2>
+      <h2 className="text-[11px] font-semibold text-content-muted uppercase tracking-[0.08em]">{label}</h2>
       {count > 0 && (
         <span className="text-xs text-content-muted tabular-nums">{count}</span>
       )}
@@ -170,12 +188,12 @@ export default function DailySummary() {
   const trends  = data?.trends  ?? []
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 py-10">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-content-primary">Daily Digest</h1>
-          <p className="text-sm text-content-muted mt-0.5">
+          <h1 className="text-[32px] font-semibold tracking-[-0.02em] text-content-primary">Daily Digest</h1>
+          <p className="text-sm text-content-muted mt-1">
             {format(new Date(), 'EEEE, MMMM d, yyyy')}
           </p>
         </div>

@@ -8,6 +8,7 @@ require "csv"
 class StatcastService
   SAVANT_BASE    = "https://baseballsavant.mlb.com".freeze
   FANGRAPHS_BASE = "https://www.fangraphs.com".freeze
+  PITCH_MOVEMENT_MIN = 50
 
   # Maximum sample size for movement / spray chart data sent to the client
   MOVEMENT_SAMPLE  = 500
@@ -37,7 +38,7 @@ class StatcastService
     # Pitcher Statcast
     # ---------------------------------------------------------------- #
     def pitcher(player_id, season)
-      key = "pitcher_#{player_id}_#{season}"
+      key = "pitcher_v2_#{player_id}_#{season}"
       return @@cache[key] if cache_fresh?(key)
       result = fetch_pitcher(player_id, season)
       cache_set(key, result) unless result[:error]
@@ -96,7 +97,9 @@ class StatcastService
       params = {
         type:        "details",
         player_type: "pitcher",
-        pitcherId:   player_id,
+        # Savant expects the same lookup-array style param it uses for batters;
+        # plain `pitcherId` is ignored and returns league-wide data.
+        "pitchers_lookup[]" => player_id,
         season:      season,
         all:         "true",
         hfGT:        "R|",     # Regular season only
@@ -105,7 +108,8 @@ class StatcastService
       rows = fetch_csv(url, params)
       return { error: "No data", pitchTypes: [], movementData: [], summary: {}, totalPitches: 0 } if rows.empty?
 
-      aggregate_pitcher(rows)
+      result = aggregate_pitcher(rows)
+      attach_pitch_movement_percentiles(result, season)
     rescue StandardError => e
       { error: e.message, pitchTypes: [], movementData: [], summary: {}, totalPitches: 0 }
     end
@@ -124,7 +128,12 @@ class StatcastService
       rows = fetch_csv(url, params)
       return { error: "No data", summary: {}, sprayData: [] } if rows.empty?
 
-      aggregate_batter(rows)
+      result = aggregate_batter(rows)
+      if season >= 2024
+        bt = bat_tracking_for(player_id.to_i, season)
+        result[:summary].merge!(bt) if bt.any?
+      end
+      result
     rescue StandardError => e
       { error: e.message, summary: {}, sprayData: [] }
     end
@@ -180,10 +189,11 @@ class StatcastService
         avg_pfx_x    = safe_mean(group, "pfx_x")
         avg_pfx_z    = safe_mean(group, "pfx_z")
         swing_events = %w[swinging_strike swinging_strike_blocked foul foul_tip
+                          foul_bunt missed_bunt
                           hit_into_play hit_into_play_no_out hit_into_play_score]
         whiff_events = %w[swinging_strike swinging_strike_blocked]
-        swings       = group.count { |r| swing_events.include?(r["description"]) }
-        whiffs       = group.count { |r| whiff_events.include?(r["description"]) }
+        swings       = group.count { |r| swing_events.include?(r["description"]&.strip) }
+        whiffs       = group.count { |r| whiff_events.include?(r["description"]&.strip) }
         whiff_rate   = swings.positive? ? (whiffs.to_f / swings * 100).round(1) : nil
 
         {
@@ -255,6 +265,49 @@ class StatcastService
         pitchOutcomes: pitch_outcomes, summary: summary, totalPitches: total }
     end
 
+    def attach_pitch_movement_percentiles(result, season)
+      distributions = league_pitch_movement_distributions(season)
+      return result if distributions.empty?
+
+      pitch_types = result[:pitchTypes].map do |pitch|
+        samples = distributions[pitch[:type]]
+        next pitch if samples.nil? || samples.empty? || pitch[:hBreak].nil? || pitch[:vBreak].nil?
+
+        movement = Math.hypot(pitch[:hBreak].to_f, pitch[:vBreak].to_f)
+        pitch.merge(movementPercentile: percentile_rank(movement, samples))
+      end
+
+      result.merge(pitchTypes: pitch_types)
+    rescue StandardError => e
+      Rails.logger.error("Pitch movement percentile error: #{e.message}")
+      result
+    end
+
+    def league_pitch_movement_distributions(season)
+      key = "pitch_movement_#{season}_all_#{PITCH_MOVEMENT_MIN}"
+      return @@cache[key] if cache_fresh?(key)
+
+      rows = fetch_csv(
+        "#{SAVANT_BASE}/leaderboard/pitch-movement",
+        { year: season, pitch_type: "ALL", min: PITCH_MOVEMENT_MIN, csv: "true" }
+      )
+
+      distributions = rows.each_with_object(Hash.new { |h, k| h[k] = [] }) do |row, grouped|
+        type    = row["pitch_type"].to_s.strip
+        h_break = float_val(row["pitcher_break_x"])
+        v_break = float_val(row["pitcher_break_z_induced"])
+        next if type.empty? || h_break.nil? || v_break.nil?
+
+        grouped[type] << Math.hypot(h_break, v_break)
+      end.transform_values(&:sort)
+
+      cache_set(key, distributions) if distributions.any?
+      distributions
+    rescue StandardError => e
+      Rails.logger.error("Pitch movement leaderboard error: #{e.message}")
+      {}
+    end
+
     # ---------------------------------------------------------------- #
     # Batter aggregation
     # ---------------------------------------------------------------- #
@@ -290,6 +343,32 @@ class StatcastService
       end
       if (ss = float_vals(rows, "sprint_speed")).any?
         summary[:sprintSpeed] = mean(ss).round(1)
+      end
+
+      # Bat speed + swing length (Savant pitch-level tracking, available 2024+)
+      if (bs = float_vals(rows.reject { |r| r["bat_speed"].nil? || r["bat_speed"].strip.empty? }, "bat_speed")).any?
+        summary[:batSpeed] = mean(bs).round(1)
+      end
+      if (sl = float_vals(rows.reject { |r| r["swing_length"].nil? || r["swing_length"].strip.empty? }, "swing_length")).any?
+        summary[:swingLength] = mean(sl).round(2)
+      end
+
+      # O-Swing% (chase) and Z-Swing% using Savant zone column (1-9 = in zone, 11-14 = out of zone)
+      swing_events = %w[swinging_strike swinging_strike_blocked foul foul_tip
+                        foul_bunt missed_bunt
+                        hit_into_play hit_into_play_no_out hit_into_play_score]
+      pitches_with_zone = rows.reject { |r| r["zone"].nil? || r["zone"].strip.empty? || r["zone"].strip == "0" }
+
+      in_zone  = pitches_with_zone.select { |r| r["zone"].to_i.between?(1, 9) }
+      out_zone = pitches_with_zone.select { |r| r["zone"].to_i.between?(11, 14) }
+
+      if in_zone.any?
+        z_swings = in_zone.count { |r| swing_events.include?(r["description"]&.strip) }
+        summary[:zSwingPct] = (z_swings.to_f / in_zone.size * 100).round(1)
+      end
+      if out_zone.any?
+        o_swings = out_zone.count { |r| swing_events.include?(r["description"]&.strip) }
+        summary[:oSwingPct] = (o_swings.to_f / out_zone.size * 100).round(1)
       end
 
       # Spray chart — sample hit-location rows
@@ -385,8 +464,77 @@ class StatcastService
     # Numeric helpers
     # ---------------------------------------------------------------- #
 
+    # Fetch the Savant bat-tracking leaderboard for a season (cached) and return
+    # the rate stats for a specific player. Returns {} on any failure.
+    def bat_tracking_for(player_id, season)
+      key = "bat_tracking_#{season}"
+      leaderboard = if cache_fresh?(key)
+        @@cache[key]
+      else
+        data = fetch_bat_tracking_leaderboard(season)
+        cache_set(key, data) if data.any?
+        data
+      end
+      entry = leaderboard.find { |r| r[:player_id] == player_id }
+      entry ? entry.reject { |k, _| k == :player_id } : {}
+    rescue StandardError => e
+      Rails.logger.warn("StatcastService#bat_tracking_for failed (season #{season}): #{e.message}")
+      {}
+    end
+
+    def fetch_bat_tracking_leaderboard(season)
+      conn = Faraday.new do |f|
+        f.request  :retry, max: 2, interval: 1.0
+        f.response :raise_error
+        f.options.timeout      = 30
+        f.options.open_timeout = 10
+        f.headers["User-Agent"] = "Mozilla/5.0 (compatible; StatlineBot/1.0)"
+        f.headers["Referer"]    = "https://baseballsavant.mlb.com/leaderboard/bat-tracking"
+      end
+      resp = conn.get("https://baseballsavant.mlb.com/leaderboard/bat-tracking", {
+        attackZone: "", batSide: "", contactType: "", count: "",
+        csv: "true", v: "1", year: season
+      })
+      body = resp.body.force_encoding("UTF-8")
+      return [] if body.strip.empty? || body.start_with?("<")
+      csv = CSV.parse(body, headers: true, liberal_parsing: true)
+      csv.filter_map do |row|
+        h  = row.to_h.transform_keys(&:strip)
+        id = h["id"].to_s.strip
+        next unless id.match?(/\A\d+\z/)
+        {
+          player_id:         id.to_i,
+          hardSwingRate:     pct_from_frac(h["hard_swing_rate"]),
+          squaredUpPerSwing: pct_from_frac(h["squared_up_per_swing"]),
+          blastPerSwing:     pct_from_frac(h["blast_per_swing"]),
+        }.compact
+      end
+    rescue StandardError => e
+      Rails.logger.warn("StatcastService bat tracking leaderboard failed (#{season}): #{e.message}")
+      []
+    end
+
+    def pct_from_frac(value)
+      return nil if value.nil?
+      f = Float(value.to_s.strip)
+      (f * 100.0).round(1)
+    rescue ArgumentError, TypeError
+      nil
+    end
+
     def float_vals(rows, col)
       rows.filter_map { |r| v = r[col]; v.nil? || v.strip.empty? ? nil : v.to_f }
+    end
+
+    def float_val(value)
+      return nil if value.nil?
+
+      stripped = value.to_s.strip
+      return nil if stripped.empty?
+
+      Float(stripped)
+    rescue ArgumentError, TypeError
+      nil
     end
 
     def mean(vals)
@@ -397,6 +545,13 @@ class StatcastService
     def safe_mean(rows, col)
       vals = float_vals(rows, col)
       vals.any? ? mean(vals) : nil
+    end
+
+    def percentile_rank(value, sorted_vals)
+      return nil if sorted_vals.empty?
+
+      index = sorted_vals.bsearch_index { |sample| sample > value } || sorted_vals.length
+      ((index.to_f / sorted_vals.length) * 100).round.clamp(1, 99)
     end
   end
 end

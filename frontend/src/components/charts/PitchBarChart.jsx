@@ -1,62 +1,92 @@
-const PITCH_COLORS = {
-  FF: '#D22D49', SI: '#FE9D00', FC: '#933F2C',
-  SL: '#EEE716', ST: '#D2E338', CU: '#00D1ED',
-  KC: '#01C8E3', CH: '#1DBE3A', FS: '#3BACAC',
-  KN: '#9C9C9C', EP: '#5A5A5A',
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell, LabelList,
+} from 'recharts'
+import { pitchColor } from '../../lib/pitchColors'
+
+const MUTED = 'rgb(var(--color-content-muted))'
+const SECONDARY = 'rgb(var(--color-content-secondary))'
+
+function PitchYAxisTick({ x, y, payload, dataMap }) {
+  const pt = dataMap[payload.value]
+  const color = pt ? pitchColor(pt.pitchType) : MUTED
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <rect x={-88} y={-5} width={8} height={10} rx={2} fill={color} />
+      <text x={-76} y={4} textAnchor="start" fontSize={11} fill={SECONDARY} fontFamily="sans-serif">
+        {payload.value}
+      </text>
+    </g>
+  )
 }
-function pitchColor(type) { return PITCH_COLORS[type] || '#9CA3AF' }
+
+function CustomTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  return (
+    <div className="bg-bg-elevated border border-bg-border rounded-lg px-3 py-2 text-xs shadow-xl">
+      <p className="font-semibold text-content-primary mb-0.5">{d.label}</p>
+      <p className="font-mono text-content-primary">{d._display}</p>
+    </div>
+  )
+}
 
 export default function PitchBarChart({ pitchTypes = [], metric = 'whiffRate', format, maxValue }) {
-  const rows = pitchTypes
+  const rows = [...pitchTypes]
     .filter(pt => pt[metric] != null)
     .sort((a, b) => (b[metric] || 0) - (a[metric] || 0))
 
-  if (!rows.length) return null
+  if (!rows.length) {
+    return (
+      <div className="flex items-center justify-center h-24 text-content-muted text-xs">No data for this metric</div>
+    )
+  }
 
-  const max    = maxValue ?? Math.max(...rows.map(p => p[metric] || 0))
-  const fmt    = format ?? (v => typeof v === 'number' ? v.toFixed(1) : v)
-  const topVal = rows[0][metric]
+  const fmt = format ?? (v => typeof v === 'number' ? v.toFixed(1) : v)
+  const max = maxValue ?? Math.max(...rows.map(p => p[metric] || 0))
+  const height = Math.max(64, rows.length * 40 + 8)
+
+  const data = rows.map(pt => ({
+    label: pt.name || pt.type,
+    pitchType: pt.type,
+    _value: pt[metric],
+    _display: fmt(pt[metric]),
+  }))
+
+  const dataMap = Object.fromEntries(data.map(d => [d.label, d]))
 
   return (
-    <div className="space-y-2.5">
-      {rows.map((pt, i) => {
-        const val   = pt[metric]
-        const pct   = max > 0 ? (val / max) * 100 : 0
-        const color = pitchColor(pt.type)
-        const isTop = val === topVal
-
-        return (
-          <div key={pt.type} className="flex items-center gap-2.5">
-            {/* Color swatch */}
-            <div
-              className="w-2.5 h-2.5 rounded-sm shrink-0"
-              style={{ backgroundColor: color, boxShadow: isTop ? `0 0 6px ${color}99` : 'none' }}
-            />
-            {/* Pitch name */}
-            <div className="w-24 shrink-0 text-[11px] text-content-secondary truncate">
-              {pt.name || pt.type}
-            </div>
-            {/* Bar track */}
-            <div className="flex-1 h-3.5 rounded-sm overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
-              <div
-                className="h-full rounded-sm transition-all duration-700"
-                style={{
-                  width: `${pct}%`,
-                  background: `linear-gradient(to right, ${color}EE, ${color}88)`,
-                  boxShadow: isTop ? `0 0 8px ${color}66` : 'none',
-                }}
-              />
-            </div>
-            {/* Value */}
-            <div
-              className="w-10 text-right text-[11px] font-mono shrink-0"
-              style={{ color: isTop ? color : 'rgba(255,255,255,0.5)' }}
-            >
-              {fmt(val)}
-            </div>
-          </div>
-        )
-      })}
-    </div>
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ top: 0, right: 44, left: 92, bottom: 0 }}
+      >
+        <XAxis type="number" domain={[0, max]} hide />
+        <YAxis
+          type="category"
+          dataKey="label"
+          width={92}
+          tick={<PitchYAxisTick dataMap={dataMap} />}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgb(var(--color-bg-elevated))' }} />
+        <Bar
+          dataKey="_value"
+          radius={[0, 4, 4, 0]}
+          maxBarSize={18}
+        >
+          {data.map((d) => (
+            <Cell key={d.pitchType} fill={pitchColor(d.pitchType)} fillOpacity={0.9} />
+          ))}
+          <LabelList
+            dataKey="_display"
+            position="right"
+            style={{ fill: SECONDARY, fontSize: 12, fontFamily: 'monospace', fontWeight: 600 }}
+          />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   )
 }

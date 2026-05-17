@@ -1,182 +1,159 @@
-import { useMemo } from 'react'
+import { approxPercentile, clamp } from '../../lib/perfUtil'
 
-// Seeded LCG — stable across renders for same thresholds
-function seededRand(seed) {
-  let s = seed >>> 0
-  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0xffffffff }
-}
-function seededRandn(rand) {
-  const u = Math.max(rand(), 1e-10), v = rand()
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v)
+function zoneColor(percentile) {
+  if (percentile >= 90) return { fill: '#DC2626', opacity: 0.22 }
+  if (percentile >= 75) return { fill: '#F97316', opacity: 0.20 }
+  if (percentile <= 10) return { fill: '#1D4ED8', opacity: 0.22 }
+  if (percentile <= 25) return { fill: '#3B82F6', opacity: 0.20 }
+  return { fill: '#6B7280', opacity: 0.12 }
 }
 
-function syntheticLeague(thresholds, n = 150) {
-  const { p25, p50, p75 } = thresholds
-  const sigma = (p75 - p25) / 1.35 || 1
-  const rand = seededRand(7919)
-  return Array.from({ length: n }, () => p50 + seededRandn(rand) * sigma)
+function pctColor(p) {
+  if (p == null) return 'rgb(var(--color-content-muted))'
+  if (p >= 85) return 'var(--color-stat-elite)'
+  if (p >= 65) return 'var(--color-stat-great)'
+  if (p >= 40) return 'var(--color-stat-avg)'
+  if (p >= 20) return 'var(--color-stat-below)'
+  return 'var(--color-stat-poor)'
 }
 
-// Column-bucketing beeswarm: stack dots per x-bucket
-function layoutBeeswarm(values, mapX, r, totalH) {
-  const buckets = {}
-  return values.map(v => {
-    const x = mapX(v)
-    const col = Math.round(x / (r * 2.3))
-    if (!buckets[col]) buckets[col] = 0
-    const idx = buckets[col]++
-    const dir = idx % 2 === 0 ? 1 : -1
-    const offset = Math.ceil(idx / 2) * r * 2.3 * dir
-    return { v, x, y: totalH / 2 + offset }
-  })
-}
-
-// Color a league dot by its percentile zone
-function dotColor(v, thresholds, invert) {
-  const { p10, p25, p75, p90 } = thresholds
-  const above = (threshold) => invert ? v <= threshold : v >= threshold
-  if (above(p90)) return '#DC2626'
-  if (above(p75)) return '#F97316'
-  if (!invert ? v < p10 : v > p90) return '#1D4ED8'
-  if (!invert ? v < p25 : v > p75) return '#3B82F6'
-  return '#6B7280'
-}
-
-const VB_W = 300
-const LANE_H = 60
-const LABEL_H = 20
-const VB_H = LANE_H + LABEL_H
+const VB_W = 320
+const VB_H = 68
 const PAD_X = 14
-const DOT_R = 2.8
-const PLAYER_R = 7
-
-// Percentile zone background regions
-const ZONE_BANDS = [
-  { fromKey: 'domainMin', toKey: 'p10',  color: '#1D4ED8', opacity: 0.10 },
-  { fromKey: 'p10',       toKey: 'p25',  color: '#3B82F6', opacity: 0.08 },
-  { fromKey: 'p25',       toKey: 'p75',  color: '#4B5563', opacity: 0.06 },
-  { fromKey: 'p75',       toKey: 'p90',  color: '#F97316', opacity: 0.08 },
-  { fromKey: 'p90',       toKey: 'domainMax', color: '#DC2626', opacity: 0.10 },
-]
+const TRACK_Y = 8
+const TRACK_H = 26
+const TRACK_R = 13
+const MARKER_R = 7
 
 const TICKS = [
-  { key: 'p10', label: '10th' },
-  { key: 'p25', label: '25th' },
-  { key: 'p50', label: '50th' },
-  { key: 'p75', label: '75th' },
-  { key: 'p90', label: '90th' },
+  { key: 'p10', label: '10' },
+  { key: 'p25', label: '25' },
+  { key: 'p50', label: '50' },
+  { key: 'p75', label: '75' },
+  { key: 'p90', label: '90' },
 ]
 
 export default function BeeswarmChart({ value, label, thresholds, invert = false, format }) {
-  if (value == null || !thresholds) return null
-
-  const { p10, p25, p50, p75, p90 } = thresholds
-  const domainMin = p10 - (p50 - p10) * 0.3
-  const domainMax = p90 + (p90 - p50) * 0.3
-  const domainKeys = { domainMin, p10, p25, p50, p75, p90, domainMax }
-
-  function mapX(v) {
-    return PAD_X + ((v - domainMin) / (domainMax - domainMin)) * (VB_W - PAD_X * 2)
+  if (value == null || !thresholds) {
+    return (
+      <div className="flex items-center justify-center h-16 text-content-muted text-xs">No percentile data</div>
+    )
   }
 
-  const leagueVals = useMemo(() => syntheticLeague(thresholds), [p25, p50, p75])
-  const dots = useMemo(
-    () => layoutBeeswarm(leagueVals, mapX, DOT_R, LANE_H),
-    [leagueVals, domainMin, domainMax]
-  )
+  const { p50 } = thresholds
+  const fmt = format ?? ((v) => (typeof v === 'number' ? v.toFixed(1) : v))
+  const percentile = approxPercentile(value, { ...thresholds, invert })
+  const numColor = pctColor(percentile)
 
-  const playerX = mapX(value)
-  const fmt = format ?? (v => (typeof v === 'number' ? v.toFixed(1) : v))
-  const playerColor = dotColor(value, thresholds, invert)
+  const thresholdPoints = TICKS.map(({ key, label: tickLabel }) => ({
+    key,
+    label: tickLabel,
+    value: thresholds[key],
+  }))
+  const sortedPoints = [...thresholdPoints].sort((a, b) => a.value - b.value)
+  const lowerGap = Math.max(Math.abs(sortedPoints[1].value - sortedPoints[0].value), 0.5)
+  const upperGap = Math.max(Math.abs(sortedPoints[sortedPoints.length - 1].value - sortedPoints[sortedPoints.length - 2].value), 0.5)
+  const domainMin = sortedPoints[0].value - lowerGap * 0.8
+  const domainMax = sortedPoints[sortedPoints.length - 1].value + upperGap * 0.8
+  const domainRange = domainMax - domainMin || 1
+  const markerValue = clamp(value, domainMin, domainMax)
+
+  function mapX(rawValue) {
+    return PAD_X + ((rawValue - domainMin) / domainRange) * (VB_W - PAD_X * 2)
+  }
+
+  const markerX = mapX(markerValue)
+  const bandEdges = [domainMin, ...thresholdPoints.map((point) => point.value), domainMax].sort((a, b) => a - b)
+  const bands = bandEdges.slice(0, -1).map((start, index) => {
+    const end = bandEdges[index + 1]
+    const mid = start + ((end - start) / 2)
+    const color = zoneColor(approxPercentile(mid, { ...thresholds, invert }) ?? 50)
+    return { start, end, ...color }
+  })
 
   return (
-    <div>
-      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full overflow-visible">
-        <defs>
-          <filter id="player-glow" x="-80%" y="-80%" width="260%" height="260%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-          <radialGradient id="player-fill" cx="40%" cy="35%" r="60%">
-            <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.9" />
-            <stop offset="100%" stopColor={playerColor} stopOpacity="1" />
-          </radialGradient>
-        </defs>
+    <div className="space-y-2">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xl font-bold font-mono" style={{ color: numColor }}>{fmt(value)}</span>
+          <span className="text-[11px] text-content-muted uppercase tracking-wider">{label}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-content-muted">Median {fmt(p50)}</span>
+          {percentile != null && (
+            <span
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ color: numColor, background: `color-mix(in oklch, ${numColor} 14%, transparent)` }}
+            >
+              {percentile}th
+            </span>
+          )}
+        </div>
+      </div>
 
-        {/* Zone background bands */}
-        {ZONE_BANDS.map((z, i) => {
-          const x1 = mapX(domainKeys[z.fromKey])
-          const x2 = mapX(domainKeys[z.toKey])
-          return (
-            <rect
-              key={i}
-              x={x1} y={0}
-              width={Math.max(0, x2 - x1)} height={LANE_H}
-              fill={z.color} fillOpacity={z.opacity}
-            />
-          )
-        })}
+      {/* Track */}
+      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full" role="img" aria-label={`${label} percentile distribution`}>
+        {/* Track background */}
+        <rect
+          x={PAD_X}
+          y={TRACK_Y}
+          width={VB_W - PAD_X * 2}
+          height={TRACK_H}
+          rx={TRACK_R}
+          fill="rgb(var(--color-bg-elevated))"
+          stroke="rgb(var(--color-bg-border))"
+          strokeWidth="0.5"
+        />
 
-        {/* League dots — colored by zone */}
-        {dots.map((pt, i) => (
-          <circle
-            key={i}
-            cx={pt.x}
-            cy={Math.max(DOT_R + 1, Math.min(LANE_H - DOT_R - 1, pt.y))}
-            r={DOT_R}
-            fill={dotColor(pt.v, thresholds, invert)}
-            fillOpacity={0.45}
+        {/* Zone color bands */}
+        {bands.map((band, index) => (
+          <rect
+            key={`${band.start}-${band.end}-${index}`}
+            x={mapX(band.start)}
+            y={TRACK_Y}
+            width={Math.max(mapX(band.end) - mapX(band.start), 0)}
+            height={TRACK_H}
+            fill={band.fill}
+            fillOpacity={band.opacity}
           />
         ))}
 
-        {/* Percentile tick lines */}
-        {TICKS.map(({ key, label: tlabel }) => (
-          <g key={key}>
-            <line
-              x1={mapX(domainKeys[key])} y1={0}
-              x2={mapX(domainKeys[key])} y2={LANE_H}
-              stroke="rgba(255,255,255,0.2)" strokeWidth="0.8" strokeDasharray="2 2"
-            />
-            <text
-              x={mapX(domainKeys[key])} y={LANE_H + 13}
-              textAnchor="middle" fontSize={6.5}
-              fill="rgba(255,255,255,0.3)" fontFamily="sans-serif"
-            >
-              {tlabel}
-            </text>
-          </g>
-        ))}
+        {/* Threshold tick marks + labels */}
+        {thresholdPoints.map((point) => {
+          const x = mapX(point.value)
+          return (
+            <g key={point.key}>
+              <line
+                x1={x} y1={TRACK_Y + 4}
+                x2={x} y2={TRACK_Y + TRACK_H - 4}
+                stroke="rgb(var(--color-bg-border-strong))"
+                strokeWidth="0.75"
+              />
+              <text
+                x={x}
+                y={TRACK_Y + TRACK_H + 13}
+                textAnchor="middle"
+                fontSize="8"
+                fill="rgb(var(--color-content-muted))"
+                fontFamily="sans-serif"
+              >
+                {point.label}
+              </text>
+            </g>
+          )
+        })}
 
-        {/* Player dot glow layer */}
+        {/* Marker — colored circle, no extending line */}
         <circle
-          cx={playerX} cy={LANE_H / 2}
-          r={PLAYER_R + 4}
-          fill={playerColor} fillOpacity={0.25}
-          filter="url(#player-glow)"
+          cx={markerX}
+          cy={TRACK_Y + TRACK_H / 2}
+          r={MARKER_R}
+          fill={numColor}
+          stroke="rgb(var(--color-bg-surface))"
+          strokeWidth="1.5"
         />
-        {/* Player dot */}
-        <circle
-          cx={playerX} cy={LANE_H / 2}
-          r={PLAYER_R}
-          fill="url(#player-fill)"
-          stroke="rgba(255,255,255,0.8)" strokeWidth="1.2"
-        />
-
-        {/* Player value label */}
-        <text
-          x={Math.max(22, Math.min(VB_W - 22, playerX))}
-          y={LANE_H + 13}
-          textAnchor="middle" fontSize={9.5}
-          fill={playerColor}
-          fontFamily="monospace" fontWeight="bold"
-        >
-          {fmt(value)}
-        </text>
       </svg>
-
-      <p className="text-[10px] text-content-muted text-center -mt-0.5 pb-1">
-        {label}
-      </p>
     </div>
   )
 }

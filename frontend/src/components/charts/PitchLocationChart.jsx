@@ -1,21 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { pitchColor } from '../../lib/pitchColors'
 
-// Baseball Savant pitch colors
-const PITCH_COLORS = {
-  FF: '#D22D49', SI: '#FE9D00', FC: '#933F2C',
-  SL: '#EEE716', ST: '#D2E338', CU: '#00D1ED',
-  KC: '#01C8E3', CH: '#1DBE3A', FS: '#3BACAC',
-  KN: '#9C9C9C', EP: '#5A5A5A',
-}
-function pitchColor(type) { return PITCH_COLORS[type] || '#9CA3AF' }
-
-// 5×5 zone grid boundaries (feet, catcher's perspective)
-// plate_x: negative = catcher's left = inside to RHB
-// plate_z: height from ground
 const X_BOUNDS = [-1.5, -0.71, -0.24, 0.24, 0.71, 1.5]
-const Z_BOUNDS = [4.2,   3.5,  2.83, 2.17,  1.5, 0.8]
+const Z_BOUNDS = [4.2, 3.5, 2.83, 2.17, 1.5, 0.8]
 
-// Inner 3×3 (rows 1–3, cols 1–3) = strike zone
 function inSZ(row, col) { return row >= 1 && row <= 3 && col >= 1 && col <= 3 }
 
 const SWING_SET = new Set([
@@ -24,21 +12,6 @@ const SWING_SET = new Set([
   'hit_into_play', 'hit_into_play_no_out', 'hit_into_play_score',
 ])
 const WHIFF_SET = new Set(['swinging_strike', 'swinging_strike_blocked'])
-
-// SVG coordinate space
-const VB_W = 200
-const VB_H = 248
-
-function mapX(px) {
-  return ((px - X_BOUNDS[0]) / (X_BOUNDS.at(-1) - X_BOUNDS[0])) * VB_W
-}
-function mapZ(pz) {
-  return 10 + ((Z_BOUNDS[0] - pz) / (Z_BOUNDS[0] - Z_BOUNDS.at(-1))) * 205
-}
-
-// Pre-compute zone boundary positions in SVG space
-const SX = X_BOUNDS.map(mapX)  // col dividers
-const SZ = Z_BOUNDS.map(mapZ)  // row dividers
 
 function buildGrid(pitches) {
   const g = Array.from({ length: 5 }, () =>
@@ -62,19 +35,57 @@ function buildGrid(pitches) {
   return g
 }
 
-function zoneFill(ratio, hex) {
-  if (ratio <= 0.005) return null
-  if (hex) {
-    const a = Math.round(Math.min(0.12 + ratio * 0.78, 0.9) * 255)
-    return hex + a.toString(16).padStart(2, '0')
-  }
-  // All-pitches heat: blue → red via HSL
-  const hue = Math.round(220 - ratio * 220)
-  return `hsla(${hue},80%,55%,${(0.12 + ratio * 0.73).toFixed(2)})`
+const CELL = 46
+
+// Catcher's perspective: negative px = left = RHP arm side / LHP glove side
+const HAND_LABELS = {
+  R: { left: 'Arm', right: 'Glove' },
+  L: { left: 'Glove', right: 'Arm' },
 }
 
-export default function PitchLocationChart({ locationData = [], pitchTypes = [] }) {
-  const [sel, setSel] = useState('all')
+// swing/whiff use fixed semantic colors; density uses the selected pitch color
+const METRIC_COLORS = {
+  swing: [251, 191, 36],
+  whiff: [239, 68, 68],
+}
+
+function hexToRgb(hex) {
+  const h = hex.replace('#', '')
+  const n = parseInt(h, 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+function cellColor(cell, metric, maxDensity, densityRgb) {
+  if (cell.n === 0) return 'transparent'
+
+  let intensity
+  if (metric === 'density') {
+    intensity = maxDensity > 0 ? cell.n / maxDensity : 0
+  } else if (metric === 'swing') {
+    intensity = cell.sw / cell.n
+  } else {
+    intensity = cell.sw > 0 ? cell.wh / cell.sw : 0
+  }
+
+  const [r, g, b] = metric === 'density' ? densityRgb : METRIC_COLORS[metric]
+  const alpha = intensity === 0 ? 0.06 : 0.12 + intensity * 0.8
+  return `rgba(${r}, ${g}, ${b}, ${Math.min(0.92, alpha)})`
+}
+
+function cellLabel(cell, metric) {
+  if (cell.n === 0) return ''
+  if (metric === 'density') return ''
+  if (metric === 'swing')   return cell.n > 0 ? `${Math.round(cell.sw / cell.n * 100)}%` : ''
+  return cell.sw > 0 ? `${Math.round(cell.wh / cell.sw * 100)}%` : ''
+}
+
+export default function PitchLocationChart({ locationData = [], pitchTypes = [], pitchHand }) {
+  const [sel, setSel]       = useState('all')
+  const [metric, setMetric] = useState('density')
+
+  useEffect(() => {
+    if (sel !== 'all' && !pitchTypes.some(pt => pt.type === sel)) setSel('all')
+  }, [pitchTypes, sel])
 
   const pitches = useMemo(
     () => (sel === 'all' ? locationData : locationData.filter(p => p.type === sel)),
@@ -83,36 +94,35 @@ export default function PitchLocationChart({ locationData = [], pitchTypes = [] 
 
   const grid = useMemo(() => buildGrid(pitches), [pitches])
 
-  const maxN = useMemo(() => {
+  const maxDensity = useMemo(() => {
     let m = 0
-    grid.forEach(row => row.forEach(z => { if (z.n > m) m = z.n }))
+    grid.forEach(row => row.forEach(c => { if (c.n > m) m = c.n }))
     return m
   }, [grid])
-
-  const hex = sel !== 'all' ? pitchColor(sel) : null
 
   const stats = useMemo(() => {
     let inZ = 0, total = 0, sw = 0, wh = 0
     grid.forEach((row, ri) => row.forEach((cell, ci) => {
       total += cell.n
-      sw += cell.sw
-      wh += cell.wh
+      sw    += cell.sw
+      wh    += cell.wh
       if (inSZ(ri, ci)) inZ += cell.n
     }))
     return {
       total,
       inZonePct: total > 0 ? Math.round(inZ / total * 100) : null,
-      whiffPct:  sw > 0    ? Math.round(wh / sw * 100) : null,
+      swingPct:  total > 0 ? Math.round(sw   / total * 100) : null,
+      whiffPct:  sw   > 0 ? Math.round(wh   / sw    * 100) : null,
     }
   }, [grid])
 
-  const avgPt = useMemo(() => {
-    if (!pitches.length) return null
-    return {
-      px: pitches.reduce((s, p) => s + p.px, 0) / pitches.length,
-      pz: pitches.reduce((s, p) => s + p.pz, 0) / pitches.length,
-    }
-  }, [pitches])
+  const handLabels  = HAND_LABELS[pitchHand] ?? null
+  const gridPx      = CELL * 5
+  // Use the selected pitch's color for density; fall back to neutral slate
+  const densityRgb  = useMemo(() => {
+    if (sel === 'all') return [100, 116, 139]  // slate-500 — neutral, fits both themes
+    return hexToRgb(pitchColor(sel))
+  }, [sel])
 
   if (!locationData.length) {
     return (
@@ -122,13 +132,8 @@ export default function PitchLocationChart({ locationData = [], pitchTypes = [] 
     )
   }
 
-  const szLeft = SX[1], szRight = SX[4], szTop = SZ[1], szBottom = SZ[4]
-  const szW = szRight - szLeft, szH = szBottom - szTop
-
-  const selPitchType = pitchTypes.find(p => p.type === sel)
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Pitch type filter */}
       <div className="flex flex-wrap gap-1">
         <button
@@ -145,12 +150,14 @@ export default function PitchLocationChart({ locationData = [], pitchTypes = [] 
           <button
             key={pt.type}
             onClick={() => setSel(sel === pt.type ? 'all' : pt.type)}
-            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium transition-all"
-            style={{
-              backgroundColor: sel === pt.type ? pitchColor(pt.type) + '28' : 'transparent',
-              color:            sel === pt.type ? pitchColor(pt.type) : '#6B7280',
-              outline:          sel === pt.type ? `1px solid ${pitchColor(pt.type)}55` : 'none',
-            }}
+            className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium transition-all ${
+              sel !== pt.type ? 'text-content-muted hover:text-content-secondary' : ''
+            }`}
+            style={sel === pt.type ? {
+              backgroundColor: pitchColor(pt.type) + '28',
+              color:           pitchColor(pt.type),
+              outline:         `1px solid ${pitchColor(pt.type)}55`,
+            } : undefined}
           >
             <span
               className="w-2 h-2 rounded-full shrink-0 inline-block"
@@ -161,162 +168,137 @@ export default function PitchLocationChart({ locationData = [], pitchTypes = [] 
         ))}
       </div>
 
-      <div className="flex gap-5 items-start">
-        {/* Zone heatmap */}
-        <svg
-          viewBox={`0 0 ${VB_W} ${VB_H}`}
-          className="w-44 shrink-0 block"
+      {/* Chart area */}
+      <div className="flex flex-col items-center gap-2">
+
+        {/* Header row: side labels + handedness badge */}
+        <div
+          className="flex items-center justify-between w-full"
+          style={{ maxWidth: gridPx + 88 }}
         >
-          <rect width={VB_W} height={VB_H} rx="4" fill="#0A0E14" />
-
-          {/* Zone cells — render before strike zone border so it sits on top */}
-          {grid.map((row, ri) =>
-            row.map((cell, ci) => {
-              const fill = zoneFill(maxN > 0 ? cell.n / maxN : 0, hex)
-              if (!fill) return null
-              return (
-                <rect
-                  key={`z${ri}${ci}`}
-                  x={SX[ci]} y={SZ[ri]}
-                  width={SX[ci + 1] - SX[ci]}
-                  height={SZ[ri + 1] - SZ[ri]}
-                  fill={fill}
-                  rx="1"
-                >
-                  <title>
-                    {cell.n} pitches
-                    {cell.sw > 0 ? ` · ${Math.round(cell.wh / cell.sw * 100)}% whiff` : ''}
-                  </title>
-                </rect>
-              )
-            })
-          )}
-
-          {/* Faint outer zone border */}
-          <rect
-            x={SX[0]} y={SZ[0]}
-            width={SX[5] - SX[0]} height={SZ[5] - SZ[0]}
-            fill="none"
-            stroke="rgba(255,255,255,0.08)"
-            strokeWidth="0.7"
-          />
-
-          {/* Strike zone border */}
-          <rect
-            x={szLeft} y={szTop} width={szW} height={szH}
-            fill="none"
-            stroke="rgba(255,255,255,0.65)"
-            strokeWidth="1.5"
-          />
-
-          {/* Inner 3×3 grid lines */}
-          {[2, 3].map(i => (
-            <line
-              key={`v${i}`}
-              x1={SX[i]} y1={szTop} x2={SX[i]} y2={szBottom}
-              stroke="rgba(255,255,255,0.22)" strokeWidth="0.7"
-            />
-          ))}
-          {[2, 3].map(i => (
-            <line
-              key={`h${i}`}
-              x1={szLeft} y1={SZ[i]} x2={szRight} y2={SZ[i]}
-              stroke="rgba(255,255,255,0.22)" strokeWidth="0.7"
-            />
-          ))}
-
-          {/* Pitch counts inside strike zone cells */}
-          {grid.map((row, ri) =>
-            row.map((cell, ci) => {
-              if (!inSZ(ri, ci) || cell.n === 0) return null
-              return (
-                <text
-                  key={`t${ri}${ci}`}
-                  x={(SX[ci] + SX[ci + 1]) / 2}
-                  y={(SZ[ri] + SZ[ri + 1]) / 2 + 4}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontFamily="monospace"
-                  fill="rgba(255,255,255,0.75)"
-                >
-                  {cell.n}
-                </text>
-              )
-            })
-          )}
-
-          {/* Average location marker */}
-          {avgPt && (
-            <circle
-              cx={mapX(avgPt.px)}
-              cy={mapZ(avgPt.pz)}
-              r="5"
-              fill={hex || 'white'}
-              fillOpacity="0.92"
-              stroke="#000"
-              strokeWidth="1.2"
-            />
-          )}
-
-          {/* Home plate indicator */}
-          <polygon
-            points={`${VB_W / 2 - 11},${VB_H - 7} ${VB_W / 2 + 11},${VB_H - 7} ${VB_W / 2 + 14},${VB_H - 17} ${VB_W / 2},${VB_H - 25} ${VB_W / 2 - 14},${VB_H - 17}`}
-            fill="rgba(255,255,255,0.55)"
-          />
-
-          {/* Perspective labels */}
-          <text x="2" y={VB_H - 3} fontSize="7.5" fill="rgba(255,255,255,0.35)" fontFamily="sans-serif">LHB side</text>
-          <text x={VB_W - 2} y={VB_H - 3} fontSize="7.5" fill="rgba(255,255,255,0.35)" fontFamily="sans-serif" textAnchor="end">RHB side</text>
-        </svg>
-
-        {/* Stats panel */}
-        <div className="flex-1 space-y-4 text-sm pt-1 min-w-0">
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-content-muted font-semibold mb-0.5">
-              {sel === 'all' ? 'All Pitches' : (selPitchType?.name || sel)}
-            </div>
-            <div className="text-3xl font-bold font-mono text-content-primary leading-none">{stats.total}</div>
-            <div className="text-[11px] text-content-muted mt-0.5">pitches</div>
+          <div className="w-10 text-center">
+            {handLabels && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted leading-tight block">
+                {handLabels.left}<br />Side
+              </span>
+            )}
           </div>
 
-          {stats.inZonePct != null && (
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-content-muted font-semibold">Zone%</div>
-              <div className="text-xl font-bold font-mono text-content-primary">{stats.inZonePct}%</div>
-            </div>
-          )}
+          <div className="flex flex-col items-center gap-0.5">
+            {pitchHand && (
+              <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                pitchHand === 'L'
+                  ? 'text-blue-400 bg-blue-400/10'
+                  : 'text-red-400  bg-red-400/10'
+              }`}>
+                {pitchHand === 'L' ? 'LHP' : 'RHP'}
+              </span>
+            )}
+            <span className="text-[10px] text-content-muted uppercase tracking-wider">
+              Catcher's view
+            </span>
+          </div>
 
-          {stats.whiffPct != null && (
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-content-muted font-semibold">Whiff%</div>
-              <div className="text-xl font-bold font-mono text-content-primary">{stats.whiffPct}%</div>
-            </div>
-          )}
-
-          {selPitchType && (
-            <div className="space-y-1 pt-2 border-t border-bg-border/40 text-[11px] text-content-muted">
-              {selPitchType.avgVelo  && <div>{selPitchType.avgVelo} mph avg velo</div>}
-              {selPitchType.avgSpin  && <div>{selPitchType.avgSpin} rpm spin</div>}
-              {selPitchType.usage    && <div>{selPitchType.usage}% usage</div>}
-            </div>
-          )}
-
-          {/* Color scale */}
-          <div>
-            <div className="text-[9px] text-content-muted mb-1">Density</div>
-            <div className="flex items-center gap-1.5">
-              <div
-                className="h-2.5 w-16 rounded-sm shrink-0"
-                style={{
-                  background: hex
-                    ? `linear-gradient(to right, transparent, ${hex})`
-                    : 'linear-gradient(to right, hsla(220,80%,55%,0.15), hsla(0,80%,55%,0.85))',
-                }}
-              />
-              <span className="text-[9px] text-content-muted">Low → High</span>
-            </div>
+          <div className="w-10 text-center">
+            {handLabels && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted leading-tight block">
+                {handLabels.right}<br />Side
+              </span>
+            )}
           </div>
         </div>
+
+        {/* Grid */}
+        <div className="relative" style={{ width: gridPx, height: gridPx }}>
+          {/* Strike zone outline */}
+          <div
+            className="absolute border-2 border-content-muted/30 pointer-events-none z-10"
+            style={{
+              left:   CELL,
+              top:    CELL,
+              width:  CELL * 3,
+              height: CELL * 3,
+            }}
+          />
+
+          {/* Cells */}
+          <div
+            className="absolute inset-0 grid"
+            style={{
+              gridTemplateColumns: `repeat(5, ${CELL}px)`,
+              gridTemplateRows:    `repeat(5, ${CELL}px)`,
+            }}
+          >
+            {grid.map((row, ri) =>
+              row.map((cell, ci) => {
+                const bg    = cellColor(cell, metric, maxDensity, densityRgb)
+                const label = cellLabel(cell, metric)
+                const sz    = inSZ(ri, ci)
+                return (
+                  <div
+                    key={`${ri}-${ci}`}
+                    title={`${cell.n} pitches · ${cell.sw} swings · ${cell.wh} whiffs`}
+                    className={`flex items-center justify-center ${sz ? '' : 'opacity-75'}`}
+                    style={{ backgroundColor: bg }}
+                  >
+                    {label !== '' && (
+                      <span className="text-[10px] font-mono font-semibold select-none text-content-primary">
+                        {label}
+                      </span>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Metric toggle */}
+        <div className="flex gap-1">
+          {[
+            { key: 'density', label: 'Density' },
+            { key: 'swing',   label: 'Swing%'  },
+            { key: 'whiff',   label: 'Whiff%'  },
+          ].map(m => (
+            <button
+              key={m.key}
+              onClick={() => setMetric(m.key)}
+              className={`text-[11px] px-2.5 py-1 rounded font-medium transition-colors ${
+                metric === m.key
+                  ? 'bg-bg-border text-content-primary'
+                  : 'text-content-muted hover:text-content-secondary'
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary stats */}
+      <div className="flex items-center justify-center gap-5 text-center">
+        <div>
+          <div className="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Total</div>
+          <div className="text-base font-semibold font-mono text-content-primary">{stats.total}<span className="text-[11px] font-normal text-content-muted ml-1">pitches</span></div>
+        </div>
+        {stats.inZonePct != null && (
+          <div>
+            <div className="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Zone%</div>
+            <div className="text-base font-semibold font-mono text-content-primary">{stats.inZonePct}%</div>
+          </div>
+        )}
+        {stats.swingPct != null && (
+          <div>
+            <div className="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Swing%</div>
+            <div className="text-base font-semibold font-mono text-content-primary">{stats.swingPct}%</div>
+          </div>
+        )}
+        {stats.whiffPct != null && (
+          <div>
+            <div className="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Whiff%</div>
+            <div className="text-base font-semibold font-mono text-content-primary">{stats.whiffPct}%</div>
+          </div>
+        )}
       </div>
     </div>
   )

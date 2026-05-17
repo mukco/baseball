@@ -3,37 +3,57 @@
 @tailwind utilities;
 
 :root {
-  --color-bg-base: 250 246 239;
-  --color-bg-surface: 255 252 246;
-  --color-bg-elevated: 246 239 228;
-  --color-bg-border: 226 214 194;
-
-  --color-content-primary: 14 26 43;
-  --color-content-secondary: 60 83 112;
-  --color-content-muted: 104 123 148;
+  /* Light surface tokens */
+  --color-bg-base:           250 250 252;
+  --color-bg-surface:        255 255 255;
+  --color-bg-elevated:       244 245 248;
+  --color-bg-raised:         234 236 242;
+  --color-bg-border:         228 231 237;
+  --color-bg-border-strong:  209 214 222;
+  --color-content-primary:   10 14 21;
+  --color-content-secondary: 71 82 98;
+  --color-content-muted:     128 138 153;
 
   --color-brand: 30 102 228;
   --color-brand-light: 76 145 248;
 
-  --color-stat-elite: 255 69 0;
-  --color-stat-great: 249 115 22;
-  --color-stat-avg: 156 163 175;
-  --color-stat-below: 96 165 250;
-  --color-stat-poor: 37 99 235;
+  /* Calmer stat ramp using oklch */
+  --color-stat-elite: oklch(58% 0.18 28);
+  --color-stat-great: oklch(62% 0.16 60);
+  --color-stat-avg:   oklch(60% 0.02 250);
+  --color-stat-below: oklch(58% 0.12 220);
+  --color-stat-poor:  oklch(50% 0.16 260);
+
+  /* Radius + shadow tokens (theme-agnostic) */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 [data-theme='dark'] {
-  --color-bg-base: 7 16 31;
-  --color-bg-surface: 13 26 45;
-  --color-bg-elevated: 20 34 54;
-  --color-bg-border: 28 48 80;
-
-  --color-content-primary: 232 237 245;
-  --color-content-secondary: 122 144 175;
-  --color-content-muted: 74 90 122;
+  --color-bg-base:           7 9 14;
+  --color-bg-surface:        14 17 24;
+  --color-bg-elevated:       22 27 36;
+  --color-bg-raised:         32 38 50;
+  --color-bg-border:         31 37 50;
+  --color-bg-border-strong:  49 57 73;
+  --color-content-primary:   232 236 243;
+  --color-content-secondary: 139 149 163;
+  --color-content-muted:     91 101 115;
 
   --color-brand: 37 99 235;
   --color-brand-light: 96 165 250;
+
+  --color-stat-elite: oklch(76% 0.18 28);
+  --color-stat-great: oklch(78% 0.14 60);
+  --color-stat-avg:   oklch(68% 0.02 250);
+  --color-stat-below: oklch(72% 0.10 220);
+  --color-stat-poor:  oklch(68% 0.14 260);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
@@ -51,6 +71,10 @@
 
   * {
     @apply border-bg-border;
+  }
+
+  .font-mono, code, kbd, pre {
+    font-variant-numeric: tabular-nums;
   }
 
   ::-webkit-scrollbar {
@@ -77,11 +101,21 @@
 
 @layer components {
   .card {
-    @apply bg-bg-surface rounded-xl border border-bg-border;
+    background: rgb(var(--color-bg-surface));
+    border: 1px solid rgb(var(--color-bg-border));
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
   }
 
   .card-elevated {
-    @apply bg-bg-elevated rounded-xl border border-bg-border;
+    @apply bg-bg-elevated border border-bg-border;
+    border-radius: var(--radius-lg);
+  }
+
+  .card-raised {
+    background: rgb(var(--color-bg-elevated));
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
   }
 
   .stat-value {
@@ -93,28 +127,53 @@
   }
 
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150;
+    @apply px-4 py-2 font-medium text-sm transition-all duration-150;
+    border-radius: var(--radius-md);
   }
 
   .btn-primary {
     @apply btn bg-brand text-white hover:bg-brand-light;
+    border-radius: var(--radius-md);
   }
 
   .btn-ghost {
     @apply btn text-content-secondary hover:text-content-primary hover:bg-bg-elevated;
+    border-radius: var(--radius-md);
   }
 
   .tab {
-    @apply px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 cursor-pointer;
+    @apply transition-colors duration-150 cursor-pointer;
   }
 
   .tab-active {
-    @apply tab bg-brand text-white;
+    @apply text-content-primary text-[13px] font-medium px-[18px] py-3 border-b-2 border-brand transition-colors cursor-pointer;
   }
 
   .tab-inactive {
-    @apply tab text-content-secondary hover:text-content-primary hover:bg-bg-elevated;
+    @apply text-content-secondary text-[13px] font-medium px-[18px] py-3 border-b-2 border-transparent hover:text-content-primary transition-colors cursor-pointer;
   }
+
+  /* Markdown cell rendered output */
+  .sandbox-md { @apply text-sm text-content-primary leading-relaxed; }
+  .sandbox-md h1 { @apply text-xl font-bold text-content-primary mt-4 mb-2; }
+  .sandbox-md h2 { @apply text-lg font-semibold text-content-primary mt-3 mb-2; }
+  .sandbox-md h3 { @apply text-base font-semibold text-content-secondary mt-2 mb-1; }
+  .sandbox-md p  { @apply text-content-secondary mb-2; }
+  .sandbox-md ul { @apply list-disc pl-5 mb-2 text-content-secondary space-y-0.5; }
+  .sandbox-md ol { @apply list-decimal pl-5 mb-2 text-content-secondary space-y-0.5; }
+  .sandbox-md li { @apply text-sm; }
+  .sandbox-md a  { @apply text-brand-light underline hover:text-content-primary; }
+  .sandbox-md strong { @apply font-semibold text-content-primary; }
+  .sandbox-md em { @apply italic text-content-secondary; }
+  .sandbox-md code { @apply font-mono text-xs bg-bg-elevated px-1.5 py-0.5 rounded text-brand-light; }
+  .sandbox-md pre { @apply bg-bg-elevated rounded-lg p-3 mb-2 overflow-x-auto; }
+  .sandbox-md pre code { @apply bg-transparent px-0 py-0 text-content-secondary; }
+  .sandbox-md blockquote { @apply border-l-2 border-brand/40 pl-3 text-content-muted italic my-2; }
+  .sandbox-md hr { @apply border-bg-border my-4; }
+  .sandbox-md table { @apply w-full text-xs border-collapse mb-2; }
+  .sandbox-md th { @apply text-left px-2 py-1.5 border border-bg-border bg-bg-elevated text-content-secondary font-medium; }
+  .sandbox-md td { @apply px-2 py-1.5 border border-bg-border text-content-secondary; }
+  .sandbox-md tr:nth-child(even) td { @apply bg-bg-elevated/40; }
 
   .sandbox-editor {
     @apply border;
@@ -145,7 +204,7 @@
 
   .news-headline {
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-    @apply text-xl md:text-2xl leading-tight text-content-primary;
+    @apply text-2xl md:text-3xl leading-tight font-semibold text-content-primary;
   }
 
   .news-summary {
@@ -164,7 +223,9 @@
   .bg-bg-base\/90 { background-color: rgb(var(--color-bg-base) / 0.9) !important; }
   .bg-bg-surface { background-color: rgb(var(--color-bg-surface)) !important; }
   .bg-bg-elevated { background-color: rgb(var(--color-bg-elevated)) !important; }
+  .bg-bg-raised { background-color: rgb(var(--color-bg-raised)) !important; }
   .bg-bg-border { background-color: rgb(var(--color-bg-border)) !important; }
+  .bg-bg-border-strong { background-color: rgb(var(--color-bg-border-strong)) !important; }
   .bg-brand { background-color: rgb(var(--color-brand)) !important; }
   .bg-brand-light { background-color: rgb(var(--color-brand-light)) !important; }
 
@@ -175,6 +236,7 @@
   .text-brand-light { color: rgb(var(--color-brand-light)) !important; }
 
   .border-bg-border { border-color: rgb(var(--color-bg-border)) !important; }
+  .border-bg-border-strong { border-color: rgb(var(--color-bg-border-strong)) !important; }
   .border-brand { border-color: rgb(var(--color-brand)) !important; }
 
   .placeholder-content-muted::placeholder { color: rgb(var(--color-content-muted)) !important; }
@@ -188,3 +250,431 @@
   .focus\:border-brand:focus { border-color: rgb(var(--color-brand)) !important; }
   .focus-within\:border-brand:focus-within { border-color: rgb(var(--color-brand)) !important; }
 }
+
+/* ─── react-pivottable: full dark theme ─────────────────────────────────── */
+.pvt-sandbox {
+  font-size: 12px;
+  font-family: inherit;
+  color: rgb(var(--color-content-primary));
+}
+
+/* Layout table */
+.pvt-sandbox table.pvtUi {
+  border-collapse: separate !important;
+  border-spacing: 6px !important;
+  background: transparent !important;
+  width: 100%;
+}
+.pvt-sandbox table.pvtUi td {
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  vertical-align: top;
+}
+
+/* Renderer selector — hidden because we lock to Table view */
+.pvt-sandbox .pvtRenderers {
+  display: none !important;
+}
+
+/* Field pool (unused attributes) */
+.pvt-sandbox .pvtAxisContainer.pvtUnused {
+  background: rgb(var(--color-bg-raised)) !important;
+  border: 1px dashed rgb(var(--color-bg-border-strong)) !important;
+  border-radius: 8px !important;
+  padding: 6px 8px !important;
+  min-height: 36px !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 3px !important;
+  align-items: flex-start !important;
+  align-content: flex-start !important;
+}
+
+/* Active drop zones */
+.pvt-sandbox .pvtAxisContainer:not(.pvtUnused),
+.pvt-sandbox .pvtVals {
+  background: rgb(var(--color-bg-elevated)) !important;
+  border: 1px solid rgb(var(--color-bg-border)) !important;
+  border-radius: 8px !important;
+  padding: 6px 8px !important;
+  min-height: 44px !important;
+  min-width: 90px !important;
+}
+.pvt-sandbox .pvtAxisContainer:not(.pvtUnused):hover,
+.pvt-sandbox .pvtVals:hover {
+  border-color: rgb(var(--color-bg-border-strong)) !important;
+  background: rgb(var(--color-bg-raised)) !important;
+}
+
+/* Zone labels */
+.pvt-sandbox .pvtAxisLabel {
+  font-size: 9px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.07em !important;
+  color: rgb(var(--color-content-muted)) !important;
+  font-weight: 700 !important;
+  display: block;
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+/* Field pills — shared base */
+.pvt-sandbox .pvtAxisContainer li {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 2px 0 !important;
+}
+.pvt-sandbox .pvtAxisContainer li span.pvtAttr {
+  background: rgb(var(--color-bg-surface)) !important;
+  border: 1px solid rgb(var(--color-bg-border-strong)) !important;
+  border-radius: 5px !important;
+  color: rgb(var(--color-content-secondary)) !important;
+  font-size: 11px !important;
+  padding: 2px 7px !important;
+  cursor: grab !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px;
+  white-space: nowrap !important;
+  transition: background 0.1s, border-color 0.1s;
+}
+.pvt-sandbox .pvtAxisContainer li span.pvtAttr:hover {
+  background: rgb(var(--color-bg-border)) !important;
+  color: rgb(var(--color-content-primary)) !important;
+}
+/* Pills in active zones get an accent border */
+.pvt-sandbox .pvtAxisContainer:not(.pvtUnused) li span.pvtAttr,
+.pvt-sandbox .pvtVals li span.pvtAttr {
+  background: rgba(var(--color-brand), 0.08) !important;
+  border-color: rgba(var(--color-brand), 0.35) !important;
+  color: rgb(var(--color-brand-light)) !important;
+}
+.pvt-sandbox .pvtAxisContainer:not(.pvtUnused) li span.pvtAttr:hover,
+.pvt-sandbox .pvtVals li span.pvtAttr:hover {
+  background: rgba(var(--color-brand), 0.18) !important;
+  border-color: rgba(var(--color-brand), 0.55) !important;
+}
+
+/* Triangle (filter toggle on pill) */
+.pvt-sandbox .pvtTriangle {
+  color: rgb(var(--color-content-muted)) !important;
+  font-size: 8px !important;
+  opacity: 0.7;
+}
+
+/* Filtered pill accent */
+.pvt-sandbox .pvtFilteredAttribute span.pvtAttr {
+  background: rgba(var(--color-brand), 0.2) !important;
+  border-color: rgba(var(--color-brand), 0.5) !important;
+  color: rgb(var(--color-brand-light)) !important;
+}
+
+/* ── Custom Dropdown (aggregator selector) ──────────────────────────────── */
+.pvt-sandbox .pvtDropdown {
+  position: relative !important;
+  display: inline-block !important;
+}
+.pvt-sandbox .pvtDropdownValue {
+  background: rgb(var(--color-bg-raised)) !important;
+  border: 1px solid rgb(var(--color-bg-border-strong)) !important;
+  border-radius: 6px !important;
+  color: rgb(var(--color-content-primary)) !important;
+  font-size: 11px !important;
+  padding: 3px 22px 3px 8px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px;
+  transition: border-color 0.1s;
+}
+.pvt-sandbox .pvtDropdownCurrent:hover,
+.pvt-sandbox .pvtDropdownCurrentOpen {
+  border-color: rgb(var(--color-brand)) !important;
+}
+.pvt-sandbox .pvtDropdownIcon {
+  position: absolute !important;
+  right: 6px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  font-size: 8px !important;
+  color: rgb(var(--color-content-muted)) !important;
+  pointer-events: none !important;
+}
+.pvt-sandbox .pvtDropdownMenu {
+  position: absolute !important;
+  top: calc(100% + 3px) !important;
+  left: 0 !important;
+  min-width: 100% !important;
+  background: rgb(var(--color-bg-surface)) !important;
+  border: 1px solid rgb(var(--color-bg-border-strong)) !important;
+  border-radius: 7px !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35) !important;
+  padding: 3px !important;
+  z-index: 9999 !important;
+  overflow: hidden !important;
+}
+.pvt-sandbox .pvtDropdownMenu .pvtDropdownValue {
+  border: none !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  color: rgb(var(--color-content-secondary)) !important;
+  display: block !important;
+  width: 100% !important;
+  cursor: pointer !important;
+}
+.pvt-sandbox .pvtDropdownMenu .pvtDropdownValue:hover {
+  background: rgb(var(--color-bg-elevated)) !important;
+  color: rgb(var(--color-content-primary)) !important;
+}
+.pvt-sandbox .pvtDropdownMenu .pvtDropdownActiveValue {
+  background: rgba(var(--color-brand), 0.12) !important;
+  color: rgb(var(--color-brand-light)) !important;
+  font-weight: 600 !important;
+}
+
+/* Row / col sort order buttons */
+.pvt-sandbox .pvtRowOrder,
+.pvt-sandbox .pvtColOrder {
+  cursor: pointer !important;
+  color: rgb(var(--color-content-muted)) !important;
+  font-size: 10px !important;
+  padding: 0 4px !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: 0.7;
+}
+.pvt-sandbox .pvtRowOrder:hover,
+.pvt-sandbox .pvtColOrder:hover {
+  color: rgb(var(--color-content-primary)) !important;
+  opacity: 1;
+}
+
+/* Aggregator value input (e.g. percentile input) */
+.pvt-sandbox input[type="text"] {
+  background: rgb(var(--color-bg-raised)) !important;
+  border: 1px solid rgb(var(--color-bg-border-strong)) !important;
+  border-radius: 6px !important;
+  color: rgb(var(--color-content-primary)) !important;
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  outline: none !important;
+  width: 50px;
+}
+.pvt-sandbox input[type="text"]:focus {
+  border-color: rgb(var(--color-brand)) !important;
+}
+
+/* ── Pivot output table ──────────────────────────────────────────────────── */
+.pvt-sandbox table.pvtTable {
+  border-collapse: collapse !important;
+  font-size: 12px !important;
+  width: auto;
+  min-width: 300px;
+}
+
+.pvt-sandbox table.pvtTable th {
+  background: rgb(var(--color-bg-elevated)) !important;
+  border: 1px solid rgb(var(--color-bg-border)) !important;
+  color: rgb(var(--color-content-secondary)) !important;
+  font-weight: 600 !important;
+  padding: 5px 14px !important;
+  white-space: nowrap !important;
+  text-align: left !important;
+  font-size: 11px !important;
+  letter-spacing: 0.02em;
+}
+.pvt-sandbox table.pvtTable .pvtColLabel,
+.pvt-sandbox table.pvtTable .pvtRowLabel {
+  color: rgb(var(--color-content-primary)) !important;
+  font-weight: 600 !important;
+}
+
+.pvt-sandbox table.pvtTable td {
+  background: rgb(var(--color-bg-surface)) !important;
+  border: 1px solid rgba(var(--color-bg-border), 0.6) !important;
+  color: rgb(var(--color-content-secondary)) !important;
+  font-family: ui-monospace, 'Cascadia Code', monospace !important;
+  padding: 4px 14px !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+.pvt-sandbox table.pvtTable td.pvtVal:hover {
+  background: rgb(var(--color-bg-elevated)) !important;
+  color: rgb(var(--color-content-primary)) !important;
+}
+
+/* Totals row/col */
+.pvt-sandbox .pvtTotal,
+.pvt-sandbox .pvtGrandTotal {
+  background: rgb(var(--color-bg-elevated)) !important;
+  color: rgb(var(--color-brand-light)) !important;
+  font-weight: 700 !important;
+  border-top: 2px solid rgb(var(--color-bg-border-strong)) !important;
+}
+.pvt-sandbox .pvtTotalLabel {
+  background: rgb(var(--color-bg-elevated)) !important;
+  color: rgb(var(--color-content-muted)) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  font-weight: 600 !important;
+  text-align: right !important;
+}
+
+/* ── Filter modal ────────────────────────────────────────────────────────── */
+.pvt-sandbox .pvtFilterBox {
+  background: rgb(var(--color-bg-surface)) !important;
+  border: 1px solid rgb(var(--color-bg-border-strong)) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+  color: rgb(var(--color-content-primary)) !important;
+  padding: 12px !important;
+  z-index: 9999 !important;
+  min-width: 180px;
+}
+.pvt-sandbox .pvtFilterBox input[type="text"] {
+  width: 100% !important;
+  margin-bottom: 8px;
+}
+.pvt-sandbox .pvtFilterBox .pvtSearch {
+  background: rgb(var(--color-bg-raised)) !important;
+  border: 1px solid rgb(var(--color-bg-border-strong)) !important;
+  border-radius: 6px !important;
+  color: rgb(var(--color-content-primary)) !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  outline: none !important;
+  width: 100% !important;
+  margin-bottom: 6px;
+  box-sizing: border-box !important;
+}
+.pvt-sandbox .pvtFilterBox .pvtSearch:focus {
+  border-color: rgb(var(--color-brand)) !important;
+}
+.pvt-sandbox .pvtFilterBox label {
+  color: rgb(var(--color-content-secondary)) !important;
+  font-size: 11px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.pvt-sandbox .pvtFilterBox label:hover {
+  color: rgb(var(--color-content-primary)) !important;
+}
+.pvt-sandbox .pvtFilterBox input[type="checkbox"] {
+  accent-color: rgb(var(--color-brand));
+}
+.pvt-sandbox .pvtButton {
+  background: rgb(var(--color-brand)) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+  margin-top: 6px;
+  margin-right: 4px;
+}
+.pvt-sandbox .pvtButton:hover {
+  opacity: 0.85;
+}
+.pvt-sandbox .pvtCloseX {
+  cursor: pointer !important;
+  color: rgb(var(--color-content-muted)) !important;
+  float: right !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+}
+.pvt-sandbox .pvtCloseX:hover {
+  color: rgb(var(--color-content-primary)) !important;
+}
+.pvt-sandbox .pvtCheckContainer {
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  margin: 4px 0;
+}
+.pvt-sandbox .pvtOnly {
+  color: rgb(var(--color-brand-light)) !important;
+  font-size: 10px !important;
+  cursor: pointer !important;
+  opacity: 0;
+  margin-left: 2px;
+}
+.pvt-sandbox label:hover .pvtOnly {
+  opacity: 1;
+}
+
+/* ── CodeMirror SQL editor ─────────────────────────────────────────────────── */
+
+/* Remove the white flash from default CM background */
+.sandbox-cm-editor .cm-editor {
+  background: #0F1117 !important;
+}
+.sandbox-cm-editor .cm-focused {
+  outline: none !important;
+}
+.sandbox-cm-editor .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.6;
+  padding: 10px 12px;
+  min-height: 80px;
+}
+
+/* Autocomplete tooltip */
+.cm-tooltip {
+  background: #161B24 !important;
+  border: 1px solid #1F2532 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+  overflow: hidden;
+}
+.cm-tooltip-autocomplete ul {
+  max-height: 260px !important;
+}
+.cm-tooltip-autocomplete ul li {
+  padding: 5px 10px !important;
+  color: #8B95A3 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cm-tooltip-autocomplete ul li[aria-selected] {
+  background: #6366F125 !important;
+  color: #E8ECF3 !important;
+}
+.cm-tooltip-autocomplete ul li:hover {
+  background: #1F2532 !important;
+}
+.cm-completionLabel {
+  color: #E8ECF3;
+}
+.cm-completionDetail {
+  color: #5B6573 !important;
+  font-size: 11px !important;
+  margin-left: auto;
+  padding-left: 8px;
+}
+/* Info popup (column description on hover) */
+.cm-completionInfo {
+  background: #161B24 !important;
+  border: 1px solid #1F2532 !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  color: #8B95A3 !important;
+  font-size: 12px !important;
+  max-width: 280px;
+  line-height: 1.5;
+}
+/* Completion type icons color */
+.cm-completionIcon-variable { color: #818CF8 !important; }
+.cm-completionIcon-type     { color: #67E8F9 !important; }
+.cm-completionIcon-function { color: #F472B6 !important; }
+.cm-completionIcon-keyword  { color: #818CF8 !important; }

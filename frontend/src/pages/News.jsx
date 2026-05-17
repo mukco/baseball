@@ -95,14 +95,59 @@ function TeamChips({ teams = [] }) {
   )
 }
 
-// Grid card
+// Compact list row — used in "All Sources" view
+function NewsListItem({ item }) {
+  const hasMentions = (item.mentions?.length || 0) + (item.teamMentions?.length || 0) > 0
+
+  return (
+    <article className="relative flex gap-3 items-start py-3.5 border-b border-bg-border/50 last:border-0 group">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <SourceTag sourceKey={item.sourceKey} source={item.source} />
+          <span className="text-[11px] text-content-muted">{relativeTime(item.publishedAt)}</span>
+        </div>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="after:absolute after:inset-0 after:content-['']"
+        >
+          <h3 className="text-sm font-medium text-content-primary leading-snug line-clamp-2 group-hover:text-brand transition-colors">
+            {item.title}
+          </h3>
+        </a>
+        {item.summary && (
+          <p className="text-xs text-content-muted leading-relaxed mt-0.5 line-clamp-1">{item.summary}</p>
+        )}
+        {hasMentions && (
+          <div className="relative z-10 mt-1.5 flex flex-wrap gap-1">
+            <TeamChips teams={item.teamMentions} />
+            <PlayerChips mentions={item.mentions} />
+          </div>
+        )}
+      </div>
+      {item.imageUrl && (
+        <div className="w-24 h-16 shrink-0 rounded overflow-hidden bg-bg-elevated">
+          <img
+            src={item.imageUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
+          />
+        </div>
+      )}
+    </article>
+  )
+}
+
+// Grid card — used in per-source views
 function NewsCard({ item }) {
   const hasMentions = (item.mentions?.length || 0) + (item.teamMentions?.length || 0) > 0
 
   return (
     <article className="relative card overflow-hidden flex flex-col group hover:border-brand transition-colors h-full">
       {item.imageUrl && (
-        <div className="w-full aspect-video overflow-hidden bg-bg-elevated shrink-0">
+        <div className="w-full h-44 overflow-hidden bg-bg-elevated shrink-0">
           <img
             src={item.imageUrl}
             alt=""
@@ -171,23 +216,23 @@ export default function News() {
   }, [items, query])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 py-10">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-content-primary">Baseball News Wire</h1>
-          <p className="text-sm text-content-muted mt-0.5">MLB.com · FanGraphs · MLB Trade Rumors · r/baseball</p>
+          <h1 className="text-[32px] font-semibold tracking-[-0.02em] text-content-primary">Baseball News Wire</h1>
+          <p className="text-sm text-content-muted mt-1">MLB.com · FanGraphs · MLB Trade Rumors · r/baseball</p>
         </div>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search headlines..."
-          className="bg-bg-elevated border border-bg-border text-content-primary text-sm rounded-lg px-3 py-2 outline-none focus:border-brand w-full sm:w-72"
+          className="bg-bg-elevated border border-bg-border text-content-primary text-sm rounded-md px-3 py-2 outline-none focus:border-brand w-full sm:w-72"
         />
       </div>
 
       {/* Source tabs */}
-      <div className="flex items-center gap-1 bg-bg-surface border border-bg-border rounded-xl p-1 w-fit overflow-x-auto">
+      <div className="flex items-center border-b border-bg-border w-fit overflow-x-auto">
         {TOPICS.map((t) => (
           <button
             key={t.id}
@@ -212,11 +257,19 @@ export default function News() {
 
       {/* Content */}
       {!isLoading && !error && filtered.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((item) => (
-            <NewsCard key={item.id} item={item} />
-          ))}
-        </div>
+        topic === 'all' ? (
+          <div className="card px-4 divide-y-0">
+            {filtered.map((item) => (
+              <NewsListItem key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filtered.map((item) => (
+              <NewsCard key={item.id} item={item} />
+            ))}
+          </div>
+        )
       )}
     </div>
   )

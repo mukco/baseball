@@ -70,12 +70,12 @@ function TeamRow({ team, showWcGb = false }) {
   const gbDisplay = !gb || gb === '-' || gb === '0' || gb === 0 ? '—' : gb
 
   const streakCode = team.streak || ''
-  const streakNum = streakCode.slice(1)
-  const streakColor = streakCode.startsWith('W') ? 'text-green-400' : 'text-red-400'
+  const isWinStreak = streakCode.startsWith('W')
+  const isLossStreak = streakCode.startsWith('L')
 
   return (
-    <tr className="border-b border-bg-border/60 last:border-0 hover:bg-bg-elevated/40 transition-colors">
-      <td className="py-1.5 pl-2 pr-1">
+    <tr className="border-b border-bg-border last:border-0 hover:bg-bg-elevated transition-colors duration-100">
+      <td className="py-3 pl-3 pr-2">
         <Link to={`/team/${team.teamId}`} className="flex items-center gap-2 min-w-0">
           <img
             src={`https://www.mlbstatic.com/team-logos/${team.teamId}.svg`}
@@ -83,20 +83,30 @@ function TeamRow({ team, showWcGb = false }) {
             className="w-5 h-5 object-contain shrink-0"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
           />
-          <span className="text-xs font-medium text-content-primary truncate">
+          <span className="text-[14px] font-medium text-content-primary truncate">
             {team.teamAbbr}
             {team.clinched && <span className="ml-1 text-[10px] text-green-400 font-semibold">x</span>}
           </span>
         </Link>
       </td>
-      <td className="py-1.5 px-1 text-right text-xs font-mono text-content-primary">{team.wins}</td>
-      <td className="py-1.5 px-1 text-right text-xs font-mono text-content-muted">{team.losses}</td>
-      <td className="py-1.5 px-1 text-right text-xs font-mono text-content-muted hidden sm:table-cell">{team.pct}</td>
-      <td className="py-1.5 px-1 text-right text-xs font-mono text-content-muted">{gbDisplay}</td>
-      <td className={`py-1.5 px-1 text-right text-xs font-mono hidden md:table-cell ${streakCode ? streakColor : 'text-content-muted'}`}>
-        {streakCode || '—'}
+      <td className="py-3 px-1 text-right text-[14px] font-mono text-content-primary">{team.wins}</td>
+      <td className="py-3 px-1 text-right text-[14px] font-mono text-content-muted">{team.losses}</td>
+      <td className="py-3 px-1 text-right text-[14px] font-mono text-content-muted hidden sm:table-cell">{team.pct}</td>
+      <td className="py-3 px-1 text-right text-[14px] font-mono text-content-muted">{gbDisplay}</td>
+      <td className="py-3 px-1 text-right text-[14px] font-mono hidden md:table-cell">
+        {streakCode ? (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-semibold ${
+              isWinStreak ? 'text-green-400 bg-green-400/10' : isLossStreak ? 'text-red-400 bg-red-400/10' : 'text-content-muted'
+            }`}
+          >
+            {streakCode}
+          </span>
+        ) : (
+          <span className="text-content-muted">—</span>
+        )}
       </td>
-      <td className="py-1.5 pl-1 pr-2 text-right text-xs font-mono text-content-muted hidden lg:table-cell">
+      <td className="py-3 pl-1 pr-3 text-right text-[14px] font-mono text-content-muted hidden lg:table-cell">
         {team.lastTen || '—'}
       </td>
     </tr>
@@ -116,14 +126,14 @@ function DivisionTable({ division }) {
       </div>
       <table className="w-full">
         <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-content-muted border-b border-bg-border">
-            <SortHeader label="Team" sortKey="team" sort={sort} onSort={toggle} className="text-left py-1.5 pl-2 pr-1 font-medium" />
-            <SortHeader label="W" sortKey="wins" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium" />
-            <SortHeader label="L" sortKey="losses" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium" />
-            <SortHeader label="PCT" sortKey="pct" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium hidden sm:table-cell" />
-            <SortHeader label="GB" sortKey="gb" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium" />
-            <SortHeader label="STK" sortKey="streak" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium hidden md:table-cell" />
-            <SortHeader label="L10" sortKey="lastTen" sort={sort} onSort={toggle} className="text-right py-1.5 pl-1 pr-2 font-medium hidden lg:table-cell" />
+          <tr className="text-[11px] uppercase tracking-[0.08em] text-content-muted border-b border-bg-border">
+            <SortHeader label="Team" sortKey="team" sort={sort} onSort={toggle} className="text-left py-3 pl-3 pr-2 font-semibold" />
+            <SortHeader label="W" sortKey="wins" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold" />
+            <SortHeader label="L" sortKey="losses" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold" />
+            <SortHeader label="PCT" sortKey="pct" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold hidden sm:table-cell" />
+            <SortHeader label="GB" sortKey="gb" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold" />
+            <SortHeader label="STK" sortKey="streak" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold hidden md:table-cell" />
+            <SortHeader label="L10" sortKey="lastTen" sort={sort} onSort={toggle} className="text-right py-3 pl-1 pr-3 font-semibold hidden lg:table-cell" />
           </tr>
         </thead>
         <tbody>
@@ -149,14 +159,14 @@ function WildCardTable({ leagueName, teams }) {
       </div>
       <table className="w-full">
         <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-content-muted border-b border-bg-border">
-            <SortHeader label="Team" sortKey="team" sort={sort} onSort={toggle} className="text-left py-1.5 pl-2 pr-1 font-medium" />
-            <SortHeader label="W" sortKey="wins" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium" />
-            <SortHeader label="L" sortKey="losses" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium" />
-            <SortHeader label="PCT" sortKey="pct" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium hidden sm:table-cell" />
-            <SortHeader label="GB" sortKey="gb" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium" />
-            <SortHeader label="STK" sortKey="streak" sort={sort} onSort={toggle} className="text-right py-1.5 px-1 font-medium hidden md:table-cell" />
-            <SortHeader label="L10" sortKey="lastTen" sort={sort} onSort={toggle} className="text-right py-1.5 pl-1 pr-2 font-medium hidden lg:table-cell" />
+          <tr className="text-[11px] uppercase tracking-[0.08em] text-content-muted border-b border-bg-border">
+            <SortHeader label="Team" sortKey="team" sort={sort} onSort={toggle} className="text-left py-3 pl-3 pr-2 font-semibold" />
+            <SortHeader label="W" sortKey="wins" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold" />
+            <SortHeader label="L" sortKey="losses" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold" />
+            <SortHeader label="PCT" sortKey="pct" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold hidden sm:table-cell" />
+            <SortHeader label="GB" sortKey="gb" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold" />
+            <SortHeader label="STK" sortKey="streak" sort={sort} onSort={toggle} className="text-right py-3 px-1 font-semibold hidden md:table-cell" />
+            <SortHeader label="L10" sortKey="lastTen" sort={sort} onSort={toggle} className="text-right py-3 pl-1 pr-3 font-semibold hidden lg:table-cell" />
           </tr>
         </thead>
         <tbody>

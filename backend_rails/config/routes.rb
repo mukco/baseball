@@ -18,16 +18,22 @@ Rails.application.routes.draw do
     get "games/:game_pk/insights",          to: "games#insights"
     get "games/:game_pk/factoids",          to: "games#factoids"
     get "games/:game_pk/win_probability",   to: "games#win_probability"
+    get "games/:game_pk/picks",             to: "games#picks"
 
     # Players
-    get "players/search",       to: "players#search"
-    get "players/:id",          to: "players#show"
-    get "players/:id/factoids", to: "players#factoids"
+    get "players/search",            to: "players#search"
+    get "players/:id",               to: "players#show"
+    get "players/:id/factoids",      to: "players#factoids"
+    get "players/:id/fantasy",       to: "players#fantasy"
+    get "players/:id/hover_stats",   to: "players#hover_stats"
 
     # Teams
-    get "teams",              to: "teams#index"
-    get "teams/:id",          to: "teams#show"
-    get "teams/:id/factoids", to: "teams#factoids"
+    get "teams",                  to: "teams#index"
+    get "teams/:id",              to: "teams#show"
+    get "teams/:id/factoids",     to: "teams#factoids"
+    get "teams/:id/stats",        to: "teams#stats"
+    get "teams/:id/game_log",     to: "teams#game_log"
+    get "teams/:id/history",      to: "teams#history"
 
     # Stats
     get "stats/:id/season",                to: "stats#season"
@@ -40,6 +46,7 @@ Rails.application.routes.draw do
     # Leaderboards
     get "leaderboards/batting",            to: "leaderboards#batting"
     get "leaderboards/pitching",           to: "leaderboards#pitching"
+    get "leaderboards/teams",              to: "leaderboards#teams"
 
     # Daily Summary
     get "daily_summary",                   to: "daily_summary#show"
@@ -48,10 +55,48 @@ Rails.application.routes.draw do
     get "news",                            to: "news#index"
 
     # Sandbox
-    get "sandbox/datasets",                to: "sandbox#datasets"
+    get  "sandbox/datasets",               to: "sandbox#datasets"
     post "sandbox/query",                  to: "sandbox#query"
+    post "sandbox/refresh",                to: "sandbox#refresh"
 
     # Assistant
     post "assistant/ask",                  to: "assistant#ask"
+
+    # Yahoo Fantasy
+    get  'yahoo/status',   to: 'yahoo_fantasy#status'
+    get  'yahoo/auth_url', to: 'yahoo_fantasy#auth_url'
+    get  'yahoo/callback', to: 'yahoo_fantasy#callback'
+    get  'yahoo/roster',   to: 'yahoo_fantasy#roster'
+    get  'yahoo/dashboard', to: 'yahoo_fantasy#dashboard'
+    get  'yahoo/insights', to: 'yahoo_fantasy#insights'
+    get  'yahoo/free_agents', to: 'yahoo_fantasy#free_agents'
+
+    # Prospects
+    get "prospects/player/:id",    to: "prospects#player"
+    get "prospects/top100",        to: "prospects#top100"
+    get "prospects/team/:team_id", to: "prospects#team"
+
+    # Transactions
+    get 'transactions', to: 'transactions#index'
+
+    # Odds
+    get  'odds/today',     to: 'odds#today'
+
+    # Projections
+    get  "projections/accuracy/league",  to: "projections#league_accuracy"
+    get  "projections/player/:id",       to: "projections#player"
+    get  "projections/leaderboard",      to: "projections#leaderboard"
+
+    # Projection runs (batch + history)
+    get    "projection_runs",        to: "projection_runs#index"
+    post   "projection_runs",        to: "projection_runs#create"
+    delete "projection_runs/:id",    to: "projection_runs#destroy"
+
+    # Scenarios
+    get    "scenarios",     to: "scenarios#index"
+    post   "scenarios",     to: "scenarios#create"
+    get    "scenarios/:id", to: "scenarios#show"
+    patch  "scenarios/:id", to: "scenarios#update"
+    delete "scenarios/:id", to: "scenarios#destroy"
   end
 end

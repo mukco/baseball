@@ -1,26 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-
-const POSITIVE = /\b(leads?|leading|best|elite|top|highest|above|strong|dominant|impressive|on pace|streak|most|record|career-high|career best|first|ranks? (1st|first|second|2nd)|historic|outstanding|excellent|efficient)\b/i
-const NEGATIVE = /\b(worst|lowest|slump|slumping|struggling|below|poor|concerning|dropped?|fallen|last|fewest|bottom|weak|highest era|bloated|inflated|regress)\b/i
-
-function bulletColor(text) {
-  if (POSITIVE.test(text)) return 'text-green-500'
-  if (NEGATIVE.test(text)) return 'text-red-400'
-  return 'text-content-muted'
-}
-
-// Bolds numbers inline without splitting the text into React nodes
-function FactoidText({ text }) {
-  const html = text.replace(
-    /(\b\d+\.?\d*%?|\.\d+\b)/g,
-    '<strong>$1</strong>'
-  )
-  return <span dangerouslySetInnerHTML={{ __html: html }} />
-}
+import AutoLinkedText from './AutoLinkedText'
 
 function Skeleton() {
   return (
-    <div className="space-y-1.5 animate-pulse">
+    <div className="space-y-2 animate-pulse">
       {[80, 95, 70].map((w) => (
         <div key={w} className="h-3 bg-bg-elevated rounded" style={{ width: `${w}%` }} />
       ))}
@@ -28,7 +11,15 @@ function Skeleton() {
   )
 }
 
-export default function FactoidsPanel({ queryKey, queryFn, className = '' }) {
+export default function FactoidsPanel({
+  queryKey,
+  queryFn,
+  className = '',
+  scrollable = true,
+  title = 'Insights',
+  badge = 'AI',
+  description = '',
+}) {
   const { data, isLoading, isError } = useQuery({
     queryKey,
     queryFn,
@@ -38,43 +29,54 @@ export default function FactoidsPanel({ queryKey, queryFn, className = '' }) {
 
   const factoids = data?.factoids ?? []
 
+  const content = (
+    <>
+      {isLoading && <Skeleton />}
+      {isError && <p className="text-xs text-content-muted italic">Insights unavailable.</p>}
+      {!isLoading && !isError && factoids.length === 0 && (
+        <p className="text-xs text-content-muted italic">No insights available yet.</p>
+      )}
+      {!isLoading && factoids.length > 0 && (
+        <ul className={scrollable ? 'pb-2' : ''}>
+          {factoids.map((f, i) => (
+            <li key={i} className="flex gap-3 items-start py-2 border-b border-bg-border last:border-0">
+              <div className="w-5 h-5 rounded-md bg-brand/10 text-brand text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                {i + 1}
+              </div>
+              <p className="text-[13px] text-content-secondary leading-snug">
+                <AutoLinkedText text={f} />
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+
   return (
-    <div className={`card p-4 flex flex-col h-44 ${className}`} style={{ '--fade-to': 'rgb(var(--color-bg-surface))' }}>
-      <div className="flex items-center gap-1.5 mb-2 shrink-0">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-content-muted">Insights</span>
-        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-brand/10 text-brand-light uppercase tracking-wider">AI</span>
-      </div>
-
-      <div className="relative flex-1 min-h-0">
-        <div className="h-full overflow-y-auto pr-1">
-          {isLoading && <Skeleton />}
-
-          {isError && (
-            <p className="text-xs text-content-muted italic">Insights unavailable.</p>
-          )}
-
-          {!isLoading && !isError && factoids.length === 0 && (
-            <p className="text-xs text-content-muted italic">No insights available yet.</p>
-          )}
-
-          {!isLoading && factoids.length > 0 && (
-            <ul className="space-y-1.5 pb-4">
-              {factoids.map((f, i) => (
-                <li key={i} className="flex gap-2 text-xs text-content-secondary leading-relaxed">
-                  <span className={`shrink-0 mt-0.5 font-bold ${bulletColor(f)}`}>·</span>
-                  <FactoidText text={f} />
-                </li>
-              ))}
-            </ul>
-          )}
+    <div
+      className={`card p-4 flex flex-col ${scrollable ? 'h-64' : ''} ${className}`}
+      style={scrollable ? { '--fade-to': 'rgb(var(--color-bg-surface))' } : undefined}
+    >
+      <div className="mb-2 shrink-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-content-muted">{title}</span>
+          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase tracking-wider">{badge}</span>
         </div>
-
-        {/* Fade mask — signals scrollable content below */}
-        <div
-          className="absolute bottom-0 left-0 right-0 h-6 pointer-events-none rounded-b-xl"
-          style={{ background: 'linear-gradient(to bottom, transparent, var(--fade-to))' }}
-        />
+        {description && <p className="text-xs text-content-muted mt-1">{description}</p>}
       </div>
+
+      {scrollable ? (
+        <div className="relative flex-1 min-h-0">
+          <div className="h-full overflow-y-auto pr-1">{content}</div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-6 pointer-events-none rounded-b-xl"
+            style={{ background: 'linear-gradient(to bottom, transparent, var(--fade-to))' }}
+          />
+        </div>
+      ) : (
+        <div>{content}</div>
+      )}
     </div>
   )
 }
