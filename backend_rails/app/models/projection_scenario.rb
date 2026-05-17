@@ -9,7 +9,9 @@ class ProjectionScenario < ApplicationRecord
   validates :default_pa, numericality: { greater_than: 0, less_than_or_equal_to: 700 }
   validates :default_ip, numericality: { greater_than: 0, less_than_or_equal_to: 350 }
 
-  scope :default_scenario, -> { where(is_default: true).first }
+  def self.default_scenario
+    where(is_default: true).first
+  end
 
   def year_weights
     { 0 => year1_weight, 1 => year2_weight, 2 => year3_weight }
