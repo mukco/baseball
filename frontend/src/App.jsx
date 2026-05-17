@@ -12,6 +12,7 @@ import Sandbox from './pages/Sandbox'
 import LiveTV from './pages/LiveTV'
 import DailySummary from './pages/DailySummary'
 import Teams from './pages/Teams'
+import MLBuilder from './pages/MLBuilder'
 
 const THEME_STORAGE_KEY = 'statline-theme'
 
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/live" element={<LiveTV />} />
               <Route path="/digest" element={<DailySummary />} />
               <Route path="/teams" element={<Teams />} />
+              <Route path="/ml" element={<MLBuilder />} />
             </Routes>
           </main>
         </div>

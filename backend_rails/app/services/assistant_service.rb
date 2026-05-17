@@ -171,6 +171,48 @@ class AssistantService
     {
       type: "function",
       function: {
+        name: "get_ml_columns",
+        description: "List the numeric columns available in a warehouse table that can be used as ML features or targets.",
+        parameters: {
+          type: "object",
+          properties: {
+            table: {
+              type: "string",
+              enum: %w[batters pitchers teams_batting teams_pitching fg_projections_batting fg_projections_pitching],
+              description: "Which warehouse table to inspect."
+            }
+          },
+          required: ["table"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "train_ml_model",
+        description: "Train a machine learning model on warehouse stats and return evaluation metrics, feature importances, and (for neural networks) the training loss curve and total parameter count. Use this when the user asks to build a model, find predictors of a stat, or explore relationships between stats.",
+        parameters: {
+          type: "object",
+          properties: {
+            table:      { type: "string", enum: %w[batters pitchers teams_batting teams_pitching fg_projections_batting fg_projections_pitching] },
+            features:   { type: "array", items: { type: "string" }, description: "Column names to use as input features." },
+            target:     { type: "string", description: "Column name to predict." },
+            task:       { type: "string", enum: %w[regression classification], description: "regression for continuous targets, classification for categorical or binned targets." },
+            model_type: { type: "string", enum: %w[linear_regression logistic_regression random_forest gradient_boosting neural_network] },
+            hyperparams: {
+              type: "object",
+              description: "Optional hyperparameters. For neural_network: layers (array of ints), activation, learning_rate, epochs, dropout. For random_forest/gradient_boosting: n_estimators, max_depth, learning_rate.",
+              additionalProperties: true
+            },
+            one_hot_target: { type: "boolean", description: "If true, bin a continuous target column into quartile classes for classification." }
+          },
+          required: %w[table features target task model_type]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
         name: "get_news",
         description: "Get recent baseball news from MLB.com, FanGraphs, MLB Trade Rumors, and r/baseball.",
         parameters: {
@@ -393,6 +435,21 @@ class AssistantService
         result = NewsService.fetch(topic: topic, limit: limit)
         result[:items].map { |i| i.slice(:source, :title, :summary, :url, :publishedAt) }
 
+      when "get_ml_columns"
+        MlService.columns(table: args["table"].to_s)
+
+      when "train_ml_model"
+        config = {
+          table:          args["table"].to_s,
+          features:       Array(args["features"]).map(&:to_s),
+          target:         args["target"].to_s,
+          task:           args["task"].to_s,
+          model_type:     args["model_type"].to_s,
+          hyperparams:    args["hyperparams"] || {},
+          one_hot_target: args["one_hot_target"] || false,
+        }
+        MlService.train(config)
+
       when "create_chart"
         { type: args["type"], title: args["title"], xKey: args["xKey"], yKey: args["yKey"], data: args["data"] }
 
@@ -456,6 +513,10 @@ class AssistantService
 
         **Team data:**
         - get_team_profile — standing, recent results, full roster
+
+        **Machine learning (ML Builder):**
+        - get_ml_columns — list numeric columns available in a warehouse table (batters, pitchers, etc.)
+        - train_ml_model — train a model (linear regression, logistic regression, random forest, gradient boosting, or neural network) on warehouse stats. Returns metrics (R², accuracy, F1, etc.), feature importances, confusion matrix, and for neural networks: parameter count, architecture, and per-epoch loss history.
 
         **League-wide analysis:**
         - query_players_sql — SQL over FanGraphs/Statcast season data (seasons: #{available_seasons.join(", ")}). Best for rankings, comparisons, and multi-player queries. Key columns: player_id, name, team, season, pa, hr, avg, obp, slg, ops, wrc_plus, bb_pct, k_pct, babip, war, barrel_pct, hard_hit_pct, exit_velocity, era, fip, xfip, whip, k_per_9, bb_per_9.

@@ -79,4 +79,13 @@ export const api = {
     team:   (id) => fetchJSON(`/teams/${id}/factoids`),
     game:   (gamePk) => fetchJSON(`/games/${gamePk}/factoids`),
   },
+  ml: {
+    health: () => fetchJSON('/ml/health'),
+    columns: (table) => fetchJSON(`/ml/columns/${table}?duckdb_path=`),
+    train: (config) => fetchJSON('/ml/train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ml: config }),
+    }),
+  },
 }

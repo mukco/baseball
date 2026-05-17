@@ -107,6 +107,7 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
           {navLink('/news', 'News')}
           {navLink('/digest', 'Digest')}
           {navLink('/sandbox', 'Sandbox')}
+          {navLink('/ml', 'ML Builder')}
         </div>
 
         {/* Search — grows to fill remaining space */}
