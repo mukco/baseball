@@ -24,6 +24,7 @@ gem "thruster", require: false
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"
+gem "sqlite3", "~> 2.1"
 
 # HTTP client
 gem "faraday"
@@ -31,6 +32,7 @@ gem "faraday-retry"
 
 # CSV parsing for Statcast / FanGraphs responses
 gem "csv"
+gem "nokogiri"
 
 group :development, :test do
   # Loads environment variables from .env files locally
@@ -47,4 +49,9 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+
+  # Testing
+  gem "rspec-rails", "~> 7.0"
+  gem "factory_bot_rails"
+  gem "webmock"
 end

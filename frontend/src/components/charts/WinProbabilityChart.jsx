@@ -4,8 +4,8 @@ import {
   CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 
-const BORDER = '#2D2D3A'
-const MUTED  = '#6B7280'
+const BORDER = 'rgb(var(--color-bg-border-strong))'
+const MUTED  = 'rgb(var(--color-content-muted))'
 
 function CustomTooltip({ active, payload, homeTeam, awayTeam }) {
   if (!active || !payload?.length) return null
@@ -42,12 +42,16 @@ export default function WinProbabilityChart({
   awayColor = '#F59E0B',
   height    = 200,
 }) {
+  // Center at 0: lead > 0 means home favored, lead < 0 means away favored.
+  // leadPos/leadNeg split the fill area above/below the 50/50 baseline.
   const enriched = useMemo(
-    () => data.map(d => ({ ...d, awayWinProbability: 1 - (d.homeWinProbability ?? 0.5) })),
+    () => data.map(d => {
+      const lead = (d.homeWinProbability ?? 0.5) - 0.5
+      return { ...d, lead, leadPos: Math.max(0, lead), leadNeg: Math.min(0, lead) }
+    }),
     [data]
   )
 
-  // First inning of each half-inning for tick labels
   const inningTicks = useMemo(() => {
     const seen = new Set()
     return enriched.filter(d => {
@@ -68,57 +72,61 @@ export default function WinProbabilityChart({
 
   return (
     <div>
-      {/* Team labels */}
-      <div className="flex justify-between text-[11px] mb-2 px-12">
+      <div className="flex items-center justify-between text-[11px] mb-1 px-1" style={{ paddingLeft: 36 }}>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: awayColor }} />
-          <span style={{ color: awayColor }}>{awayTeam}</span>
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
+          <span style={{ color: awayColor }} className="font-medium">{awayTeam}</span>
+          <span className="text-content-muted opacity-60">favored ↓</span>
         </div>
-        <span className="text-content-muted text-[10px]">Win Probability</span>
+        <span className="text-[10px] text-content-muted tracking-wide uppercase">Win Probability</span>
         <div className="flex items-center gap-1.5">
-          <span style={{ color: homeColor }}>{homeTeam}</span>
-          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: homeColor }} />
+          <span className="text-content-muted opacity-60">↑ favored</span>
+          <span style={{ color: homeColor }} className="font-medium">{homeTeam}</span>
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
         </div>
       </div>
 
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={enriched} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
+        <ComposedChart data={enriched} margin={{ top: 18, right: 12, bottom: 4, left: 0 }}>
           <defs>
             <linearGradient id="wp-home" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={homeColor} stopOpacity={0.4} />
-              <stop offset="95%" stopColor={homeColor} stopOpacity={0.03} />
+              <stop offset="5%"  stopColor={homeColor} stopOpacity={0.45} />
+              <stop offset="95%" stopColor={homeColor} stopOpacity={0.04} />
             </linearGradient>
             <linearGradient id="wp-away" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="5%"  stopColor={awayColor} stopOpacity={0.4} />
-              <stop offset="95%" stopColor={awayColor} stopOpacity={0.03} />
+              <stop offset="5%"  stopColor={awayColor} stopOpacity={0.45} />
+              <stop offset="95%" stopColor={awayColor} stopOpacity={0.04} />
             </linearGradient>
           </defs>
 
-          <CartesianGrid stroke={BORDER} strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid stroke={BORDER} strokeDasharray="3 3" strokeOpacity={0.6} vertical={false} />
 
-          {/* Inning tick reference lines */}
           {inningTicks.map(d => (
             <ReferenceLine
-              key={`${d.inning}`}
+              key={d.inning}
               x={d.index}
-              stroke="rgba(255,255,255,0.07)"
+              stroke={BORDER}
+              strokeOpacity={0.4}
               strokeWidth={1}
-              label={{ value: String(d.inning), position: 'top', fill: MUTED, fontSize: 8 }}
+              label={{ value: String(d.inning), position: 'insideTopLeft', fill: MUTED, fontSize: 8, dy: -14 }}
             />
           ))}
 
+          {/* 50/50 baseline — now at y=0, the true center of the chart */}
           <ReferenceLine
-            y={0.5}
-            stroke="rgba(255,255,255,0.25)"
-            strokeDasharray="5 3"
+            y={0}
+            stroke={MUTED}
+            strokeDasharray="4 4"
             strokeWidth={1}
-            label={{ value: 'Even', position: 'right', fill: MUTED, fontSize: 8 }}
+            strokeOpacity={0.7}
+            label={{ value: '50 / 50', position: 'insideTopRight', fill: MUTED, fontSize: 8, dy: -2 }}
           />
 
           <XAxis dataKey="index" hide />
           <YAxis
-            domain={[0, 1]}
-            tickFormatter={v => `${Math.round(v * 100)}%`}
+            domain={[-0.5, 0.5]}
+            tickFormatter={v => `${((v + 0.5) * 100).toFixed(0)}%`}
+            ticks={[-0.5, -0.25, 0, 0.25, 0.5]}
             tick={{ fill: MUTED, fontSize: 9 }}
             axisLine={{ stroke: BORDER }}
             tickLine={false}
@@ -126,23 +134,34 @@ export default function WinProbabilityChart({
           />
           <Tooltip content={<CustomTooltip homeTeam={homeTeam} awayTeam={awayTeam} />} cursor={{ stroke: BORDER }} />
 
-          {/* Away fill (below 0.5) */}
+          {/* Home fill: above the 50/50 line */}
           <Area
-            dataKey="awayWinProbability"
+            dataKey="leadPos"
             type="monotone"
+            baseValue={0}
+            stroke="none"
+            fill="url(#wp-home)"
+            dot={false}
+            activeDot={false}
+          />
+
+          {/* Away fill: below the 50/50 line */}
+          <Area
+            dataKey="leadNeg"
+            type="monotone"
+            baseValue={0}
             stroke="none"
             fill="url(#wp-away)"
             dot={false}
             activeDot={false}
           />
 
-          {/* Home fill (above 0.5, drawn on top) */}
-          <Area
-            dataKey="homeWinProbability"
+          {/* Win probability line */}
+          <Line
+            dataKey="lead"
             type="monotone"
             stroke={homeColor}
             strokeWidth={2}
-            fill="url(#wp-home)"
             dot={false}
             activeDot={{ r: 4, fill: homeColor, strokeWidth: 0 }}
           />

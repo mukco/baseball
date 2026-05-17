@@ -49,7 +49,7 @@ function DivisionGroup({ division, teams }) {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-content-muted uppercase tracking-widest">{division}</h3>
+      <h3 className="text-[11px] font-semibold text-content-muted uppercase tracking-[0.08em]">{division}</h3>
       <div className="space-y-1.5">
         {sorted.map((t) => <TeamCard key={t.id} team={t} />)}
       </div>
@@ -71,7 +71,7 @@ function LeagueSection({ league, teams }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-bold text-content-primary border-b border-bg-border pb-2">{league}</h2>
+      <h2 className="text-[18px] font-semibold text-content-primary border-b border-bg-border pb-2">{league}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {sorted.map(({ key, full, teams: divTeams }) => (
           <DivisionGroup key={key} division={full} teams={divTeams} />
@@ -120,10 +120,10 @@ export default function Teams() {
   const nl = teams.filter(t => t.league === 'National League')
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 py-10">
       <div>
-        <h1 className="text-2xl font-bold text-content-primary">Teams</h1>
-        <p className="text-sm text-content-muted mt-0.5">All 30 MLB clubs by division</p>
+        <h1 className="text-[32px] font-semibold tracking-[-0.02em] text-content-primary">Teams</h1>
+        <p className="text-sm text-content-muted mt-1">All 30 MLB clubs by division</p>
       </div>
 
       {error && (

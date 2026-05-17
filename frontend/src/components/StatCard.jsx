@@ -2,95 +2,110 @@ import clsx from 'clsx'
 import StatHelpTooltip from './StatHelpTooltip'
 
 /**
- * Percentile → color mapping (like Baseball Savant)
- * High percentile = elite (red-orange), Low = blue
- * Some stats are "lower is better" — pass invert=true for those.
+ * Map a 0–100 percentile to a CSS color (the stat ramp tokens).
  */
-function percentileColor(pct, invert = false) {
-  const p = invert ? 100 - pct : pct
-  if (p >= 90) return 'text-stat-elite'
-  if (p >= 70) return 'text-stat-great'
-  if (p >= 30) return 'text-stat-avg'
-  if (p >= 10) return 'text-stat-below'
-  return 'text-stat-poor'
+function getPercentileColor(pct) {
+  if (pct == null) return null
+  if (pct >= 85) return 'var(--color-stat-elite)'
+  if (pct >= 65) return 'var(--color-stat-great)'
+  if (pct >= 40) return 'var(--color-stat-avg)'
+  if (pct >= 20) return 'var(--color-stat-below)'
+  return 'var(--color-stat-poor)'
 }
 
-function percentileBg(pct, invert = false) {
-  const p = invert ? 100 - pct : pct
-  if (p >= 90) return 'bg-stat-elite'
-  if (p >= 70) return 'bg-stat-great'
-  if (p >= 30) return 'bg-stat-avg'
-  if (p >= 10) return 'bg-stat-below'
-  return 'bg-stat-poor'
-}
-
-export function PercentileBar({ percentile, invert = false, className }) {
+export function PercentileBar({ percentile, className }) {
   if (percentile == null) return null
-  const pct = invert ? 100 - percentile : percentile
+  const color = getPercentileColor(percentile)
   return (
-    <div className={clsx('h-1 w-full bg-bg-border rounded-full overflow-hidden', className)}>
+    <div className={clsx('h-1.5 w-full bg-bg-elevated rounded-full overflow-hidden', className)}>
       <div
-        className={clsx('h-full rounded-full transition-all duration-500', percentileBg(percentile, invert))}
-        style={{ width: `${Math.max(2, pct)}%` }}
+        className="h-full rounded-full transition-all duration-500"
+        style={{ width: `${Math.max(2, percentile)}%`, background: color }}
       />
     </div>
   )
 }
 
 /**
- * StatCard — shows a single stat value with optional percentile indicator.
+ * StatCard — single stat value with optional percentile pill, percentile bar,
+ * and either pace-against-projection bar or comparison strip.
  */
-export function StatCard({ label, statKey, value, percentile, invert = false, subtitle, className, comparison, progress }) {
-  const hasPercentile = percentile != null
-  const showPercentile = hasPercentile && !comparison && !progress
-  const colorClass = showPercentile ? percentileColor(percentile, invert) : 'text-content-primary'
+export function StatCard({ label, statKey, value, percentile, subtitle, className, comparison, progress, invert = false }) {
+  const displayValue = value ?? '—'
+  const displayPct = invert && percentile != null ? 100 - percentile : percentile
+  const pctColor = getPercentileColor(displayPct)
+  const showPercentile = displayPct != null && pctColor != null
   const progressPct = progress && Number(progress.target) > 0
     ? Math.max(0, Math.min(100, (Number(progress.current) / Number(progress.target)) * 100))
     : null
 
   return (
-    <div className={clsx('card p-4 flex flex-col gap-2', className)}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 min-w-0">
-          <span className="stat-label">{label}</span>
+    <div className={clsx('card p-5 flex flex-col gap-2 min-w-0', className)}>
+      {/* Header row: label (with optional help tooltip) + percentile pill */}
+      <div className="flex items-start justify-between gap-1">
+        <span className="flex items-center gap-1 min-w-0 leading-none">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-content-muted">
+            {label}
+          </span>
           <StatHelpTooltip stat={statKey || label} />
         </span>
-        {comparison && (
-          <span className="flex items-center gap-1" title={comparison.status}>
-            <span className="text-[10px] text-content-muted font-medium">{comparison.projectedLabel}</span>
-            <span className={clsx('text-[10px] font-semibold', comparison.color)}>{comparison.status}</span>
-          </span>
-        )}
-      </div>
-      <div className="flex items-end justify-between gap-2">
-        <span className={clsx('text-2xl font-bold font-mono leading-none', colorClass)}>
-          {value ?? '—'}
-        </span>
         {showPercentile && (
-          <span className={clsx('text-xs font-medium', percentileColor(percentile, invert))} title="Approximate MLB percentile">
-            {percentile}th
+          <span
+            className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none shrink-0"
+            style={{
+              color: pctColor,
+              background: `color-mix(in oklch, ${pctColor} 14%, transparent)`,
+            }}
+            title="Approximate MLB percentile"
+          >
+            {displayPct}%
           </span>
         )}
       </div>
-      {showPercentile && <PercentileBar percentile={percentile} invert={invert} />}
+
+      {/* Value */}
+      <div className="flex items-baseline gap-1.5 min-w-0">
+        <span className="text-[28px] font-bold tracking-tight text-content-primary leading-none truncate">
+          {displayValue}
+        </span>
+        {subtitle && (
+          <span className="text-[11px] text-content-muted shrink-0">{subtitle}</span>
+        )}
+      </div>
+
+      {/* Percentile bar */}
+      {showPercentile && (
+        <div className="h-1.5 rounded-full bg-bg-elevated overflow-hidden mt-0.5">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${Math.max(2, displayPct)}%`, background: pctColor }}
+          />
+        </div>
+      )}
+
+      {/* Pace toward projection total */}
       {progressPct != null && (
-        <div className="space-y-1">
-          <div className="h-1.5 w-full bg-bg-border rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-brand transition-all duration-300" style={{ width: `${progressPct}%` }} />
+        <div className="mt-auto pt-2 border-t border-bg-border">
+          <div className="flex justify-between text-[11px] text-content-muted mb-1">
+            <span>Season pace</span>
+            <span className="font-mono">{progress.current} / {progress.target}</span>
           </div>
-          <div className="flex items-center gap-3 text-[10px] text-content-muted">
-            <span className="inline-flex items-center gap-1" title="Current value">
-              <span className="text-brand">◉</span>
-              <span>{progress.current}</span>
-            </span>
-            <span className="inline-flex items-center gap-1" title="Projected target">
-              <span>◎</span>
-              <span>{progress.target}</span>
-            </span>
+          <div className="h-1.5 rounded-full bg-bg-elevated overflow-hidden">
+            <div
+              className="h-full rounded-full bg-brand/60 transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
         </div>
       )}
-      {subtitle && <span className="text-xs text-content-muted">{subtitle}</span>}
+
+      {/* Comparison vs projection */}
+      {comparison && (
+        <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-bg-border mt-auto">
+          <span className="text-content-muted">{comparison.projectedLabel}</span>
+          <span className={clsx('font-semibold', comparison.color)}>{comparison.status}</span>
+        </div>
+      )}
     </div>
   )
 }

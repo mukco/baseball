@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
+import PlayerHoverCard from './PlayerHoverCard'
 
 function headshotUrl(id, size = 60) {
   return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_${size},q_auto:best/v1/people/${id}/headshot/67/current`
@@ -30,12 +31,14 @@ export default function PlayerLink({
   if (!playerId) return content
 
   return (
-    <Link
-      to={`/player/${playerId}`}
-      className="text-brand-light hover:text-content-primary transition-colors"
-      onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
-    >
-      {content}
-    </Link>
+    <PlayerHoverCard playerId={playerId}>
+      <Link
+        to={`/player/${playerId}`}
+        className="text-brand-light hover:text-content-primary transition-colors"
+        onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
+      >
+        {content}
+      </Link>
+    </PlayerHoverCard>
   )
 }

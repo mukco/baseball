@@ -7,6 +7,8 @@ class FactoidsService
     game_preview: 1.hour
   }.freeze
 
+  SUMMARIES_DIR = Rails.root.join("storage", "game_summaries").freeze
+
   class << self
     def player(player_id:, season:)
       Rails.cache.fetch("factoids_player_#{player_id}_#{season}", expires_in: CACHE_TTLS[:player]) do
@@ -21,14 +23,38 @@ class FactoidsService
     end
 
     def game(game_pk:)
+      # Final summaries are written once and never regenerated
+      persisted = load_persisted(game_pk)
+      return persisted if persisted
+
       context = game_context(game_pk)
-      ttl = game_ttl(context[:status].to_s)
-      Rails.cache.fetch("factoids_game_#{game_pk}", expires_in: ttl) do
+      ttl     = game_ttl(context[:status].to_s)
+
+      result = Rails.cache.fetch("factoids_game_#{game_pk}", expires_in: ttl) do
         generate(:game, context)
       end
+
+      persist_final(game_pk, result) if context[:status].to_s.include?("Final")
+      result
     end
 
     private
+
+    def load_persisted(game_pk)
+      path = SUMMARIES_DIR.join("#{game_pk}.json")
+      return nil unless path.exist?
+      JSON.parse(path.read, symbolize_names: true)
+    rescue => e
+      Rails.logger.warn("FactoidsService load_persisted #{game_pk}: #{e.message}")
+      nil
+    end
+
+    def persist_final(game_pk, result)
+      FileUtils.mkdir_p(SUMMARIES_DIR)
+      SUMMARIES_DIR.join("#{game_pk}.json").write(result.to_json)
+    rescue => e
+      Rails.logger.warn("FactoidsService persist_final #{game_pk}: #{e.message}")
+    end
 
     def generate(type, context)
       client = OpenAi::Client.new

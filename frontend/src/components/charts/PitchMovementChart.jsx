@@ -1,39 +1,93 @@
 import { useMemo } from 'react'
+import {
+  ScatterChart, Scatter, XAxis, YAxis, ZAxis,
+  CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
+} from 'recharts'
+import { pitchColor } from '../../lib/pitchColors'
 
-const PITCH_COLORS = {
-  FF: '#D22D49', SI: '#FE9D00', FC: '#933F2C',
-  SL: '#EEE716', ST: '#D2E338', CU: '#00D1ED',
-  KC: '#01C8E3', CH: '#1DBE3A', FS: '#3BACAC',
-  KN: '#9C9C9C', EP: '#5A5A5A',
+const BORDER = 'rgb(var(--color-bg-border-strong))'
+const MUTED = 'rgb(var(--color-content-muted))'
+
+const HAND_LABELS = {
+  R: { left: 'Glove Side', right: 'Arm Side' },
+  L: { left: 'Arm Side',   right: 'Glove Side' },
 }
-function pitchColor(type) { return PITCH_COLORS[type] || '#9CA3AF' }
 
-const VB_W = 340, VB_H = 300
-const PAD  = { top: 16, right: 16, bottom: 44, left: 44 }
-const CW   = VB_W - PAD.left - PAD.right
-const CH   = VB_H - PAD.top  - PAD.bottom
+function AverageMarker({ cx, cy, payload }) {
+  if (cx == null || cy == null) return null
+  const color = pitchColor(payload.type)
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={12} fill={color} stroke="rgb(var(--color-bg-surface))" strokeWidth={1.5} />
+      <text
+        x={cx} y={cy + 4}
+        textAnchor="middle"
+        fontSize={7}
+        fontWeight="700"
+        fill="#fff"
+        fontFamily="monospace"
+      >
+        {payload.type}
+      </text>
+    </g>
+  )
+}
 
-const H_MIN = -25, H_MAX = 25
-const V_MIN = -30, V_MAX = 30
+function CustomDot({ cx, cy, payload }) {
+  if (cx == null || cy == null) return null
+  return (
+    <circle
+      cx={cx} cy={cy}
+      r={2.5}
+      fill={pitchColor(payload.type)}
+      fillOpacity={0.45}
+    />
+  )
+}
 
-function mapH(h) { return PAD.left + (h - H_MIN) / (H_MAX - H_MIN) * CW }
-function mapV(v) { return VB_H - PAD.bottom - (v - V_MIN) / (V_MAX - V_MIN) * CH }
+function CustomTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const d = payload[0]?.payload || {}
+  if (d._isAvg) return null
+  return (
+    <div className="bg-bg-elevated border border-bg-border rounded-lg px-3 py-2 text-xs shadow-xl space-y-0.5">
+      <p className="font-semibold text-content-primary">{d.name || d.type}</p>
+      <p className="text-content-secondary">
+        H Break: <span className="font-mono text-content-primary">{d.hBreak != null ? `${d.hBreak >= 0 ? '+' : ''}${d.hBreak.toFixed(1)}"` : '—'}</span>
+      </p>
+      <p className="text-content-secondary">
+        V Break: <span className="font-mono text-content-primary">{d.vBreak != null ? `${d.vBreak >= 0 ? '+' : ''}${d.vBreak.toFixed(1)}"` : '—'}</span>
+      </p>
+    </div>
+  )
+}
 
-export default function PitchMovementChart({ data = [] }) {
-  const averages = useMemo(() => {
-    const byType = {}
+export default function PitchMovementChart({ data = [], pitchHand }) {
+  const { byType, averages } = useMemo(() => {
+    const groups = {}
+    const sums = {}
+
     for (const d of data) {
       if (d.hBreak == null || d.vBreak == null) continue
-      if (!byType[d.type]) byType[d.type] = { type: d.type, name: d.name, hSum: 0, vSum: 0, n: 0 }
-      byType[d.type].hSum += d.hBreak
-      byType[d.type].vSum += d.vBreak
-      byType[d.type].n   += 1
+      if (!groups[d.type]) {
+        groups[d.type] = []
+        sums[d.type] = { type: d.type, name: d.name, hSum: 0, vSum: 0, n: 0 }
+      }
+      groups[d.type].push({ type: d.type, name: d.name, hBreak: d.hBreak, vBreak: d.vBreak })
+      sums[d.type].hSum += d.hBreak
+      sums[d.type].vSum += d.vBreak
+      sums[d.type].n++
     }
-    return Object.values(byType).map(({ type, name, hSum, vSum, n }) => ({
-      type, name,
-      meanH: hSum / n,
-      meanV: vSum / n,
+
+    const averages = Object.values(sums).map(s => ({
+      type: s.type,
+      name: s.name,
+      hBreak: s.hSum / s.n,
+      vBreak: s.vSum / s.n,
+      _isAvg: true,
     }))
+
+    return { byType: groups, averages }
   }, [data])
 
   if (!data.length) {
@@ -44,136 +98,82 @@ export default function PitchMovementChart({ data = [] }) {
     )
   }
 
-  const gridH = [-20, -15, -10, -5, 0, 5, 10, 15, 20]
-  const gridV = [-25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25]
+  const handLabels = HAND_LABELS[pitchHand] ?? null
 
   return (
     <div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-3">
-        {averages.map(({ type, name }) => (
-          <div key={type} className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: pitchColor(type) }} />
-            <span className="text-[11px] text-content-secondary">{name}</span>
-          </div>
-        ))}
+      {/* Legend + handedness badge */}
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+          {averages.map(({ type, name }) => (
+            <div key={type} className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: pitchColor(type) }} />
+              <span className="text-[11px] text-content-secondary">{name}</span>
+            </div>
+          ))}
+        </div>
+        {pitchHand && (
+          <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 ${
+            pitchHand === 'L' ? 'text-blue-400 bg-blue-400/10' : 'text-red-400 bg-red-400/10'
+          }`}>
+            {pitchHand === 'L' ? 'LHP' : 'RHP'}
+          </span>
+        )}
       </div>
 
-      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full">
-        <defs>
-          <clipPath id="mv-clip">
-            <rect x={PAD.left} y={PAD.top} width={CW} height={CH} />
-          </clipPath>
-          {/* Soft glow for average markers */}
-          <filter id="mv-glow" x="-80%" y="-80%" width="260%" height="260%">
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-
-        {/* Background */}
-        <rect x={PAD.left} y={PAD.top} width={CW} height={CH} fill="#0C1017" rx="3" />
-
-        {/* Minor grid lines */}
-        {gridH.map(h => (
-          <line key={`gh${h}`}
-            x1={mapH(h)} y1={PAD.top} x2={mapH(h)} y2={VB_H - PAD.bottom}
-            stroke={h === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.04)'}
-            strokeWidth={h === 0 ? 1 : 0.5}
+      <ResponsiveContainer width="100%" height={280}>
+        <ScatterChart margin={{ top: 8, right: 24, bottom: 40, left: 24 }}>
+          <CartesianGrid stroke={BORDER} strokeDasharray="3 3" strokeOpacity={0.5} />
+          <XAxis
+            type="number"
+            dataKey="hBreak"
+            domain={[-25, 25]}
+            ticks={[-20, -10, 0, 10, 20]}
+            tick={{ fill: MUTED, fontSize: 10 }}
+            axisLine={{ stroke: BORDER }}
+            tickLine={false}
+            label={{ value: 'Horizontal Break (in)', position: 'insideBottom', offset: -24, fill: MUTED, fontSize: 10 }}
           />
-        ))}
-        {gridV.map(v => (
-          <line key={`gv${v}`}
-            x1={PAD.left} y1={mapV(v)} x2={VB_W - PAD.right} y2={mapV(v)}
-            stroke={v === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.04)'}
-            strokeWidth={v === 0 ? 1 : 0.5}
+          <YAxis
+            type="number"
+            dataKey="vBreak"
+            domain={[-30, 30]}
+            ticks={[-20, -10, 0, 10, 20]}
+            tick={{ fill: MUTED, fontSize: 10 }}
+            axisLine={{ stroke: BORDER }}
+            tickLine={false}
+            label={{ value: 'Vertical Break (in)', angle: -90, position: 'insideLeft', offset: 16, fill: MUTED, fontSize: 10 }}
           />
-        ))}
+          <ZAxis range={[22, 22]} />
+          <ReferenceLine x={0} stroke={BORDER} strokeWidth={1.5} />
+          <ReferenceLine y={0} stroke={BORDER} strokeWidth={1.5} />
+          <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: BORDER }} />
 
-        {/* Individual pitch scatter — clipped */}
-        <g clipPath="url(#mv-clip)">
-          {data.map((d, i) => {
-            if (d.hBreak == null || d.vBreak == null) return null
-            return (
-              <circle
-                key={i}
-                cx={mapH(d.hBreak)}
-                cy={mapV(d.vBreak)}
-                r={2}
-                fill={pitchColor(d.type)}
-                fillOpacity={0.38}
-              />
-            )
-          })}
-        </g>
-
-        {/* Average markers — rendered above scatter */}
-        {averages.map(({ type, meanH, meanV }) => {
-          const color = pitchColor(type)
-          const cx    = mapH(meanH)
-          const cy    = mapV(meanV)
-          return (
-            <g key={`avg-${type}`} filter="url(#mv-glow)">
-              <circle cx={cx} cy={cy} r={11} fill={color} stroke="rgba(255,255,255,0.85)" strokeWidth={1.5} />
-              <text
-                x={cx} y={cy + 3.5}
-                textAnchor="middle"
-                fontSize={6.5}
-                fontWeight="700"
-                fill="#fff"
-                fontFamily="monospace"
-                letterSpacing="0"
-              >
-                {type}
-              </text>
-            </g>
-          )
-        })}
-
-        {/* X axis ticks & labels */}
-        {[-20, -10, 0, 10, 20].map(h => (
-          <g key={`xt${h}`}>
-            <line
-              x1={mapH(h)} y1={VB_H - PAD.bottom}
-              x2={mapH(h)} y2={VB_H - PAD.bottom + 4}
-              stroke="rgba(255,255,255,0.2)" strokeWidth={0.8}
+          {/* Individual pitch dots — one Scatter per pitch type */}
+          {Object.entries(byType).map(([type, points]) => (
+            <Scatter
+              key={type}
+              data={points}
+              shape={<CustomDot />}
+              isAnimationActive={false}
             />
-            <text
-              x={mapH(h)} y={VB_H - PAD.bottom + 13}
-              textAnchor="middle" fontSize={8}
-              fill="rgba(255,255,255,0.38)" fontFamily="sans-serif"
-            >{h}</text>
-          </g>
-        ))}
+          ))}
 
-        {/* Y axis ticks & labels */}
-        {[-20, -10, 0, 10, 20].map(v => (
-          <g key={`yt${v}`}>
-            <line
-              x1={PAD.left} y1={mapV(v)}
-              x2={PAD.left - 4} y2={mapV(v)}
-              stroke="rgba(255,255,255,0.2)" strokeWidth={0.8}
-            />
-            <text
-              x={PAD.left - 7} y={mapV(v) + 3}
-              textAnchor="end" fontSize={8}
-              fill="rgba(255,255,255,0.38)" fontFamily="sans-serif"
-            >{v}</text>
-          </g>
-        ))}
+          {/* Average markers */}
+          <Scatter
+            data={averages}
+            shape={<AverageMarker />}
+            isAnimationActive={false}
+          />
+        </ScatterChart>
+      </ResponsiveContainer>
 
-        {/* Axis labels */}
-        <text x={PAD.left + CW / 2} y={VB_H - 3}
-          textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.3)" fontFamily="sans-serif">
-          Horizontal Break (in)
-        </text>
-        <text
-          x={10} y={PAD.top + CH / 2}
-          textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.3)" fontFamily="sans-serif"
-          transform={`rotate(-90, 10, ${PAD.top + CH / 2})`}
-        >
-          Induced Vertical Break (in)
-        </text>
-      </svg>
+      {handLabels && (
+        <div className="flex justify-between text-[10px] text-content-muted px-8 -mt-1">
+          <span>← {handLabels.left}</span>
+          <span>{handLabels.right} →</span>
+        </div>
+      )}
     </div>
   )
 }

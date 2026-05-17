@@ -8,7 +8,47 @@ class AssistantService
       type: "function",
       function: {
         name: "query_players_sql",
-        description: "Run read-only SQL against the FanGraphs/Statcast players dataset. Best for rankings, comparisons, and advanced stat queries across many players. Columns include: player_id, name, team, season, position, pa, hr, avg, obp, slg, ops, wrc_plus, bb_pct, k_pct, babip, war, barrel_pct, hard_hit_pct, exit_velocity, sprint_speed, era, fip, xfip, whip, k_per_9, bb_per_9, and more.",
+        description: <<~DESC.strip,
+          Run read-only SQL (DuckDB dialect) against the baseball warehouse. Four tables are available — join them on player_id (integer), fg_id (text), or name + season.
+
+          TABLE: batters
+            Seasons 2010–present. Season-level FanGraphs/Statcast batting data.
+            Key columns: player_id, fg_id, name, team, league, position, season,
+              g, pa, ab, h, hr, r, rbi, sb, bb, k,
+              avg, obp, slg, ops, iso, woba, wrc_plus, babip, war,
+              k_pct, bb_pct, ld_pct, gb_pct, fb_pct, hr_fb_pct,
+              barrel_pct, hard_hit_pct, exit_velocity, sprint_speed.
+
+          TABLE: pitchers
+            Seasons 2010–present. Season-level FanGraphs/Statcast pitching data.
+            Key columns: player_id, fg_id, name, team, league, season,
+              g, gs, w, l, sv, ip, tbf, h, er, hr, bb, k,
+              era, fip, xfip, siera, war, whip,
+              k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct,
+              babip, gb_pct, ld_pct, fb_pct.
+
+          TABLE: fg_projections_batting
+            Current season only. FanGraphs Steamer batting projections.
+            Key columns: player_id, fg_id, name, team, season, projection_system,
+              g, pa, hr, r, rbi, sb, bb, k,
+              avg, obp, slg, ops, iso, woba, wrc_plus, babip, war, k_pct, bb_pct.
+
+          TABLE: fg_projections_pitching
+            Current season only. FanGraphs Steamer pitching projections.
+            Key columns: player_id, fg_id, name, team, season, projection_system,
+              g, gs, w, l, sv, ip, tbf, k, bb, hr,
+              era, fip, xfip, siera, war, whip,
+              k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct, babip, gb_pct.
+
+          JOIN PATTERN (projection vs. actual):
+            SELECT b.name, b.season, b.war AS actual_war, p.war AS proj_war
+            FROM batters b
+            JOIN fg_projections_batting p ON b.player_id = p.player_id AND b.season = p.season
+            WHERE b.season = 2024 AND b.pa >= 300
+            ORDER BY actual_war - proj_war DESC
+
+          Always alias tables when joining. Use player_id for joins when possible (most reliable); fall back to name only as a last resort.
+        DESC
         parameters: {
           type: "object",
           properties: {
@@ -16,6 +56,20 @@ class AssistantService
             limit: { type: "integer" }
           },
           required: ["sql"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "search_teams",
+        description: "Search MLB teams by name, city, or abbreviation. Returns team IDs needed by team tools.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string" }
+          },
+          required: ["query"]
         }
       }
     },
@@ -37,7 +91,7 @@ class AssistantService
       type: "function",
       function: {
         name: "get_player_profile",
-        description: "Get a player's bio, current team, and this season's traditional stats (AVG, HR, ERA, etc.) from the live MLB API.",
+        description: "Get a player's bio, current team, this season's traditional stats (AVG, HR, ERA, etc.), contract details (salary, AAV, years), and award history from the live MLB API.",
         parameters: {
           type: "object",
           properties: {
@@ -100,13 +154,56 @@ class AssistantService
       type: "function",
       function: {
         name: "get_team_profile",
-        description: "Get a team's record, standing, division context, recent game results, and roster.",
+        description: "Get a team's record, standing, division context, recent game results, roster, and available leadership/finance data.",
         parameters: {
           type: "object",
           properties: {
             team_id: { type: "integer" }
           },
           required: ["team_id"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_team_financials",
+        description: "Get a team's payroll and competitive balance tax data, including estimated payroll, CBT payroll, threshold, and remaining space.",
+        parameters: {
+          type: "object",
+          properties: {
+            team_id: { type: "integer" },
+            season: { type: "integer" }
+          },
+          required: ["team_id"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_fantasy_roster",
+        description: "Get your Yahoo Fantasy roster with daily scores, weekly totals, current matchup context, and player status. Returns an error if Yahoo is not connected.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: { type: "string", description: "Date for score context in YYYY-MM-DD format. Defaults to today." }
+          },
+          required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_fantasy_free_agents",
+        description: "Get recommended free agents from your Yahoo league with season points, stats, AI analysis, and playing time context. Returns candidates + AI-generated pickup advice. Only works if Yahoo is connected.",
+        parameters: {
+          type: "object",
+          properties: {
+            refresh: { type: "boolean", description: "Force refresh to bypass cache." }
+          },
+          required: []
         }
       }
     },
@@ -135,6 +232,37 @@ class AssistantService
             date: { type: "string", description: "Date in YYYY-MM-DD format. Omit for today." }
           },
           required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_game_picks",
+        description: "Get AI-generated betting picks for a specific game including moneyline, over/under, and player props.",
+        parameters: {
+          type: "object",
+          properties: {
+            game_pk: { type: "integer" }
+          },
+          required: ["game_pk"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_game_odds",
+        description: "Get real betting lines from ESPN for a specific game: moneyline, spread, over/under with odds. Use this for live odds rather than AI analysis.",
+        parameters: {
+          type: "object",
+          properties: {
+            game_pk: { type: "integer" },
+            home_team: { type: "string", description: "Home team full name (e.g. 'New York Yankees')" },
+            away_team: { type: "string", description: "Away team full name (e.g. 'Boston Red Sox')" },
+            game_date: { type: "string", description: "Game date (YYYY-MM-DD)" }
+          },
+          required: ["game_pk"]
         }
       }
     },
@@ -171,13 +299,56 @@ class AssistantService
     {
       type: "function",
       function: {
+        name: "get_ml_columns",
+        description: "List the numeric columns available in a warehouse table that can be used as ML features or targets.",
+        parameters: {
+          type: "object",
+          properties: {
+            table: {
+              type: "string",
+              enum: %w[batters pitchers teams_batting teams_pitching fg_projections_batting fg_projections_pitching],
+              description: "Which warehouse table to inspect."
+            }
+          },
+          required: ["table"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "train_ml_model",
+        description: "Train a machine learning model on warehouse stats and return evaluation metrics, feature importances, and (for neural networks) the training loss curve and total parameter count. Use this when the user asks to build a model, find predictors of a stat, or explore relationships between stats.",
+        parameters: {
+          type: "object",
+          properties: {
+            table:      { type: "string", enum: %w[batters pitchers teams_batting teams_pitching fg_projections_batting fg_projections_pitching] },
+            features:   { type: "array", items: { type: "string" }, description: "Column names to use as input features." },
+            target:     { type: "string", description: "Column name to predict." },
+            task:       { type: "string", enum: %w[regression classification], description: "regression for continuous targets, classification for categorical or binned targets." },
+            model_type: { type: "string", enum: %w[linear_regression logistic_regression random_forest gradient_boosting neural_network] },
+            hyperparams: {
+              type: "object",
+              description: "Optional hyperparameters. For neural_network: layers (array of ints), activation, learning_rate, epochs, dropout. For random_forest/gradient_boosting: n_estimators, max_depth, learning_rate.",
+              additionalProperties: true
+            },
+            one_hot_target: { type: "boolean", description: "If true, bin a continuous target column into quartile classes for classification." }
+          },
+          required: %w[table features target task model_type]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
         name: "get_news",
-        description: "Get recent baseball news from MLB.com, FanGraphs, MLB Trade Rumors, and r/baseball.",
+        description: "Get recent baseball news from MLB.com, FanGraphs, MLB Trade Rumors, and r/baseball. Optionally filter by player name to find stories about a specific player.",
         parameters: {
           type: "object",
           properties: {
             topic: { type: "string", description: "Filter by source: 'mlb', 'fangraphs', 'mlbtr', 'reddit', or 'all'. Defaults to 'all'." },
-            limit: { type: "integer", description: "Number of articles to return. Defaults to 15." }
+            limit: { type: "integer", description: "Number of articles to return. Defaults to 15." },
+            player_name: { type: "string", description: "Search for stories mentioning a specific player by name. Returns articles where the player is mentioned." }
           },
           required: []
         }
@@ -343,6 +514,9 @@ class AssistantService
       when "query_players_sql"
         Sandbox::QueryService.run(sql: args["sql"].to_s, limit: args["limit"].to_i.nonzero? || 200)
 
+      when "search_teams"
+        mlb.search_teams(args["query"].to_s)
+
       when "search_players"
         mlb.search_players(args["query"].to_s)
 
@@ -369,12 +543,36 @@ class AssistantService
       when "get_team_profile"
         mlb.team_info(args["team_id"].to_i)
 
+      when "get_fantasy_roster"
+        YahooFantasyDashboardService.call(date: args["date"].presence&.to_date || Date.current)
+
+      when "get_fantasy_free_agents"
+        YahooFantasyFreeAgentsService.call(refresh: args["refresh"] == true)
+
+      when "get_team_financials"
+        TeamFinanceService.fetch(team_id: args["team_id"].to_i, season: season)
+
       when "get_standings"
         mlb.standings(season)
 
       when "get_schedule"
         date = args["date"].presence || Date.today.to_s
         mlb.schedule(date)
+
+      when "get_game_picks"
+        PicksService.call(game_pk: args["game_pk"].to_i)
+
+      when "get_game_odds"
+        date = args["game_date"].presence
+        odds = OddsService.today(date: date)
+        if args["home_team"] && args["away_team"]
+          match = Array(odds[:games]).find { |g|
+            g[:home_team] == args["home_team"] && g[:away_team] == args["away_team"]
+          }
+          match || odds
+        else
+          odds
+        end
 
       when "get_game_details"
         mlb.game_details(args["game_pk"].to_i)
@@ -390,8 +588,27 @@ class AssistantService
       when "get_news"
         topic = args["topic"].presence || "all"
         limit = args["limit"].to_i.nonzero? || 15
-        result = NewsService.fetch(topic: topic, limit: limit)
-        result[:items].map { |i| i.slice(:source, :title, :summary, :url, :publishedAt) }
+        if args["player_name"].present?
+          NewsService.search_by_player(name: args["player_name"])
+        else
+          result = NewsService.fetch(topic: topic, limit: limit)
+          result[:items].map { |i| i.slice(:source, :title, :summary, :url, :publishedAt) }
+        end
+
+      when "get_ml_columns"
+        MlService.columns(table: args["table"].to_s)
+
+      when "train_ml_model"
+        config = {
+          table:          args["table"].to_s,
+          features:       Array(args["features"]).map(&:to_s),
+          target:         args["target"].to_s,
+          task:           args["task"].to_s,
+          model_type:     args["model_type"].to_s,
+          hyperparams:    args["hyperparams"] || {},
+          one_hot_target: args["one_hot_target"] || false,
+        }
+        MlService.train(config)
 
       when "create_chart"
         { type: args["type"], title: args["title"], xKey: args["xKey"], yKey: args["yKey"], data: args["data"] }
@@ -445,20 +662,37 @@ class AssistantService
         - get_schedule — today's games, scores, probable pitchers (or any date)
         - get_standings — all division standings with W-L, GB, last-10, streak
         - get_game_details — full box score and advanced metrics for any game
-        - get_news — recent headlines from MLB.com, FanGraphs, MLBTR, r/baseball
+        - get_game_picks — AI betting picks (moneyline, O/U, player props) for a specific game
+        - get_game_odds — real betting lines from ESPN (moneyline, spread, total odds) for a game; pass home_team, away_team, game_date for best results
+        - get_news — recent headlines from MLB.com, FanGraphs, MLBTR, r/baseball; pass player_name to find stories about a specific player
 
         **Player data:**
+        - search_teams — find a team ID from a team name, city, or abbreviation
         - search_players — find a player ID from a name fragment (do this first if you don't have the ID)
-        - get_player_profile — bio, position, current team, this season's traditional stats
+        - get_player_profile — bio, position, current team, contract (salary, AAV, summary), award history, and this season's traditional stats
         - get_player_game_log — game-by-game log; use for streaks, slumps, last-N-games questions
         - get_player_career_stats — year-by-year career breakdown
         - get_statcast — deep Statcast: exit velo, barrel%, spin rate, pitch movement, whiff rates
 
+        **Fantasy (Yahoo):**
+        - get_fantasy_roster — your roster with daily scores, weekly totals, matchup context, and player status. Only works if Yahoo is connected.
+        - get_fantasy_free_agents — league-aware free-agent candidates with AI recommendations. Only works if Yahoo is connected.
+
         **Team data:**
-        - get_team_profile — standing, recent results, full roster
+        - get_team_profile — standing, recent results, full roster, and available leadership/finance data
+        - get_team_financials — payroll, CBT payroll, CBT threshold, and CBT space remaining
+
+        **Machine learning (ML Builder):**
+        - get_ml_columns — list numeric columns available in a warehouse table (batters, pitchers, etc.)
+        - train_ml_model — train a model (linear regression, logistic regression, random forest, gradient boosting, or neural network) on warehouse stats. Returns metrics (R², accuracy, F1, etc.), feature importances, confusion matrix, and for neural networks: parameter count, architecture, and per-epoch loss history.
 
         **League-wide analysis:**
-        - query_players_sql — SQL over FanGraphs/Statcast season data (seasons: #{available_seasons.join(", ")}). Best for rankings, comparisons, and multi-player queries. Key columns: player_id, name, team, season, pa, hr, avg, obp, slg, ops, wrc_plus, bb_pct, k_pct, babip, war, barrel_pct, hard_hit_pct, exit_velocity, era, fip, xfip, whip, k_per_9, bb_per_9.
+        - query_players_sql — DuckDB SQL across four tables (seasons #{available_seasons.first}–#{available_seasons.last}). Use for rankings, comparisons, year-over-year trends, and projection vs. actuals. Join on `player_id`. Tables:
+          - `batters` — season batting stats. Key columns: player_id, fg_id, name, team, league, position, season, pa, hr, avg, obp, slg, ops, iso, wrc_plus, woba, babip, war, k_pct, bb_pct, gb_pct, fb_pct, hr_fb_pct, barrel_pct, hard_hit_pct, exit_velocity, sprint_speed.
+          - `pitchers` — season pitching stats. Key columns: player_id, fg_id, name, team, league, season, g, gs, ip, tbf, era, fip, xfip, siera, war, whip, k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct, babip, gb_pct, fb_pct.
+          - `fg_projections_batting` — current-season Steamer batting projections. Same key batting columns as `batters` (no Statcast fields).
+          - `fg_projections_pitching` — current-season Steamer pitching projections. Same key pitching columns as `pitchers`.
+          - Join example: `SELECT b.name, b.war AS actual, p.war AS projected FROM batters b JOIN fg_projections_batting p ON b.player_id = p.player_id AND b.season = p.season`
         - get_leaderboards — FanGraphs batting or pitching leaderboard for quick top-N queries
 
         **Visualisation (mandatory):**
@@ -472,12 +706,32 @@ class AssistantService
         ## How to behave
 
         - **Chain tools naturally.** Don't know the player ID? Call search_players first, then the data tool. Got data that could be visualised? Call create_chart before replying.
+        - **When a user types @PlayerName or @TeamName in their question, the page_context will include mentionedPlayers or mentionedTeams arrays with name and id.** Use those IDs directly instead of searching again.
         - **Always call create_chart** after fetching leaderboard, rankings, career, game-log, or comparison data. The app renders the chart automatically — don't describe the chart in text, just call the tool.
         - **Use live tools for live questions.** "How did the Yankees do last night?" → get_schedule or get_game_details, not the SQL dataset.
+        - **For MLB cap questions, explain that MLB uses the competitive balance tax, not a hard cap.** When a user asks about "cap spend" or "cap space," use get_team_financials and answer with CBT payroll / CBT space unless they clearly want plain payroll.
+        - **For contract value questions ("best value contracts", "most underpaid players"), you CAN access individual player contracts via get_player_profile.** However, for cross-player comparisons you need to look up players one at a time since there is no bulk salary query tool. For team-level payroll context, use get_team_financials. If the question covers many players, suggest a focus on specific players or teams rather than trying to scan the whole league.
         - **Use SQL for analytical questions.** "Who leads the NL in wRC+?" → query_players_sql, then create_chart.
         - **Answer general baseball questions directly** (history, rules, records) without needing tools.
         - **Always default to season #{current_season}** unless the user specifies otherwise.
         - Be concise, specific, and cite actual numbers. If a question is ambiguous, pick a sensible interpretation and say so.
+
+        ## SQL Sandbox page
+
+        When `page_context.pageType` is `"sandbox"`, the user is on the DuckDB SQL Sandbox. Additional context may be provided:
+        - `page_context.currentSql` — the SQL currently in the editor (may be empty)
+        - `page_context.currentError` — the last query error message (if any)
+
+        When on the sandbox page:
+        - Help debug or improve the user's `currentSql` if they ask about it.
+        - If `currentError` is present, diagnose the cause and suggest a corrected query.
+        - When suggesting or correcting SQL, **always output it in a fenced ```sql``` code block** so the user can load it into the editor with one click.
+        - The sandbox has four tables (DuckDB dialect):
+          - `batters` — season batting stats, 2010–present. Columns: player_id, fg_id, name, team, league, position, season, g, pa, ab, h, hr, r, rbi, sb, bb, k, avg, obp, slg, ops, iso, woba, wrc_plus, babip, war, k_pct, bb_pct, ld_pct, gb_pct, fb_pct, hr_fb_pct, barrel_pct, hard_hit_pct, exit_velocity, sprint_speed.
+          - `pitchers` — season pitching stats, 2010–present. Columns: player_id, fg_id, name, team, league, season, g, gs, w, l, sv, ip, tbf, h, er, hr, bb, k, era, fip, xfip, siera, war, whip, k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct, babip, gb_pct, ld_pct, fb_pct.
+          - `fg_projections_batting` — current-season Steamer batting projections. Columns: player_id, fg_id, name, team, season, projection_system, g, pa, hr, r, rbi, sb, bb, k, avg, obp, slg, ops, iso, woba, wrc_plus, babip, war, k_pct, bb_pct.
+          - `fg_projections_pitching` — current-season Steamer pitching projections. Columns: player_id, fg_id, name, team, season, projection_system, g, gs, w, l, sv, ip, tbf, k, bb, hr, era, fip, xfip, siera, war, whip, k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct, babip, gb_pct.
+          - Join on `player_id` (preferred) or `fg_id`. Always alias tables when joining. Example cross-table query: `SELECT b.name, b.war AS actual_war, p.war AS proj_war FROM batters b JOIN fg_projections_batting p ON b.player_id = p.player_id AND b.season = p.season WHERE b.season = #{Date.today.year - 1} AND b.pa >= 300 ORDER BY actual_war - proj_war DESC`.
       PROMPT
     end
   end

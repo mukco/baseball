@@ -7,12 +7,12 @@ import {
   ResponsiveContainer, Cell, LabelList,
 } from 'recharts'
 
-const BRAND        = '#6366F1'
-const BRAND_LIGHT  = '#818CF8'
-const BORDER       = '#2D2D3A'
-const MUTED        = '#6B7280'
-const SURFACE      = '#1E1E2A'
-const SECONDARY    = '#9CA3AF'
+const BRAND        = 'rgb(var(--color-brand))'
+const BRAND_LIGHT  = 'rgb(var(--color-brand-light))'
+const BORDER       = 'rgb(var(--color-bg-border-strong))'
+const MUTED        = 'rgb(var(--color-content-muted))'
+const SURFACE      = 'rgb(var(--color-bg-elevated))'
+const SECONDARY    = 'rgb(var(--color-content-secondary))'
 
 const PALETTE = [
   '#6366F1', '#F59E0B', '#10B981', '#EF4444',
@@ -45,20 +45,35 @@ const AXIS_PROPS = {
   tick:     { fill: MUTED, fontSize: 11 },
   axisLine: { stroke: BORDER },
   tickLine: false,
+  tickFormatter: (v) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return v
+    if (Number.isInteger(n)) return String(n)
+    const abs = Math.abs(n)
+    if (abs >= 10) return n.toFixed(0)
+    if (abs >= 1) return n.toFixed(1)
+    return n.toFixed(2)
+  },
 }
 
-const CHART_MARGIN = { top: 8, right: 8, left: -12, bottom: 0 }
+const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 0 }
 
 export default function DynamicChart({ type, title, data, xKey = 'name', yKey = 'value', color, height = 180 }) {
   const containerRef = useRef(null)
-  if (!data?.length) return null
+  if (!data?.length) {
+    return (
+      <div className="flex items-center justify-center h-40 text-content-muted text-sm">
+        {title ? `${title} — no data` : 'No data'}
+      </div>
+    )
+  }
 
   let chart = null
 
   if (type === 'bar') {
     chart = (
       <BarChart data={data} margin={CHART_MARGIN}>
-        <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" />
+        <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" strokeOpacity={0.6} />
         <XAxis dataKey={xKey} {...AXIS_PROPS} interval={0} tick={{ ...AXIS_PROPS.tick, fontSize: 10 }} />
         <YAxis {...AXIS_PROPS} width={40} />
         <Tooltip content={<CustomTooltip xKey={xKey} yKey={yKey} type="bar" />} cursor={{ fill: SURFACE }} />
@@ -86,7 +101,7 @@ export default function DynamicChart({ type, title, data, xKey = 'name', yKey = 
   } else if (type === 'line') {
     chart = (
       <LineChart data={data} margin={CHART_MARGIN}>
-        <CartesianGrid stroke={BORDER} strokeDasharray="3 3" />
+        <CartesianGrid stroke={BORDER} strokeDasharray="3 3" strokeOpacity={0.6} />
         <XAxis dataKey={xKey} {...AXIS_PROPS} />
         <YAxis {...AXIS_PROPS} width={40} />
         <Tooltip content={<CustomTooltip xKey={xKey} yKey={yKey} type="line" />} />
@@ -102,8 +117,8 @@ export default function DynamicChart({ type, title, data, xKey = 'name', yKey = 
     )
   } else if (type === 'scatter') {
     chart = (
-      <ScatterChart margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
-        <CartesianGrid stroke={BORDER} strokeDasharray="3 3" />
+      <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid stroke={BORDER} strokeDasharray="3 3" strokeOpacity={0.6} />
         <XAxis type="number" dataKey={xKey} name={xKey} {...AXIS_PROPS} label={{ value: xKey, position: 'insideBottom', offset: -2, fill: MUTED, fontSize: 10 }} />
         <YAxis type="number" dataKey={yKey} name={yKey} {...AXIS_PROPS} width={40} label={{ value: yKey, angle: -90, position: 'insideLeft', fill: MUTED, fontSize: 10 }} />
         <Tooltip content={<CustomTooltip xKey={xKey} yKey={yKey} type="scatter" />} cursor={{ strokeDasharray: '3 3' }} />

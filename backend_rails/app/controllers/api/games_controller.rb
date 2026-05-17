@@ -25,5 +25,11 @@ module Api
     def win_probability
       render json: mlb.win_probability(params[:game_pk].to_i)
     end
+
+    # GET /api/games/:game_pk/picks?refresh=true
+    def picks
+      refresh = ActiveModel::Type::Boolean.new.cast(params[:refresh])
+      render json: PicksService.call(game_pk: params[:game_pk].to_i, refresh: refresh)
+    end
   end
 end
