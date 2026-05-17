@@ -1,4 +1,6 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts'
+import PredActualChart from './PredActualChart'
+import ClassBreakdownChart from './ClassBreakdownChart'
 
 const IMPORTANCE_COLORS = ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE']
 
@@ -23,8 +25,10 @@ function SummaryChip({ label, value }) {
 export default function ModelResults({ results }) {
   const {
     model_type, task, metrics, confusion_matrix, confusion_labels,
+    class_breakdown, test_predictions,
     feature_importance, loss_history, parameter_count, architecture,
     train_samples, test_samples, training_time_ms,
+    target,
   } = results
 
   const isClassification = task === 'classification'
@@ -120,6 +124,16 @@ export default function ModelResults({ results }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      )}
+
+      {/* Predicted vs Actual + residuals — regression */}
+      {test_predictions && (
+        <PredActualChart testPredictions={test_predictions} target={target || 'target'} />
+      )}
+
+      {/* Per-class precision/recall/F1 — classification */}
+      {class_breakdown && (
+        <ClassBreakdownChart classBreakdown={class_breakdown} />
       )}
 
       {/* Confusion matrix */}

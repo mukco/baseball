@@ -5,14 +5,33 @@ module Api
       render json: MlService.health
     end
 
-    # GET /api/ml/columns/:table?duckdb_path=...
+    # GET /api/ml/columns/:table
     def columns
       render json: MlService.columns(table: params[:table])
     end
 
     # POST /api/ml/train
     def train
-      render json: MlService.train(train_params)
+      config = train_params
+      result = MlService.train(config)
+
+      unless result[:error]
+        saved = MlRunsService.save(config: config, result: result)
+        result = result.merge(run_id: saved[:id])
+      end
+
+      render json: result
+    end
+
+    # GET /api/ml/runs
+    def runs
+      render json: MlRunsService.all
+    end
+
+    # DELETE /api/ml/runs/:id
+    def delete_run
+      found = MlRunsService.delete(params[:id])
+      render json: { deleted: found }
     end
 
     private

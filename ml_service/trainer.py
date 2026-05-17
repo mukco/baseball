@@ -78,5 +78,7 @@ def _bin_continuous(y: np.ndarray, bins: int) -> np.ndarray:
     percentiles = np.linspace(0, 100, bins + 1)
     edges = np.percentile(y, percentiles)
     edges = np.unique(edges)
+    if len(edges) <= 1:
+        return np.full(len(y), "tier_1")
     labels = [f"tier_{i+1}" for i in range(len(edges) - 1)]
     return np.array(labels)[np.digitize(y, edges[1:-1])]

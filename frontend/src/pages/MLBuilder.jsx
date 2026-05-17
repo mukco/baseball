@@ -1,10 +1,13 @@
 import { useState, useMemo } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import { STAT_HELP, STAT_ALIASES } from '../lib/statHelp'
+import { calcNNParams } from '../lib/mlUtils'
 import NNExplainer from '../components/ml/NNExplainer'
 import LayerBuilder from '../components/ml/LayerBuilder'
 import ModelResults from '../components/ml/ModelResults'
+import RunHistory from '../components/ml/RunHistory'
+import RunComparison from '../components/ml/RunComparison'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -33,18 +36,6 @@ const DEFAULT_HYPERPARAMS = {
   random_forest:       { n_estimators: 100, max_depth: '' },
   gradient_boosting:   { n_estimators: 100, learning_rate: 0.1, max_depth: 3 },
   neural_network:      { activation: 'relu', learning_rate: 0.001, epochs: 50, dropout: 0.0 },
-}
-
-// Compute NN parameter count from layers + input/output sizes
-function calcNNParams(inputSize, layers, outputSize) {
-  let total = 0
-  let prev = inputSize
-  for (const l of layers) {
-    total += (prev + 1) * l.neurons
-    prev = l.neurons
-  }
-  total += (prev + 1) * outputSize
-  return total
 }
 
 function statHelp(colName) {
@@ -105,6 +96,7 @@ function HyperparamInput({ label, type = 'number', value, onChange, options, min
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function MLBuilder() {
+  const qc = useQueryClient()
   const [table, setTable]           = useState('batters')
   const [features, setFeatures]     = useState([])
   const [target, setTarget]         = useState('')
@@ -117,6 +109,11 @@ export default function MLBuilder() {
   const [testSize, setTestSize]     = useState(0.2)
   const [explainerOpen, setExplainerOpen] = useState(false)
   const [results, setResults]       = useState(null)
+  const [activeRunId, setActiveRunId] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareRunA, setCompareRunA] = useState(null)
+  const [compareRunB, setCompareRunB] = useState(null)
 
   // Fetch column list for selected table
   const { data: columnsData, isLoading: colsLoading, error: colsError } = useQuery({
@@ -141,7 +138,11 @@ export default function MLBuilder() {
 
   const trainMutation = useMutation({
     mutationFn: (config) => api.ml.train(config),
-    onSuccess: (data) => setResults(data),
+    onSuccess: (data) => {
+      setResults(data)
+      setActiveRunId(data.run_id || null)
+      qc.invalidateQueries({ queryKey: ['ml-runs'] })
+    },
   })
 
   function toggleFeature(col) {
@@ -160,6 +161,36 @@ export default function MLBuilder() {
     setHyperparams(prev => ({ ...prev, [key]: value }))
   }
 
+  function handleLoadRun(run) {
+    const result = { ...run.result, target: run.config?.target }
+    setResults(result)
+    setActiveRunId(run.id)
+    setCompareMode(false)
+    // Restore config state so the form reflects the loaded run
+    const c = run.config || {}
+    if (c.table)      setTable(c.table)
+    if (c.features)   setFeatures(c.features)
+    if (c.target)     setTarget(c.target)
+    if (c.task)       setTask(c.task)
+    if (c.model_type) { setModelType(c.model_type); setHyperparams({ ...DEFAULT_HYPERPARAMS[c.model_type], ...(c.hyperparams || {}) }) }
+    if (c.one_hot_target != null) setOneHot(c.one_hot_target)
+    if (c.target_bins)  setTargetBins(c.target_bins)
+    if (c.test_size)    setTestSize(c.test_size)
+  }
+
+  function handleStartCompare() {
+    setCompareMode(true)
+    setCompareRunA(null)
+    setCompareRunB(null)
+    setHistoryOpen(true)
+  }
+
+  function handleCompareSelect(run) {
+    if (!compareRunA) { setCompareRunA(run); return }
+    if (!compareRunB) { setCompareRunB(run); return }
+    setCompareRunA(run); setCompareRunB(null)
+  }
+
   function handleTrain() {
     const config = {
       table,
@@ -176,6 +207,7 @@ export default function MLBuilder() {
       filters: {},
     }
     setResults(null)
+    setActiveRunId(null)
     trainMutation.mutate(config)
   }
 
@@ -188,21 +220,57 @@ export default function MLBuilder() {
         <div>
           <h1 className="text-2xl font-bold text-content-primary">ML Model Builder</h1>
           <p className="text-content-secondary text-sm mt-1">
-            Train machine learning models on warehouse stats. Exploratory — no model is persisted.
+            Train machine learning models on warehouse stats. Runs are saved automatically.
           </p>
         </div>
-        <button
-          onClick={() => setExplainerOpen(o => !o)}
-          className="btn-ghost text-sm flex items-center gap-1.5"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-            <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
-          </svg>
-          How it works
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setHistoryOpen(o => !o)}
+            className={`btn-ghost text-sm flex items-center gap-1.5 ${historyOpen ? 'text-brand' : ''}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            History
+          </button>
+          <button
+            onClick={() => setExplainerOpen(o => !o)}
+            className="btn-ghost text-sm flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
+            </svg>
+            How it works
+          </button>
+        </div>
       </div>
 
       {explainerOpen && <NNExplainer onClose={() => setExplainerOpen(false)} />}
+
+      {/* Run history panel */}
+      {historyOpen && (
+        <div className="card p-4">
+          {compareMode && compareRunA && compareRunB ? (
+            <RunComparison
+              runA={compareRunA}
+              runB={compareRunB}
+              onClose={() => { setCompareMode(false); setCompareRunA(null); setCompareRunB(null) }}
+            />
+          ) : (
+            <RunHistory
+              selectedRunId={activeRunId}
+              compareRunId={compareMode ? (compareRunA?.id || null) : null}
+              onLoad={compareMode ? handleCompareSelect : handleLoadRun}
+              onCompare={handleStartCompare}
+            />
+          )}
+          {compareMode && (!compareRunA || !compareRunB) && (
+            <p className="text-xs text-content-muted mt-3 px-1">
+              {!compareRunA ? 'Click a run to select as Run A.' : 'Click another run to select as Run B.'}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Left: Configuration ────────────────────────────────────────────── */}
@@ -229,11 +297,11 @@ export default function MLBuilder() {
           {/* Columns */}
           <div className="card p-4 space-y-4">
             <SectionLabel>Feature columns <span className="text-brand normal-case font-normal">({features.length} selected)</span></SectionLabel>
-            {colsLoading && <p className="text-content-muted text-sm">Loading columns… (warehouse must be refreshed)</p>}
-            {colsError && (
-              <p className="text-red-400 text-sm">ML service unavailable — make sure it's running on port 8002.</p>
+            {colsLoading && <p className="text-content-muted text-sm">Loading columns…</p>}
+            {(colsError || columnsData?.error) && (
+              <p className="text-red-400 text-sm">ML service unavailable — start it with <code className="font-mono text-xs bg-bg-elevated px-1 py-0.5 rounded">python3 ml_service/main.py</code> from the project root.</p>
             )}
-            {!colsLoading && allColumns.length > 0 && (
+            {!colsLoading && !columnsData?.error && allColumns.length > 0 && (
               <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto">
                 {numericColumns.filter(c => c !== target).map(col => (
                   <ColumnBadge
@@ -462,7 +530,7 @@ export default function MLBuilder() {
         {/* ── Right: Results ─────────────────────────────────────────────────── */}
         <div>
           {results ? (
-            <ModelResults results={results} />
+            <ModelResults results={{ ...results, target: results.target || target }} />
           ) : (
             <div className="card p-8 flex flex-col items-center justify-center text-center min-h-64 text-content-muted">
               <svg className="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.2}>

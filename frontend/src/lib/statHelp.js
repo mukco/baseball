@@ -431,3 +431,5 @@ export function getStatHelp(statKeyOrLabel) {
   const mappedKey = STAT_ALIASES[rawKey] || rawKey
   return STAT_HELP[mappedKey] || null
 }
+
+export { STAT_HELP, STAT_ALIASES }

@@ -87,5 +87,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ml: config }),
     }),
+    runs: () => fetchJSON('/ml/runs'),
+    deleteRun: (id) => fetchJSON(`/ml/runs/${id}`, { method: 'DELETE' }),
   },
 }

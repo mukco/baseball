@@ -6,6 +6,7 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.metrics import (
     r2_score, mean_squared_error, mean_absolute_error,
     accuracy_score, f1_score, precision_score, recall_score, confusion_matrix,
+    precision_recall_fscore_support,
 )
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
@@ -13,7 +14,10 @@ import time
 
 
 def _classification_metrics(y_true, y_pred, labels):
-    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    # labels holds the original class names (possibly strings); y_true/y_pred are
+    # integer-encoded, so pass the integer range to confusion_matrix.
+    int_labels = np.arange(len(labels))
+    cm = confusion_matrix(y_true, y_pred, labels=int_labels)
     avg = "binary" if len(labels) == 2 else "weighted"
     return {
         "accuracy":  round(float(accuracy_score(y_true, y_pred)), 4),
@@ -114,21 +118,41 @@ def train(
 
     if task == "classification":
         metrics, cm, cm_labels = _classification_metrics(y_test, y_pred, labels)
+        p_arr, r_arr, f_arr, s_arr = precision_recall_fscore_support(
+            y_test, y_pred, labels=np.arange(len(labels)), zero_division=0
+        )
+        class_breakdown = [
+            {"class": str(labels[i]), "precision": round(float(p_arr[i]), 4),
+             "recall": round(float(r_arr[i]), 4), "f1": round(float(f_arr[i]), 4),
+             "support": int(s_arr[i])}
+            for i in range(len(labels))
+        ]
         return {
-            "metrics":           metrics,
-            "confusion_matrix":  cm,
-            "confusion_labels":  cm_labels,
+            "metrics":            metrics,
+            "confusion_matrix":   cm,
+            "confusion_labels":   cm_labels,
+            "class_breakdown":    class_breakdown,
+            "test_predictions":   None,
             "feature_importance": _feature_importance(model, feature_names),
-            "training_time_ms":  elapsed_ms,
-            "parameter_count":   None,
-            "architecture":      None,
-            "loss_history":      None,
+            "training_time_ms":   elapsed_ms,
+            "parameter_count":    None,
+            "architecture":       None,
+            "loss_history":       None,
         }
     else:
+        n = len(y_test)
+        idx = np.random.default_rng(0).choice(n, size=min(n, 500), replace=False) if n > 500 else np.arange(n)
+        test_predictions = {
+            "y_true": [round(float(v), 4) for v in np.array(y_test)[idx]],
+            "y_pred": [round(float(v), 4) for v in np.array(y_pred)[idx]],
+            "sampled": n > 500,
+        }
         return {
             "metrics":            _regression_metrics(y_test, y_pred),
             "confusion_matrix":   None,
             "confusion_labels":   None,
+            "class_breakdown":    None,
+            "test_predictions":   test_predictions,
             "feature_importance": _feature_importance(model, feature_names),
             "training_time_ms":   elapsed_ms,
             "parameter_count":    None,

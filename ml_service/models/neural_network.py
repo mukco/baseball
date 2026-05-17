@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import (
     r2_score, mean_squared_error, mean_absolute_error,
     accuracy_score, f1_score, precision_score, recall_score, confusion_matrix,
+    precision_recall_fscore_support,
 )
 import time
 
@@ -132,6 +133,17 @@ def train(
         cm = confusion_matrix(y_test_enc, y_pred).tolist()
         cm_labels = [str(l) for l in labels]
         confusion_matrix_out = cm
+
+        p_arr, r_arr, f_arr, s_arr = precision_recall_fscore_support(
+            y_test_enc, y_pred, labels=np.arange(len(labels)), zero_division=0
+        )
+        class_breakdown = [
+            {"class": str(labels[i]), "precision": round(float(p_arr[i]), 4),
+             "recall": round(float(r_arr[i]), 4), "f1": round(float(f_arr[i]), 4),
+             "support": int(s_arr[i])}
+            for i in range(len(labels))
+        ]
+        test_predictions = None
     else:
         y_pred = logits.squeeze(1).numpy()
         metrics = {
@@ -141,6 +153,15 @@ def train(
         }
         confusion_matrix_out = None
         cm_labels = None
+        class_breakdown = None
+
+        n = len(y_test)
+        idx = np.random.default_rng(0).choice(n, size=min(n, 500), replace=False) if n > 500 else np.arange(n)
+        test_predictions = {
+            "y_true": [round(float(v), 4) for v in y_test[idx]],
+            "y_pred": [round(float(v), 4) for v in y_pred[idx]],
+            "sampled": n > 500,
+        }
 
     arch = model.architecture_summary(input_size, layers, output_size, activation)
 
@@ -148,6 +169,8 @@ def train(
         "metrics":            metrics,
         "confusion_matrix":   confusion_matrix_out,
         "confusion_labels":   cm_labels,
+        "class_breakdown":    class_breakdown,
+        "test_predictions":   test_predictions,
         "feature_importance": [],
         "training_time_ms":   elapsed_ms,
         "parameter_count":    model.parameter_count(),

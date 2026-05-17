@@ -55,8 +55,10 @@ Rails.application.routes.draw do
     post "assistant/ask",                  to: "assistant#ask"
 
     # ML Builder
-    get  "ml/health",          to: "ml#health"
-    get  "ml/columns/:table",  to: "ml#columns"
-    post "ml/train",           to: "ml#train"
+    get    "ml/health",          to: "ml#health"
+    get    "ml/columns/:table",  to: "ml#columns"
+    post   "ml/train",           to: "ml#train"
+    get    "ml/runs",            to: "ml#runs"
+    delete "ml/runs/:id",        to: "ml#delete_run"
   end
 end
