@@ -8,11 +8,13 @@ import { useState } from 'react'
 const HP_X = 125, HP_Y = 205
 const PX_PER_FT = 187 / 400
 
+// Colorblind-safe: avoids red/green pair (deuteranopia affects ~8% of males).
+// HR = orange (unmistakable), 1B = sky blue, 2B = indigo, 3B = amber, Out = gray.
 const RESULT_COLORS = {
-  single:                    '#22C55E',
-  double:                    '#3B82F6',
+  single:                    '#0EA5E9',
+  double:                    '#6366F1',
   triple:                    '#FBBF24',
-  home_run:                  '#EF4444',
+  home_run:                  '#F97316',
   field_out:                 '#4B5563',
   force_out:                 '#4B5563',
   grounded_into_double_play: '#4B5563',

@@ -78,7 +78,7 @@ export default function RollingAverageChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={tickData} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
+      <ComposedChart data={tickData} margin={{ top: 8, right: 12, bottom: 16, left: -8 }}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%"  stopColor={color} stopOpacity={0.35} />

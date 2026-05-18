@@ -46,4 +46,8 @@ Rails.application.configure do
 
   # Allow localtunnel and any external tunnel hosts for OAuth callbacks
   config.hosts << /.*\.loca\.lt/
+
+  # Run background jobs in-process using threads — no separate worker needed.
+  # In production, solid_queue (set in application.rb) is used instead.
+  config.active_job.queue_adapter = :async
 end

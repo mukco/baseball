@@ -71,6 +71,11 @@ class ProspectService
       key = "prospects_top100"
       return @@cache[key] if cache_fresh?(key)
 
+      if (persisted = Rails.cache.read("prospect_top100_v1"))
+        cache_set(key, persisted)
+        return persisted
+      end
+
       refresh_file_if_stale("board.json")
       data = load_file("board.json")
       return { error: "No prospect data available" } unless data
@@ -80,7 +85,10 @@ class ProspectService
         .sort_by { |p| p["rank"].to_i }
 
       enriched = enrich_with_stats(top)
-      cache_set(key, enriched) unless enriched.is_a?(Hash) && enriched[:error]
+      unless enriched.is_a?(Hash) && enriched[:error]
+        cache_set(key, enriched)
+        Rails.cache.write("prospect_top100_v1", enriched, expires_in: 6.hours)
+      end
       enriched
     rescue => e
       { error: e.message }
@@ -237,29 +245,38 @@ class ProspectService
     def enrich_with_stats(prospects)
       mlb = MlbApiService.new
       prospects.map do |prospect|
-        player_id = resolve_player_id(prospect["name"], mlb)
-        next prospect.merge("resolved" => false) unless player_id
+        Thread.new { enrich_one(prospect, mlb) }
+      end.map(&:value)
+    end
 
-        sport_id = SPORT_IDS[prospect["level"]] || 11
-        stats = fetch_minor_league_stats(player_id, sport_id, mlb)
+    def enrich_one(prospect, mlb)
+      player_id = resolve_player_id(prospect["name"], mlb)
+      return prospect.merge("resolved" => false) unless player_id
 
-        prospect.merge(
-          "playerId"  => player_id,
-          "resolved"  => true,
-          "stats"     => stats
-        )
-      rescue => e
-        Rails.logger.warn("[ProspectService] Enrichment failed for #{prospect["name"]}: #{e.message}")
-        prospect.merge("resolved" => false)
-      end
+      sport_id = SPORT_IDS[prospect["level"]] || 11
+      stats    = fetch_minor_league_stats(player_id, sport_id, mlb)
+      prospect.merge("playerId" => player_id, "resolved" => true, "stats" => stats)
+    rescue => e
+      Rails.logger.warn("[ProspectService] Enrichment failed for #{prospect["name"]}: #{e.message}")
+      prospect.merge("resolved" => false)
     end
 
     def resolve_player_id(name, mlb)
-      results = mlb.search_players(name)
-      return nil if results.empty?
+      rc_key    = "prospect_player_id_v1_#{name.downcase.strip}"
+      cached_id = Rails.cache.read(rc_key)
+      # false means previously searched and not found; nil means cache miss
+      return (cached_id == false ? nil : cached_id) unless cached_id.nil?
 
-      exact = results.find { |r| r[:name].downcase.strip == name.downcase.strip }
-      (exact || results.first)&.dig(:id)
+      results = mlb.search_players(name)
+      if results.empty?
+        Rails.cache.write(rc_key, false, expires_in: 30.days)
+        return nil
+      end
+
+      exact     = results.find { |r| r[:name].downcase.strip == name.downcase.strip }
+      player_id = (exact || results.first)&.dig(:id)
+      Rails.cache.write(rc_key, player_id || false, expires_in: 30.days)
+      player_id
     end
 
     def fetch_minor_league_stats(player_id, sport_id, mlb)

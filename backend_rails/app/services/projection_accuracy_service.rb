@@ -1,25 +1,21 @@
 class ProjectionAccuracyService
   BACKTEST_SEASONS = [2023, 2024, 2025].freeze
-  SAMPLE_SIZE      = 100
+  SAMPLE_SIZE      = 50
 
   # Minimum qualified sample to include a player-season in accuracy computation
   MIN_PITCHER_IP_FOR_ACCURACY = 30.0
   MIN_BATTER_PA_FOR_ACCURACY  = 100
 
-  @@cache    = {}
-  @@cache_ts = {}
-  CACHE_TTL  = 24 * 3600
+  CACHE_TTL = 24.hours
 
   class << self
     def league_accuracy(player_type:)
-      key = "league_#{player_type}"
-      return @@cache[key] if @@cache[key] && @@cache_ts[key].to_i > Time.now.to_i - CACHE_TTL
+      cache_key = "projection_accuracy_league_#{player_type}"
+      cached = Rails.cache.read(cache_key)
+      return cached if cached
 
       result = compute_league(player_type.to_s)
-      unless result[:error]
-        @@cache[key] = result
-        @@cache_ts[key] = Time.now.to_i
-      end
+      Rails.cache.write(cache_key, result, expires_in: CACHE_TTL) unless result[:error]
       result
     rescue => e
       { error: e.message }
@@ -31,25 +27,23 @@ class ProjectionAccuracyService
       player_ids = sample_player_ids(player_type)
       return { player_type:, aggregate: {}, seasons_range: BACKTEST_SEASONS, sample_size: 0 } if player_ids.empty?
 
-      mlb   = MlbApiService.new
-      group = player_type == "pitcher" ? "pitching" : "hitting"
-
+      group  = player_type == "pitcher" ? "pitching" : "hitting"
+      mutex  = Mutex.new
       all_deltas = { steamer: [], zips: [], ours: [] }
 
-      player_ids.each do |player_id|
-        BACKTEST_SEASONS.each do |season|
-          actuals = fetch_actuals(mlb, player_id, season, player_type)
-          next unless actuals
+      player_ids.map do |player_id|
+        Thread.new do
+          player_deltas = cached_player_deltas(player_id, player_type, group)
 
-          st = mlb.player_projection(player_id, season, group: group, source: "steamer")
-          zp = mlb.player_projection(player_id, season, group: group, source: "zips")
-          br = ProjectionService.backtest_player(player_id, target_season: season)
-
-          accumulate(all_deltas[:steamer], st[:projections], actuals, player_type) unless st[:error]
-          accumulate(all_deltas[:zips],    zp[:projections], actuals, player_type) unless zp[:error]
-          accumulate(all_deltas[:ours],    br&.dig(:stats),  actuals, player_type, symbol_keys: true) if br
+          mutex.synchronize do
+            all_deltas[:steamer].concat(player_deltas[:steamer])
+            all_deltas[:zips].concat(player_deltas[:zips])
+            all_deltas[:ours].concat(player_deltas[:ours])
+          end
+        rescue => e
+          Rails.logger.warn "[ProjectionAccuracyService] player #{player_id}: #{e.message}"
         end
-      end
+      end.each(&:join)
 
       {
         player_type:   player_type,
@@ -60,6 +54,31 @@ class ProjectionAccuracyService
     end
 
     # Use players the user has already projected — accurate sample for their workflow.
+    def cached_player_deltas(player_id, player_type, group)
+      key    = "proj_acc_deltas_v1_#{player_id}_#{player_type}"
+      cached = Rails.cache.read(key)
+      return cached if cached
+
+      mlb    = MlbApiService.new
+      deltas = { steamer: [], zips: [], ours: [] }
+
+      BACKTEST_SEASONS.each do |season|
+        actuals = fetch_actuals(mlb, player_id, season, player_type)
+        next unless actuals
+
+        st = mlb.player_projection(player_id, season, group: group, source: "steamer")
+        zp = mlb.player_projection(player_id, season, group: group, source: "zips")
+        br = ProjectionService.backtest_player(player_id, target_season: season)
+
+        accumulate(deltas[:steamer], st[:projections], actuals, player_type) unless st[:error]
+        accumulate(deltas[:zips],    zp[:projections], actuals, player_type) unless zp[:error]
+        accumulate(deltas[:ours],    br&.dig(:stats),  actuals, player_type, symbol_keys: true) if br
+      end
+
+      Rails.cache.write(key, deltas, expires_in: 7.days) unless deltas.values.all?(&:empty?)
+      deltas
+    end
+
     def sample_player_ids(player_type)
       PlayerProjection
         .where(player_type: player_type)

@@ -39,7 +39,7 @@ class ProjectionDataService
     # Batter history — last `years` seasons of component rates.
     # Returns array ordered most-recent first (index 0 = most recent).
     # -----------------------------------------------------------------------
-    def batter_history(player_id, years: 3, before_season: nil)
+    def batter_history(player_id, years: 3, min_pa: MIN_PA_FOR_HISTORY, before_season: nil)
       mlb    = MlbApiService.new
       latest = before_season ? (before_season - 1) : Date.today.year
       seasons = (0...years).map { |i| latest - i }
@@ -47,11 +47,11 @@ class ProjectionDataService
       seasons.filter_map do |season|
         stats         = mlb.player_season_stats(player_id, season)
         hitting_stats = stats[:hitting]
-        next if hitting_stats.nil? || hitting_stats["atBats"].to_i < MIN_PA_FOR_HISTORY
+        next if hitting_stats.nil? || hitting_stats["atBats"].to_i < min_pa
 
         pa  = hitting_stats["plateAppearances"].to_i
         pa  = hitting_stats["atBats"].to_i + hitting_stats["baseOnBalls"].to_i + hitting_stats["hitByPitch"].to_i if pa.zero?
-        next if pa < MIN_PA_FOR_HISTORY
+        next if pa < min_pa
 
         walks      = hitting_stats["baseOnBalls"].to_f
         strikeouts = hitting_stats["strikeOuts"].to_f
@@ -106,7 +106,7 @@ class ProjectionDataService
     # Pitcher history — last `years` seasons of component rates.
     # Returns array ordered most-recent first (index 0 = most recent).
     # -----------------------------------------------------------------------
-    def pitcher_history(player_id, years: 3, before_season: nil)
+    def pitcher_history(player_id, years: 3, min_ip: MIN_IP_FOR_HISTORY, before_season: nil)
       mlb    = MlbApiService.new
       latest = before_season ? (before_season - 1) : Date.today.year
       seasons = (0...years).map { |i| latest - i }
@@ -117,7 +117,7 @@ class ProjectionDataService
         next if pitching_stats.nil?
 
         ip = ip_to_float(pitching_stats["inningsPitched"].to_s)
-        next if ip < MIN_IP_FOR_HISTORY
+        next if ip < min_ip
 
         batters_faced = (ip * ProjectionEngine::AVG_BATTERS_FACED_PER_INNING).round
         strikeouts    = pitching_stats["strikeOuts"].to_f
@@ -210,15 +210,30 @@ class ProjectionDataService
     end
 
     # -----------------------------------------------------------------------
-    # Player display name — fetched from cached player_info.
+    # Player display name — DB-first with in-memory cache, API as last resort.
     # -----------------------------------------------------------------------
+    @@player_name_cache = {}
+    @@player_name_cache_loaded = false
+
     def player_name(player_id)
+      pid = player_id.to_i
+      warm_name_cache unless @@player_name_cache_loaded
+      return @@player_name_cache[pid] if @@player_name_cache.key?(pid)
+
       mlb  = MlbApiService.new
-      info = mlb.player_info(player_id)
-      return nil if info.nil? || info[:error]
-      info[:name]
+      info = mlb.player_info(pid)
+      name = (info && !info[:error]) ? info[:name] : nil
+      @@player_name_cache[pid] = name
+      name
     rescue
       nil
+    end
+
+    def warm_name_cache
+      PlayerProjection.where.not(player_name: nil)
+                      .pluck(:player_id, :player_name)
+                      .each { |pid, name| @@player_name_cache[pid] ||= name }
+      @@player_name_cache_loaded = true
     end
 
     # -----------------------------------------------------------------------

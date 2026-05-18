@@ -13,3 +13,10 @@ venv/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# ML experiment output
+results_*.csv
+
+# Scripts with embedded credentials
+twitter_api.py
+twitter_api_requirements.txt

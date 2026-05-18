@@ -298,7 +298,7 @@ export default function Sandbox() {
         <div>
           <h1 className="text-2xl font-bold text-content-primary">SQL Sandbox</h1>
           <p className="text-sm text-content-muted mt-1">
-            DuckDB warehouse — batters &amp; pitchers 2010–present, FanGraphs Steamer projections
+            DuckDB warehouse — batters &amp; pitchers, FG projections, team stats, simulation leagues
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

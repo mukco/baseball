@@ -22,7 +22,7 @@ export default function SparklineChart({ data = [], valueKey = 'value', color = 
 
   // Determine trend direction: compare last value to earliest value in window
   const trendVal   = vals.at(-1) - vals[0]
-  const dotColor   = trendVal >= 0 ? color : '#EF4444'
+  const dotColor   = trendVal >= 0 ? color : 'var(--color-stat-poor)'
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible shrink-0">

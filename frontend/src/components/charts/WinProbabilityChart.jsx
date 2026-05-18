@@ -40,7 +40,7 @@ export default function WinProbabilityChart({
   awayTeam  = 'Away',
   homeColor = '#6366F1',
   awayColor = '#F59E0B',
-  height    = 200,
+  height    = 240,
 }) {
   // Center at 0: lead > 0 means home favored, lead < 0 means away favored.
   // leadPos/leadNeg split the fill area above/below the 50/50 baseline.
@@ -87,7 +87,7 @@ export default function WinProbabilityChart({
       </div>
 
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={enriched} margin={{ top: 18, right: 12, bottom: 4, left: 0 }}>
+        <ComposedChart data={enriched} margin={{ top: 18, right: 12, bottom: 16, left: 0 }}>
           <defs>
             <linearGradient id="wp-home" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%"  stopColor={homeColor} stopOpacity={0.45} />
@@ -130,7 +130,8 @@ export default function WinProbabilityChart({
             tick={{ fill: MUTED, fontSize: 9 }}
             axisLine={{ stroke: BORDER }}
             tickLine={false}
-            width={34}
+            width={38}
+            label={{ value: 'Win %', angle: -90, position: 'insideLeft', offset: 14, fill: MUTED, fontSize: 9 }}
           />
           <Tooltip content={<CustomTooltip homeTeam={homeTeam} awayTeam={awayTeam} />} cursor={{ stroke: BORDER }} />
 

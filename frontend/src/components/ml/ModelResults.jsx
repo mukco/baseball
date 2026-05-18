@@ -1,8 +1,9 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import PredActualChart from './PredActualChart'
 import ClassBreakdownChart from './ClassBreakdownChart'
 
-const IMPORTANCE_COLORS = ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE']
+const MUTED  = 'rgb(var(--color-content-muted))'
+const BORDER = 'rgb(var(--color-bg-border))'
 
 function MetricCard({ label, value, help }) {
   return (
@@ -91,14 +92,14 @@ export default function ModelResults({ results }) {
           <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-3">Training loss</p>
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={lossData}>
-              <XAxis dataKey="epoch" tick={{ fill: '#7A90AF', fontSize: 11 }} label={{ value: 'Epoch', position: 'insideBottom', offset: -2, fill: '#4A5A7A', fontSize: 11 }} />
-              <YAxis tick={{ fill: '#7A90AF', fontSize: 11 }} width={55} />
+              <XAxis dataKey="epoch" tick={{ fill: MUTED, fontSize: 11 }} label={{ value: 'Epoch', position: 'insideBottom', offset: -2, fill: MUTED, fontSize: 11 }} />
+              <YAxis tick={{ fill: MUTED, fontSize: 11 }} width={55} />
               <Tooltip
-                contentStyle={{ background: '#0D1A2D', border: '1px solid #1C3050', borderRadius: 6 }}
-                labelStyle={{ color: '#7A90AF', fontSize: 11 }}
-                itemStyle={{ color: '#E8EDF5', fontSize: 12 }}
+                contentStyle={{ background: 'rgb(var(--color-bg-elevated))', border: `1px solid ${BORDER}`, borderRadius: 6 }}
+                labelStyle={{ color: MUTED, fontSize: 11 }}
+                itemStyle={{ color: 'rgb(var(--color-content-primary))', fontSize: 12 }}
               />
-              <Line type="monotone" dataKey="loss" stroke="#2563EB" dot={false} strokeWidth={2} />
+              <Line type="monotone" dataKey="loss" stroke="rgb(var(--color-brand))" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -110,17 +111,13 @@ export default function ModelResults({ results }) {
           <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-3">Feature importance</p>
           <ResponsiveContainer width="100%" height={Math.max(140, importanceData.length * 22)}>
             <BarChart data={importanceData} layout="vertical" margin={{ left: 8, right: 16 }}>
-              <XAxis type="number" tick={{ fill: '#7A90AF', fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" tick={{ fill: '#E8EDF5', fontSize: 11 }} width={110} />
+              <XAxis type="number" tick={{ fill: MUTED, fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" tick={{ fill: 'rgb(var(--color-content-secondary))', fontSize: 11 }} width={110} />
               <Tooltip
-                contentStyle={{ background: '#0D1A2D', border: '1px solid #1C3050', borderRadius: 6 }}
-                itemStyle={{ color: '#E8EDF5', fontSize: 12 }}
+                contentStyle={{ background: 'rgb(var(--color-bg-elevated))', border: `1px solid ${BORDER}`, borderRadius: 6 }}
+                itemStyle={{ color: 'rgb(var(--color-content-primary))', fontSize: 12 }}
               />
-              <Bar dataKey="value" radius={[0, 3, 3, 0]}>
-                {importanceData.map((_, i) => (
-                  <Cell key={i} fill={IMPORTANCE_COLORS[Math.min(i, IMPORTANCE_COLORS.length - 1)]} />
-                ))}
-              </Bar>
+              <Bar dataKey="value" fill="rgb(var(--color-brand))" fillOpacity={0.8} radius={[0, 3, 3, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

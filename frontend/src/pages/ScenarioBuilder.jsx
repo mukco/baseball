@@ -78,6 +78,10 @@ const DEFAULT_PARAMS = {
   park_factors_enabled: true,
   default_pa: 550,
   default_ip: 160,
+  era_fip_blend: 0.5,
+  history_years: 3,
+  min_pa_for_history: 30,
+  min_ip_for_history: 5.0,
 }
 
 function SliderField({ label, hint, name, value, min, max, step = 0.05, onChange }) {
@@ -514,6 +518,123 @@ pa_remaining = 213 × 0.765 = 163 PA  (reflects reduced pace)`}</pre>
         </FormulaPanel>
       </section>
 
+      {/* ERA / FIP blend */}
+      <section className="space-y-4">
+        <h3 className="text-xs font-semibold text-content-muted uppercase tracking-wide">Pitcher ERA Model</h3>
+        <SliderField
+          label="ERA / FIP Blend"
+          hint="0 = pure BABIP-informed ERA (luck-sensitive). 1 = pure FIP (skill-based, ignores BABIP). Default 0.5 blends them equally."
+          name="era_fip_blend"
+          value={params.era_fip_blend}
+          min={0}
+          max={1}
+          step={0.05}
+          onChange={handleChange}
+        />
+        <FormulaPanel>
+          <Formula>{`ERA = babip_ERA × (1 − blend) + FIP × blend
+
+babip_ERA = baserunners_per_inning × 0.32 × 9
+FIP       = (13×HR + 3×BB − 2×K) / IP + 3.20`}</Formula>
+          <FSection title="Variables">
+            <p className="text-xs text-content-secondary"><code className="font-mono">babip_ERA</code> — ERA derived from BABIP, walk rate, and HR rate. Reflects actual results including contact luck.</p>
+            <p className="text-xs text-content-secondary"><code className="font-mono">FIP</code> — Fielding Independent Pitching. Uses only outcomes the pitcher controls (K, BB, HR). Ignores whether balls in play became hits.</p>
+            <p className="text-xs text-content-secondary"><code className="font-mono">blend</code> — your slider. 0 trusts BABIP results, 1 trusts only pitcher skill metrics.</p>
+          </FSection>
+          <FSection title="Worked example — same pitcher, BABIP .350 vs .280">
+            <pre className="font-mono text-xs text-content-secondary whitespace-pre-wrap">{`Pitcher: K%=27%, BB%=8%, HR/FB=11%
+FIP = 3.45  (consistent, skill-based)
+
+High-BABIP year (.350): babip_ERA = 4.80
+Low-BABIP year (.280):  babip_ERA = 3.10
+
+blend = 0.5:
+  High-BABIP season → ERA = 4.80×0.5 + 3.45×0.5 = 4.13
+  Low-BABIP season  → ERA = 3.10×0.5 + 3.45×0.5 = 3.28
+
+blend = 1.0 (pure FIP):
+  Both seasons → ERA = 3.45  (BABIP luck ignored entirely)
+
+blend = 0.0 (pure BABIP):
+  High-BABIP → 4.80, Low-BABIP → 3.10  (full swing preserved)`}</pre>
+          </FSection>
+          <FSection title="When to adjust">
+            <p className="text-xs text-content-secondary">
+              <strong>Increase toward FIP</strong> for pitchers with extreme BABIPs — a .360 BABIP is almost certainly bad luck and FIP is a better forward-looking estimate.
+            </p>
+            <p className="text-xs text-content-secondary mt-1">
+              <strong>Decrease toward BABIP</strong> if you believe some pitchers genuinely suppress contact quality in ways FIP doesn't capture (e.g. extreme ground-ball pitchers, or pitchers with elite defense behind them).
+            </p>
+          </FSection>
+          <FSection>
+            <CodeRef path="projection_engine.rb → derive_pitcher_stats" />
+          </FSection>
+        </FormulaPanel>
+      </section>
+
+      {/* History depth */}
+      <section className="space-y-4">
+        <h3 className="text-xs font-semibold text-content-muted uppercase tracking-wide">History Depth</h3>
+        <p className="text-xs text-content-muted -mt-2">
+          How many prior seasons to include, and the minimum sample required for a season to count.
+        </p>
+
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-content-primary">Seasons of history</label>
+            <span className="font-mono text-sm text-brand font-semibold">{params.history_years}</span>
+          </div>
+          <p className="text-xs text-content-muted">1 = current season only. 2 = current + 1 prior. 3 = standard (uses all three year weights).</p>
+          <input
+            type="range"
+            min={1} max={3} step={1}
+            value={params.history_years}
+            onChange={(e) => handleChange('history_years', Number(e.target.value))}
+            className="w-full accent-brand"
+          />
+          <div className="flex justify-between text-[10px] text-content-muted">
+            <span>1</span><span>2</span><span>3</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <NumberField
+            label="Min PA for batter season"
+            hint="Seasons below this threshold are skipped"
+            name="min_pa_for_history"
+            value={params.min_pa_for_history}
+            min={10} max={200} step={10}
+            onChange={handleChange}
+          />
+          <NumberField
+            label="Min IP for pitcher season"
+            hint="Seasons below this threshold are skipped"
+            name="min_ip_for_history"
+            value={params.min_ip_for_history}
+            min={1} max={50} step={0.5}
+            onChange={handleChange}
+          />
+        </div>
+
+        <FormulaPanel>
+          <Formula>{`history = seasons[0..history_years−1].select { |s| s.pa >= min_pa }
+weighted_rate = Σ(rateᵢ × PAᵢ × year_weightᵢ) / Σ(PAᵢ × year_weightᵢ)`}</Formula>
+          <FSection title="Why fewer seasons can be better">
+            <p className="text-xs text-content-secondary">
+              A player who changed their swing approach two years ago may have genuinely broken from their prior career trend. Including a third year of stale data pulls the projection back toward an obsolete true-talent level. Setting history_years to 2 with "Recent-heavy" weights captures the shift without completely discarding the extra sample.
+            </p>
+          </FSection>
+          <FSection title="Why the minimum PA threshold matters">
+            <p className="text-xs text-content-secondary">
+              A season with 15 PA after a May injury is mostly noise. Lowering min_pa to 10–15 includes it (useful for projecting players who are frequently hurt), but it will pull component rates toward an unrepresentative sample. Raising to 100+ effectively requires near-qualifying seasons — useful when you only want signal from full campaigns.
+            </p>
+          </FSection>
+          <FSection>
+            <CodeRef path="projection_data_service.rb → batter_history, pitcher_history" />
+          </FSection>
+        </FormulaPanel>
+      </section>
+
       {/* Actions */}
       <div className="flex items-center gap-3 pt-2 border-t border-bg-border">
         <button
@@ -636,7 +757,9 @@ export default function ScenarioBuilder() {
                   `${s.regression_factor}× regress`,
                   s.age_curve_enabled ? 'age on' : 'age off',
                   `${Math.round(s.statcast_weight * 100)}% sc`,
-                ].map((tag) => (
+                  s.history_years != null && s.history_years !== 3 ? `${s.history_years}yr hist` : null,
+                  s.era_fip_blend != null && s.era_fip_blend !== 0.5 ? `FIP ${Math.round(s.era_fip_blend * 100)}%` : null,
+                ].filter(Boolean).map((tag) => (
                   <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated border border-bg-border text-content-muted font-mono">
                     {tag}
                   </span>

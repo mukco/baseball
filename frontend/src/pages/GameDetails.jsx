@@ -834,9 +834,9 @@ export default function GameDetails() {
       </section>
 
       {Array.isArray(winProbData) && winProbData.length > 0 && (
-        <section className="card p-5 overflow-hidden">
+        <section className="card p-5">
           <h2 className="text-[18px] font-semibold text-content-primary mb-4">Win Probability</h2>
-          <div className="min-w-0">
+          <div className="w-full overflow-hidden">
             <WinProbabilityChart
               data={winProbData}
               homeTeam={home.abbreviation || home.name}

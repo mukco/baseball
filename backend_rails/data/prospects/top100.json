@@ -1,0 +1,502 @@
+[
+  {
+    "rank": 1,
+    "name": "Konnor Griffin",
+    "position": "SS",
+    "team": "PIT",
+    "level": "MLB",
+    "age": "20.1",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 2,
+    "name": "Jesús Made",
+    "position": "SS",
+    "team": "MIL",
+    "level": "AA",
+    "age": "19.0",
+    "bats": "S",
+    "throws": "R"
+  },
+  {
+    "rank": 3,
+    "name": "Nolan McLean",
+    "position": "SP",
+    "team": "NYM",
+    "level": "MLB",
+    "age": "24.8",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 4,
+    "name": "Samuel Basallo",
+    "position": "C",
+    "team": "BAL",
+    "level": "MLB",
+    "age": "21.8",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 5,
+    "name": "Kevin McGonigle",
+    "position": "3B",
+    "team": "DET",
+    "level": "MLB",
+    "age": "21.7",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 6,
+    "name": "Leo De Vries",
+    "position": "SS",
+    "team": "ATH",
+    "level": "AA",
+    "age": "19.6",
+    "bats": "S",
+    "throws": "R"
+  },
+  {
+    "rank": 7,
+    "name": "Max Clark",
+    "position": "CF",
+    "team": "DET",
+    "level": "AAA",
+    "age": "21.4",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 8,
+    "name": "Trey Yesavage",
+    "position": "SP",
+    "team": "TOR",
+    "level": "MLB",
+    "age": "22.8",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 9,
+    "name": "Thomas White",
+    "position": "SP",
+    "team": "MIA",
+    "level": "AAA",
+    "age": "21.6",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 10,
+    "name": "Bubba Chandler",
+    "position": "SP",
+    "team": "PIT",
+    "level": "MLB",
+    "age": "23.7",
+    "bats": "S",
+    "throws": "R"
+  },
+  {
+    "rank": 11,
+    "name": "Colt Emerson",
+    "position": "SS",
+    "team": "SEA",
+    "level": "AAA",
+    "age": "20.8",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 12,
+    "name": "JJ Wetherholt",
+    "position": "2B",
+    "team": "STL",
+    "level": "MLB",
+    "age": "23.7",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 13,
+    "name": "Franklin Arias",
+    "position": "SS",
+    "team": "BOS",
+    "level": "AA",
+    "age": "20.5",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 14,
+    "name": "Eli Willits",
+    "position": "SS",
+    "team": "WSN",
+    "level": "A",
+    "age": "18.4",
+    "bats": "S",
+    "throws": "R"
+  },
+  {
+    "rank": 15,
+    "name": "Chase DeLauter",
+    "position": "RF",
+    "team": "CLE",
+    "level": "MLB",
+    "age": "24.6",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 16,
+    "name": "Payton Tolle",
+    "position": "SP",
+    "team": "BOS",
+    "level": "MLB",
+    "age": "23.5",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 17,
+    "name": "Andrew Painter",
+    "position": "SP",
+    "team": "PHI",
+    "level": "MLB",
+    "age": "23.1",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 18,
+    "name": "Ryan Sloan",
+    "position": "SP",
+    "team": "SEA",
+    "level": "AA",
+    "age": "20.3",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 19,
+    "name": "Bryce Eldridge",
+    "position": "1B",
+    "team": "SFG",
+    "level": "MLB",
+    "age": "21.6",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 20,
+    "name": "Josue De Paula",
+    "position": "RF",
+    "team": "LAD",
+    "level": "AA",
+    "age": "21.0",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 21,
+    "name": "Alfredo Duno",
+    "position": "C",
+    "team": "CIN",
+    "level": "A+",
+    "age": "20.4",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 22,
+    "name": "Luis Peña",
+    "position": "SS",
+    "team": "MIL",
+    "level": "A+",
+    "age": "19.5",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 23,
+    "name": "Rainiel Rodriguez",
+    "position": "C",
+    "team": "STL",
+    "level": "AA",
+    "age": "19.4",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 24,
+    "name": "Carson Benge",
+    "position": "CF",
+    "team": "NYM",
+    "level": "MLB",
+    "age": "23.3",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 25,
+    "name": "Liam Doyle",
+    "position": "SP",
+    "team": "STL",
+    "level": "AA",
+    "age": "21.9",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 26,
+    "name": "Carson Williams",
+    "position": "SS",
+    "team": "TBR",
+    "level": "AAA",
+    "age": "22.9",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 27,
+    "name": "Bryce Rainer",
+    "position": "SS",
+    "team": "DET",
+    "level": "A+",
+    "age": "20.9",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 28,
+    "name": "Aidan Miller",
+    "position": "SS",
+    "team": "PHI",
+    "level": "AAA",
+    "age": "21.9",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 29,
+    "name": "Jarlin Susana",
+    "position": "SP",
+    "team": "WSN",
+    "level": "AA",
+    "age": "22.1",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 30,
+    "name": "Sebastian Walcott",
+    "position": "SS",
+    "team": "TEX",
+    "level": "AA",
+    "age": "20.2",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 31,
+    "name": "Walker Jenkins",
+    "position": "CF",
+    "team": "MIN",
+    "level": "AAA",
+    "age": "21.2",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 32,
+    "name": "Carter Jensen",
+    "position": "C",
+    "team": "KCR",
+    "level": "MLB",
+    "age": "22.9",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 33,
+    "name": "Caleb Bonemer",
+    "position": "3B",
+    "team": "CHW",
+    "level": "A+",
+    "age": "20.6",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 34,
+    "name": "Sal Stewart",
+    "position": "3B",
+    "team": "CIN",
+    "level": "MLB",
+    "age": "22.4",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 35,
+    "name": "Ryan Waldschmidt",
+    "position": "LF",
+    "team": "ARI",
+    "level": "MLB",
+    "age": "23.6",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 36,
+    "name": "Noah Schultz",
+    "position": "SP",
+    "team": "CHW",
+    "level": "MLB",
+    "age": "22.8",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 37,
+    "name": "Brandon Sproat",
+    "position": "SP",
+    "team": "MIL",
+    "level": "MLB",
+    "age": "25.7",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 38,
+    "name": "Connelly Early",
+    "position": "SP",
+    "team": "BOS",
+    "level": "MLB",
+    "age": "24.1",
+    "bats": "L",
+    "throws": "L"
+  },
+  {
+    "rank": 39,
+    "name": "Dylan Beavers",
+    "position": "LF",
+    "team": "BAL",
+    "level": "MLB",
+    "age": "24.8",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 40,
+    "name": "Moisés Ballesteros",
+    "position": "C",
+    "team": "CHC",
+    "level": "MLB",
+    "age": "22.5",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 41,
+    "name": "Ralphy Velazquez",
+    "position": "1B",
+    "team": "CLE",
+    "level": "AA",
+    "age": "21.0",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 42,
+    "name": "Angel Genao",
+    "position": "SS",
+    "team": "CLE",
+    "level": "AAA",
+    "age": "22.0",
+    "bats": "S",
+    "throws": "R"
+  },
+  {
+    "rank": 43,
+    "name": "Eduardo Quintero",
+    "position": "CF",
+    "team": "LAD",
+    "level": "A+",
+    "age": "20.7",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 44,
+    "name": "Josuar Gonzalez",
+    "position": "SS",
+    "team": "SFG",
+    "level": "CPX",
+    "age": "18.6",
+    "bats": "S",
+    "throws": "R"
+  },
+  {
+    "rank": 45,
+    "name": "Seth Hernandez",
+    "position": "SP",
+    "team": "PIT",
+    "level": "A+",
+    "age": "19.9",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 46,
+    "name": "Eduardo Tait",
+    "position": "C",
+    "team": "MIN",
+    "level": "A+",
+    "age": "19.7",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 47,
+    "name": "Ethan Holliday",
+    "position": "3B",
+    "team": "COL",
+    "level": "A",
+    "age": "19.2",
+    "bats": "L",
+    "throws": "R"
+  },
+  {
+    "rank": 48,
+    "name": "Arjun Nimmala",
+    "position": "SS",
+    "team": "TOR",
+    "level": "AA",
+    "age": "20.6",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 49,
+    "name": "George Lombard Jr.",
+    "position": "SS",
+    "team": "NYY",
+    "level": "AAA",
+    "age": "20.9",
+    "bats": "R",
+    "throws": "R"
+  },
+  {
+    "rank": 50,
+    "name": "Parker Messick",
+    "position": "SP",
+    "team": "CLE",
+    "level": "MLB",
+    "age": "25.5",
+    "bats": "L",
+    "throws": "L"
+  }
+]

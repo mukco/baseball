@@ -13,7 +13,7 @@ module OpenAi
       raise "OPENAI_API_KEY is not configured" if @api_key.blank?
     end
 
-    def json_completion(system_prompt:, user_payload:, interaction_type:, metadata: {}, temperature: 0.2)
+    def json_completion(system_prompt:, user_payload:, interaction_type:, metadata: {}, temperature: 0.2, timeout: nil)
       request_id = SecureRandom.uuid
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response_json = nil
@@ -28,7 +28,7 @@ module OpenAi
         ]
       }
 
-      response = connection.post("/v1/chat/completions") do |req|
+      response = connection(timeout: timeout).post("/v1/chat/completions") do |req|
         req.headers["Authorization"] = "Bearer #{@api_key}"
         req.headers["Content-Type"] = "application/json"
         req.headers["OpenAI-Project"] = @project if @project
@@ -108,11 +108,11 @@ module OpenAi
 
     private
 
-    def connection
-      @connection ||= Faraday.new(url: @base_url) do |f|
+    def connection(timeout: nil)
+      Faraday.new(url: @base_url) do |f|
         f.request :retry, max: 2, interval: 0.5
         f.response :raise_error
-        f.options.timeout = 25
+        f.options.timeout = timeout || 25
         f.options.open_timeout = 8
       end
     end

@@ -25,7 +25,8 @@ module Api
     end
 
     def dashboard
-      render json: YahooFantasyDashboardService.call
+      refresh = ActiveModel::Type::Boolean.new.cast(params[:refresh])
+      render json: YahooFantasyDashboardService.call(refresh: refresh)
     end
 
     def insights

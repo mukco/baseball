@@ -22,6 +22,19 @@ System design docs for each major system are in `system design/`.
 
 ---
 
+## Testing
+
+Every service, model, and controller change **must** ship with RSpec specs. This is non-negotiable:
+
+- New service → `spec/services/<name>_spec.rb`
+- New model → `spec/models/<name>_spec.rb`
+- New controller / route → `spec/requests/<name>_spec.rb`
+- New factory required for each new model
+
+Use FactoryBot for AR objects. Stub external calls (MLB API, OpenAI, ProjectionService) with `allow(...).to receive(...)` — specs must not make real HTTP requests. Follow the style of existing specs: `RSpec.describe`, `let`, `subject`, `expect(...).to`.
+
+---
+
 ## Backend Conventions
 
 ### Controllers

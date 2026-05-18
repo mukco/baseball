@@ -1,5 +1,6 @@
 class HotGameService
   CACHE_TTL = 30 * 60   # 30 min — stale quickly while games are finishing
+  TOP_N     = 3
 
   @@cache            = {}
   @@cache_timestamps = {}
@@ -23,7 +24,7 @@ class HotGameService
       schedule      = mlb.schedule(date)
       final_games   = (schedule[:games] || []).select { |g| g[:abstractState] == "Final" }
 
-      return { hotGame: nil } if final_games.empty?
+      return { hotGames: [] } if final_games.empty?
 
       # Fetch win probability for all final games in parallel
       threads = final_games.map do |game|
@@ -38,17 +39,20 @@ class HotGameService
         entry.merge(metrics: metrics)
       end
 
-      return { hotGame: nil } if scored.empty?
+      return { hotGames: [] } if scored.empty?
 
-      hot     = scored.max_by { |g| g[:metrics][:score] }
-      summary = generate_summary(hot[:game], hot[:metrics])
+      top = scored.sort_by { |g| -g[:metrics][:score] }.first(TOP_N)
+
+      # Generate summaries in parallel
+      summary_threads = top.map do |entry|
+        Thread.new { entry.merge(summary: generate_summary(entry[:game], entry[:metrics])) }
+      end
+      hot_games = summary_threads.map(&:value)
 
       {
-        hotGame: {
-          game:    hot[:game],
-          metrics: hot[:metrics],
-          summary: summary
-        }
+        hotGames: hot_games.map do |g|
+          { game: g[:game], metrics: g[:metrics], summary: g[:summary] }
+        end
       }
     end
 

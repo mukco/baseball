@@ -23,7 +23,21 @@ import YahooFantasy from './pages/YahooFantasy'
 import Gambling from './pages/Gambling'
 import Transactions from './pages/Transactions'
 import Projections from './pages/Projections'
-import ScenarioBuilder from './pages/ScenarioBuilder' 
+import ScenarioBuilder from './pages/ScenarioBuilder'
+import Simulation from './pages/Simulation'
+import SimulationLeague from './pages/SimulationLeague'
+import SimulationRoster from './pages/SimulationRoster'
+import SimulationBoxScore from './pages/SimulationBoxScore'
+import SimulationLeaders from './pages/SimulationLeaders'
+import SimulationTeam from './pages/SimulationTeam'
+import SimulationPlayer from './pages/SimulationPlayer'
+import SimulationPlayoffs from './pages/SimulationPlayoffs'
+import SimulationTeams from './pages/SimulationTeams'
+import SimulationConfig from './pages/SimulationConfig'
+import SimulationAwards from './pages/SimulationAwards'
+import SimulationInjuries from './pages/SimulationInjuries'
+import SimulationNews from './pages/SimulationNews'
+import SimulationFranchise from './pages/SimulationFranchise'
 
 const THEME_STORAGE_KEY = 'statline-theme'
 
@@ -88,6 +102,20 @@ function AppContent() {
               <Route path="/gambling" element={<Gambling />} />
               <Route path="/projections" element={<Projections />} />
               <Route path="/projections/scenarios" element={<ScenarioBuilder />} />
+              <Route path="/simulation" element={<Simulation />} />
+              <Route path="/franchise/:id" element={<SimulationFranchise />} />
+              <Route path="/simulation/:id" element={<SimulationLeague />} />
+              <Route path="/simulation/:id/roster/:teamId" element={<SimulationRoster />} />
+              <Route path="/simulation/:id/game/:gameId" element={<SimulationBoxScore />} />
+              <Route path="/simulation/:id/leaders" element={<SimulationLeaders />} />
+              <Route path="/simulation/:id/team/:teamId" element={<SimulationTeam />} />
+              <Route path="/simulation/:id/player/:playerId" element={<SimulationPlayer />} />
+              <Route path="/simulation/:id/playoffs" element={<SimulationPlayoffs />} />
+              <Route path="/simulation/:id/teams" element={<SimulationTeams />} />
+              <Route path="/simulation/:id/config" element={<SimulationConfig />} />
+              <Route path="/simulation/:id/awards" element={<SimulationAwards />} />
+              <Route path="/simulation/:id/injuries" element={<SimulationInjuries />} />
+              <Route path="/simulation/:id/news" element={<SimulationNews />} />
             </Routes>
           </main>
         </div>
