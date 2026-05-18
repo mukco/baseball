@@ -18,3 +18,10 @@
 # Environment files
 .env
 .env.*
+
+# Bundled gems — use bundle install locally
+/vendor/bundle/
+/.bundle/
+
+# Storage (AI-generated game summaries, warehouse CSVs)
+/storage/

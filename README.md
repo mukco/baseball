@@ -334,6 +334,12 @@ The warehouse must be built first (hit Refresh in Sandbox). If the warehouse doe
 | `/transactions` | Transactions | Recent MLB transactions |
 | `/live` | Live TV | Embedded MLB.TV stream links |
 | `/stats-reference` | Stats Reference | Inline glossary for common sabermetric stats |
+| `/simulation` | Simulation Hub | Create and manage simulation leagues; choose season, scenario, and batter/pitcher blend |
+| `/simulation/:id` | League Command Center | Date-navigable schedule, standings (All/Real/Sim), per-game sim controls, win probability, season sim, real-result sync |
+| `/simulation/:id/game/:gameId` | Box Score | Inning-by-inning linescore, batting/pitching box, real vs. sim score toggle |
+| `/simulation/:id/roster/:teamId` | Roster | View and reorder lineup, rotation, and bullpen roles |
+| `/simulation/:id/leaders` | Leaders | Season batting and pitching leaderboards accumulated from simulated games |
+| `/simulation/:id/playoffs` | Playoffs | Seed and simulate the postseason bracket round by round |
 
 A floating **AI Assistant** is available on every page with access to player stats, game data, the SQL sandbox, and the ML Builder via tool-calling.
 
@@ -370,6 +376,8 @@ All controllers live in `app/controllers/api/` and inherit from `Api::BaseContro
 | `HoverStatsService` | Quick stats for player hover cards |
 | `Warehouse::*` | Data ingestion pipeline |
 | `Sandbox::QueryService` | Read-only SQL execution against DuckDB |
+| `SimulationService` | Simulation orchestration: league setup, game/day/season sim, standings, roster management, real-result sync, playoffs |
+| `GameSimulationEngine` | At-bat engine: projection-based hit/walk/strikeout rates, lineup cycling, rotation/bullpen logic, box score accumulation |
 
 ### OpenAI Integration
 
@@ -394,7 +402,13 @@ Services cache externally-fetched data in class-level hashes (`@@cache`, `@@cach
 
 ### Models (SQLite)
 
-SQLite is used only for projection persistence: `ProjectionScenario`, `PlayerProjection`, `ProjectionRun`.
+SQLite stores both projection and simulation data.
+
+**Projection models**: `ProjectionScenario`, `PlayerProjection`, `ProjectionRun`
+
+**Simulation models**: `SimulationLeague`, `SimulationGame`, `SimulationRoster`, `SimulationPlayerStat`, `SimulationJobRun`, `SimulationPlayoffSeries`
+
+Simulation games store a full `box_score_json` blob but heavy columns are excluded from query hot paths via `STANDINGS_COLS` / `SCHEDULE_COLS` select constants to keep responses fast.
 
 ---
 

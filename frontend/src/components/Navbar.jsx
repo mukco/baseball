@@ -173,7 +173,14 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
       { to: '/ml',           label: 'ML Builder'   },
     ]
 
-    const active = ITEMS.some(i => location.pathname === i.to)
+    const isItemActive = (to) => {
+      if (to === '/simulation') {
+        return location.pathname.startsWith('/simulation') || location.pathname.startsWith('/franchise')
+      }
+      return location.pathname === to
+    }
+
+    const active = ITEMS.some(i => isItemActive(i.to))
 
     return (
       <div ref={ref} className="relative">
@@ -198,7 +205,7 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
                   to={to}
                   onClick={() => setOpen(false)}
                   className={`block px-3 py-2 text-sm transition-colors ${
-                    location.pathname === to
+                    isItemActive(to)
                       ? 'text-content-primary bg-bg-border/40'
                       : 'text-content-secondary hover:text-content-primary hover:bg-bg-border/20'
                   }`}

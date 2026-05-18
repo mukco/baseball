@@ -79,7 +79,7 @@ class YahooFantasyService
       keys = Array(player_keys).compact_blank
       return { date: date, scores: {} } if keys.empty?
 
-      settings = scoring_settings
+      settings = cached_scoring_settings
       return settings if settings[:error]
 
       score_date = (date || settings[:current_date]).to_s
@@ -103,7 +103,7 @@ class YahooFantasyService
       keys = Array(player_keys).compact_blank
       return { scores: {}, week_start: week_start, week_end: week_end, scoring_through: through_date } if keys.empty?
 
-      settings = scoring_settings
+      settings = cached_scoring_settings
       return settings if settings[:error]
 
       context = team_context
@@ -179,14 +179,23 @@ class YahooFantasyService
       { error: e.message }
     end
 
+    FANTASY_PLAYER_CACHE_TTL   = 10.minutes
+    SCORING_SETTINGS_CACHE_TTL = 2.hours
+    TEAM_KEY_CACHE_TTL         = 4.hours
+
     def player_fantasy_data(name:, team_abbr:)
       search = search_player(name: name, team_abbr: team_abbr)
       return search if search[:error]
       return { found: false } unless search
 
       player_key = search[:player_key]
+      today      = Date.today.iso8601
+      cache_key  = "yahoo_player_fantasy:#{player_key}:#{today}"
 
-      settings = scoring_settings
+      cached = Rails.cache.read(cache_key)
+      return cached if cached
+
+      settings = cached_scoring_settings
       return settings if settings[:error]
 
       current_date = settings[:current_date].to_s
@@ -201,7 +210,7 @@ class YahooFantasyService
       player_scores  = daily[:scores][player_key] || {}
       weekly_scores  = weekly[:scores][player_key] || {}
 
-      {
+      result = {
         found: true,
         playerKey: player_key,
         name: search[:name],
@@ -217,9 +226,22 @@ class YahooFantasyService
         weekStart: weekly[:week_start],
         weekEnd: weekly[:week_end]
       }
+
+      Rails.cache.write(cache_key, result, expires_in: FANTASY_PLAYER_CACHE_TTL)
+      result
     end
 
     private
+
+    def cached_scoring_settings
+      cache_key = "yahoo_scoring_settings:#{Date.today.iso8601}"
+      cached = Rails.cache.read(cache_key)
+      return cached if cached
+
+      result = scoring_settings
+      Rails.cache.write(cache_key, result, expires_in: SCORING_SETTINGS_CACHE_TTL) unless result[:error]
+      result
+    end
 
     def team_context
       league_id = ENV['YAHOO_LEAGUE_ID']
@@ -230,7 +252,9 @@ class YahooFantasyService
 
       access_token = token_result[:access_token]
       league_key = "#{GAME_CODE}.l.#{league_id}"
-      team_key = fetch_team_key(access_token, league_key, league_id)
+      team_key = Rails.cache.fetch("yahoo_team_key:#{league_id}", expires_in: TEAM_KEY_CACHE_TTL) do
+        fetch_team_key(access_token, league_key, league_id)
+      end
 
       {
         access_token: access_token,
@@ -421,14 +445,23 @@ class YahooFantasyService
     end
 
     def batch_daily_scores(access_token, settings, player_keys, date)
-      Array(player_keys).each_slice(12).each_with_object({}) do |slice, result|
+      sorted_keys = Array(player_keys).sort
+      cache_key   = "yahoo_daily_scores:#{date}:#{Digest::MD5.hexdigest(sorted_keys.join(','))}"
+      ttl         = date == Date.today.iso8601 ? 5.minutes : 24.hours
+
+      cached = Rails.cache.read(cache_key)
+      return cached if cached
+
+      result = sorted_keys.each_slice(12).each_with_object({}) do |slice, acc|
         resp = api_conn(access_token).get(
           "#{BASE_URL}/players;player_keys=#{slice.join(',')}/stats;type=date;date=#{date}",
           format: 'json'
         )
-
-        result.merge!(parse_daily_player_scores(JSON.parse(resp.body), settings))
+        acc.merge!(parse_daily_player_scores(JSON.parse(resp.body), settings))
       end
+
+      Rails.cache.write(cache_key, result, expires_in: ttl)
+      result
     end
 
     def parse_free_agents(data)

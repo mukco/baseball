@@ -31,7 +31,7 @@ function CustomTooltip({ active, payload }) {
   )
 }
 
-export default function PitchBarChart({ pitchTypes = [], metric = 'whiffRate', format, maxValue }) {
+export default function PitchBarChart({ pitchTypes = [], metric = 'whiffRate', metricLabel, format, maxValue }) {
   const rows = [...pitchTypes]
     .filter(pt => pt[metric] != null)
     .sort((a, b) => (b[metric] || 0) - (a[metric] || 0))
@@ -44,7 +44,8 @@ export default function PitchBarChart({ pitchTypes = [], metric = 'whiffRate', f
 
   const fmt = format ?? (v => typeof v === 'number' ? v.toFixed(1) : v)
   const max = maxValue ?? Math.max(...rows.map(p => p[metric] || 0))
-  const height = Math.max(64, rows.length * 40 + 8)
+  const height = Math.max(64, rows.length * 40 + 44)
+  const xLabel = metricLabel ?? metric.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
 
   const data = rows.map(pt => ({
     label: pt.name || pt.type,
@@ -60,9 +61,17 @@ export default function PitchBarChart({ pitchTypes = [], metric = 'whiffRate', f
       <BarChart
         data={data}
         layout="vertical"
-        margin={{ top: 0, right: 44, left: 92, bottom: 0 }}
+        margin={{ top: 0, right: 44, left: 92, bottom: 16 }}
       >
-        <XAxis type="number" domain={[0, max]} hide />
+        <XAxis
+          type="number"
+          domain={[0, max]}
+          tick={{ fill: MUTED, fontSize: 10 }}
+          axisLine={{ stroke: MUTED, strokeOpacity: 0.3 }}
+          tickLine={false}
+          tickFormatter={v => fmt(v)}
+          label={{ value: xLabel, position: 'insideBottomRight', offset: -4, fill: MUTED, fontSize: 10 }}
+        />
         <YAxis
           type="category"
           dataKey="label"

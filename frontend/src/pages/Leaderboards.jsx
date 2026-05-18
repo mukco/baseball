@@ -61,6 +61,13 @@ const FILTERABLE_COLS = [
   'GS', 'IP', 'W', 'L', 'SV', 'ERA', 'WHIP', 'K/9', 'BB/9', 'FIP', 'xFIP',
 ]
 
+const TEAM_FILTERABLE_COLS = {
+  batting: ['G', 'PA', 'AB', 'H', '2B', '3B', 'AVG', 'OBP', 'SLG', 'OPS', 'HR', 'R', 'RBI', 'SB', 'SO', 'BB', 'ISO', 'BABIP', 'K%', 'BB%', 'wOBA'],
+  pitching: ['ERA', 'WHIP', 'FIP', 'K/9', 'BB/9', 'K-BB%', 'SO', 'BB', 'HR', 'SV', 'IP', 'K%', 'BB%'],
+}
+
+const TEAM_IDENTITY_KEYS = new Set(['Name', 'Abbr', 'League', 'Division'])
+
 function applyStatFilters(rows, filters, logic) {
   if (!filters.length) return rows
   return rows.filter((row) => {
@@ -126,6 +133,9 @@ const ALL_COLUMN_DEFS = {
   G:    { label: 'G', fmt: fmtInt },
   PA:   { label: 'PA', fmt: fmtInt },
   AB:   { label: 'AB', fmt: fmtInt },
+  H:    { label: 'H', fmt: fmtInt },
+  '2B': { label: '2B', fmt: fmtInt },
+  '3B': { label: '3B', fmt: fmtInt },
   HR:   { label: 'HR', fmt: fmtInt },
   R:    { label: 'R', fmt: fmtInt },
   RBI:  { label: 'RBI', fmt: fmtInt },
@@ -193,7 +203,7 @@ const ALL_COLUMN_DEFS = {
 
 const DEFAULT_BATTING_KEYS = ['Name', 'Team', 'G', 'PA', 'HR', 'RBI', 'SB', 'AVG', 'OBP', 'SLG', 'OPS', 'wRC+', 'WAR', 'BB%', 'K%']
 const DEFAULT_PITCHING_KEYS = ['Name', 'Team', 'G', 'GS', 'IP', 'W', 'L', 'SV', 'ERA', 'WHIP', 'K/9', 'BB/9', 'FIP', 'xFIP', 'WAR', 'K%', 'BB%']
-const TEAM_BATTING_KEYS  = ['Name', 'Abbr', 'League', 'Division', 'G', 'AVG', 'OBP', 'SLG', 'OPS', 'HR', 'R', 'RBI', 'SB', 'SO', 'BB', 'ISO', 'BABIP', 'K%', 'BB%', 'wOBA']
+const TEAM_BATTING_KEYS  = ['Name', 'Abbr', 'League', 'Division', 'G', 'PA', 'AB', 'H', '2B', '3B', 'AVG', 'OBP', 'SLG', 'OPS', 'HR', 'R', 'RBI', 'SB', 'SO', 'BB', 'ISO', 'BABIP', 'K%', 'BB%', 'wOBA']
 const TEAM_PITCHING_KEYS = ['Name', 'Abbr', 'League', 'Division', 'ERA', 'WHIP', 'FIP', 'K/9', 'BB/9', 'K-BB%', 'SO', 'BB', 'HR', 'SV', 'IP', 'K%', 'BB%']
 const DIVISION_OPTIONS   = ['AL East', 'AL Central', 'AL West', 'NL East', 'NL Central', 'NL West']
 
@@ -209,12 +219,17 @@ function toggleArr(arr, item) {
   return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]
 }
 
-function ColumnSelector({ tab, visibleKeys, onToggle }) {
+function ColumnSelector({ tab, visibleKeys, onToggle, allowedKeys }) {
   const [open, setOpen] = useState(false)
 
-  const excludeSet = tab === 'batting' ? PITCHING_ONLY_KEYS : BATTING_ONLY_KEYS
-  const allKeys = Object.keys(ALL_COLUMN_DEFS).filter((k) => k !== 'Name' && k !== 'Team' && !excludeSet.has(k))
-  const sortedKeys = [...allKeys].sort((a, b) => ALL_COLUMN_DEFS[a].label.localeCompare(ALL_COLUMN_DEFS[b].label))
+  let sortedKeys
+  if (allowedKeys) {
+    sortedKeys = [...allowedKeys].sort((a, b) => (ALL_COLUMN_DEFS[a]?.label ?? a).localeCompare(ALL_COLUMN_DEFS[b]?.label ?? b))
+  } else {
+    const excludeSet = tab === 'batting' ? PITCHING_ONLY_KEYS : BATTING_ONLY_KEYS
+    const allKeys = Object.keys(ALL_COLUMN_DEFS).filter((k) => k !== 'Name' && k !== 'Team' && !excludeSet.has(k))
+    sortedKeys = [...allKeys].sort((a, b) => ALL_COLUMN_DEFS[a].label.localeCompare(ALL_COLUMN_DEFS[b].label))
+  }
 
   return (
     <div>
@@ -560,6 +575,10 @@ export default function Leaderboards() {
   const [teamSortDir, setTeamSortDir] = useState('desc')
   const [teamDivisionFilter, setTeamDivisionFilter] = useState('')
   const [teamNameQuery, setTeamNameQuery] = useState('')
+  const [teamStatFilters, setTeamStatFilters] = useState([])
+  const [teamFilterOpen, setTeamFilterOpen] = useState(false)
+  const [teamVisibleBattingKeys, setTeamVisibleBattingKeys] = useState([...TEAM_BATTING_KEYS])
+  const [teamVisiblePitchingKeys, setTeamVisiblePitchingKeys] = useState([...TEAM_PITCHING_KEYS])
 
   const { data: battingData = [], isLoading: loadingBat } = useQuery({
     queryKey: ['leaderboards-batting', season, minQual],
@@ -602,6 +621,19 @@ export default function Leaderboards() {
     setTeamSubTab(sub)
     setTeamSortKey(sub === 'batting' ? 'OPS' : 'ERA')
     setTeamSortDir(sub === 'batting' ? 'desc' : 'asc')
+    setTeamStatFilters([])
+  }
+
+  function addTeamFilter() {
+    setTeamStatFilters((prev) => [...prev, { column: teamSubTab === 'batting' ? 'OPS' : 'ERA', operator: '>', value: '' }])
+  }
+
+  function updateTeamFilter(idx, field, val) {
+    setTeamStatFilters((prev) => prev.map((f, i) => (i === idx ? { ...f, [field]: val } : f)))
+  }
+
+  function removeTeamFilter(idx) {
+    setTeamStatFilters((prev) => prev.filter((_, i) => i !== idx))
   }
 
   function handleTeamSort(key) {
@@ -628,11 +660,20 @@ export default function Leaderboards() {
   function loadFilterState(entry) {
     setTab(entry.tab || 'batting')
     setSeason(entry.season ?? CURRENT_SEASON)
-    setTeamFilter(entry.teamFilter || '')
-    setNameQuery(entry.nameQuery || '')
-    setMinQual(entry.minQual ?? (entry.tab === 'batting' ? 100 : 30))
-    setStatFilters(entry.statFilters || [])
-    setVisibleKeys(entry.visibleKeys ? [...entry.visibleKeys] : (entry.tab === 'batting' ? [...DEFAULT_BATTING_KEYS] : [...DEFAULT_PITCHING_KEYS]))
+    if (entry.tab === 'teams') {
+      setTeamSubTab(entry.teamSubTab || 'batting')
+      setTeamDivisionFilter(entry.teamDivisionFilter || '')
+      setTeamNameQuery(entry.teamNameQuery || '')
+      setTeamStatFilters(entry.teamStatFilters || [])
+      if (entry.teamVisibleBattingKeys) setTeamVisibleBattingKeys([...entry.teamVisibleBattingKeys])
+      if (entry.teamVisiblePitchingKeys) setTeamVisiblePitchingKeys([...entry.teamVisiblePitchingKeys])
+    } else {
+      setTeamFilter(entry.teamFilter || '')
+      setNameQuery(entry.nameQuery || '')
+      setMinQual(entry.minQual ?? (entry.tab === 'batting' ? 100 : 30))
+      setStatFilters(entry.statFilters || [])
+      setVisibleKeys(entry.visibleKeys ? [...entry.visibleKeys] : (entry.tab === 'batting' ? [...DEFAULT_BATTING_KEYS] : [...DEFAULT_PITCHING_KEYS]))
+    }
   }
 
   const currentFilterState = {
@@ -643,6 +684,17 @@ export default function Leaderboards() {
     minQual,
     statFilters,
     visibleKeys,
+  }
+
+  const currentTeamFilterState = {
+    tab: 'teams',
+    season,
+    teamSubTab,
+    teamDivisionFilter,
+    teamNameQuery,
+    teamStatFilters,
+    teamVisibleBattingKeys,
+    teamVisiblePitchingKeys,
   }
 
   function handleSort(key) {
@@ -666,12 +718,15 @@ export default function Leaderboards() {
   const teamNameLower = teamNameQuery.trim().toLowerCase()
   const teamDivFiltered = teamDivisionFilter ? rawTeamData.filter((r) => r.Division === teamDivisionFilter) : rawTeamData
   const teamNameFiltered = teamNameLower ? teamDivFiltered.filter((r) => String(r.Name).toLowerCase().includes(teamNameLower)) : teamDivFiltered
-  const teamSorted = [...teamNameFiltered].sort((a, b) => {
+  const teamStatFiltered = applyStatFilters(teamNameFiltered, teamStatFilters, 'and')
+  const teamSorted = [...teamStatFiltered].sort((a, b) => {
     const av = a[teamSortKey] ?? (teamSortDir === 'asc' ? Infinity : -Infinity)
     const bv = b[teamSortKey] ?? (teamSortDir === 'asc' ? Infinity : -Infinity)
     return teamSortDir === 'asc' ? av - bv : bv - av
   })
-  const teamCols = colDefsFromKeys(teamSubTab === 'batting' ? TEAM_BATTING_KEYS : TEAM_PITCHING_KEYS)
+  const teamVisibleKeys = teamSubTab === 'batting' ? teamVisibleBattingKeys : teamVisiblePitchingKeys
+  const teamToggleableKeys = (teamSubTab === 'batting' ? TEAM_BATTING_KEYS : TEAM_PITCHING_KEYS).filter((k) => !TEAM_IDENTITY_KEYS.has(k))
+  const teamCols = colDefsFromKeys(teamVisibleKeys)
   const loadingTeamData = teamSubTab === 'batting' ? loadingTeamBat : loadingTeamPitch
 
   const rawData = tab === 'batting' ? battingData : pitchingData
@@ -804,6 +859,40 @@ export default function Leaderboards() {
                 className="bg-bg-elevated border border-bg-border text-content-primary text-xs rounded-md px-2 py-1.5 outline-none focus:border-brand w-[120px]"
               />
             </div>
+
+            <button
+              type="button"
+              onClick={() => setTeamFilterOpen((o) => !o)}
+              className={`text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors ${
+                teamFilterOpen || teamStatFilters.length > 0
+                  ? 'border-brand bg-brand/10 text-brand'
+                  : 'border-bg-border bg-bg-elevated text-content-secondary hover:text-content-primary'
+              }`}
+            >
+              {teamFilterOpen ? 'Close' : '+ Filter'}
+            </button>
+
+            <div className="relative">
+              <ColumnSelector
+                allowedKeys={teamToggleableKeys}
+                visibleKeys={teamVisibleKeys}
+                onToggle={(key) => {
+                  if (teamSubTab === 'batting') {
+                    setTeamVisibleBattingKeys((prev) => toggleArr(prev, key))
+                  } else {
+                    setTeamVisiblePitchingKeys((prev) => toggleArr(prev, key))
+                  }
+                }}
+              />
+            </div>
+
+            <div className="relative">
+              <SavedFilters
+                filterState={{ ...currentTeamFilterState, onLoad: loadFilterState }}
+                columns={teamCols}
+                data={teamSorted}
+              />
+            </div>
           </>
         )}
 
@@ -866,6 +955,61 @@ export default function Leaderboards() {
                   <button
                     type="button"
                     onClick={() => removeFilter(idx)}
+                    className="text-xs text-content-muted hover:text-red-400 px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'teams' && teamFilterOpen && (
+        <div className="card p-3 space-y-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-[10px] text-content-muted uppercase tracking-wider font-semibold">Stat filters</span>
+            <button
+              type="button"
+              onClick={addTeamFilter}
+              className="text-xs text-brand-light hover:underline font-medium"
+            >
+              + Add rule
+            </button>
+          </div>
+          {teamStatFilters.length > 0 && (
+            <div className="space-y-1.5">
+              {teamStatFilters.map((f, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <select
+                    value={f.column}
+                    onChange={(e) => updateTeamFilter(idx, 'column', e.target.value)}
+                    className="bg-bg-elevated border border-bg-border text-content-primary text-xs rounded px-2 py-1.5 outline-none focus:border-brand w-[80px]"
+                  >
+                    {TEAM_FILTERABLE_COLS[teamSubTab].map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={f.operator}
+                    onChange={(e) => updateTeamFilter(idx, 'operator', e.target.value)}
+                    className="bg-bg-elevated border border-bg-border text-content-primary text-xs rounded px-2 py-1.5 outline-none focus:border-brand w-[60px]"
+                  >
+                    {OPERATORS.map((op) => (
+                      <option key={op.value} value={op.value}>{op.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={f.value}
+                    onChange={(e) => updateTeamFilter(idx, 'value', e.target.value)}
+                    placeholder="value"
+                    className="bg-bg-elevated border border-bg-border text-content-primary text-xs rounded px-2 py-1.5 outline-none focus:border-brand w-[90px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeTeamFilter(idx)}
                     className="text-xs text-content-muted hover:text-red-400 px-1"
                   >
                     ✕

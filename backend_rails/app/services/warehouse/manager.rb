@@ -22,19 +22,23 @@ module Warehouse
         pitcher_count = Warehouse::PitcherIngester.ingest!
         proj_counts   = Warehouse::FgProjectionIngester.ingest!
         team_counts   = Warehouse::TeamIngester.ingest!
+        sim_counts    = Warehouse::SimulationIngester.ingest!
 
         build_duckdb!
 
         meta = {
-          last_refreshed_at:  Time.now.utc.iso8601,
-          batter_rows:        batter_count,
-          pitcher_rows:       pitcher_count,
-          fg_proj_batting:    proj_counts[:batting],
-          fg_proj_pitching:   proj_counts[:pitching],
-          team_batting_rows:  team_counts[:batting],
-          team_pitching_rows: team_counts[:pitching],
-          duration_s:         (Time.now - started).round(1),
-          schema_fingerprint: schema_fingerprint,
+          last_refreshed_at:    Time.now.utc.iso8601,
+          batter_rows:          batter_count,
+          pitcher_rows:         pitcher_count,
+          fg_proj_batting:      proj_counts[:batting],
+          fg_proj_pitching:     proj_counts[:pitching],
+          team_batting_rows:    team_counts[:batting],
+          team_pitching_rows:   team_counts[:pitching],
+          sim_player_stat_rows: sim_counts[:player_stats],
+          sim_standing_rows:    sim_counts[:team_standings],
+          sim_season_rows:      sim_counts[:season_log],
+          duration_s:           (Time.now - started).round(1),
+          schema_fingerprint:   schema_fingerprint,
         }
         File.write(metadata_path, JSON.pretty_generate(meta))
         Rails.logger.info("Warehouse::Manager: complete in #{meta[:duration_s]}s")
@@ -56,6 +60,28 @@ module Warehouse
         File.exist?(duckdb_path)
       end
 
+      SIM_PLAYER_STATS_COLUMNS = %w[
+        player_id player_name player_type team_id
+        league_id league_name season franchise_id
+        g ab h hr r rbi bb k doubles triples hbp sf
+        avg obp slg ops
+        g_pitched gs outs_pitched ip
+        h_allowed er bb_allowed k_pitched bf hr_allowed w l sv
+        era whip
+      ].freeze
+
+      SIM_TEAM_STANDINGS_COLUMNS = %w[
+        league_id league_name season franchise_id
+        team_id team_abbr team_name division
+        w l pct gb rs ra run_diff
+      ].freeze
+
+      SIM_SEASON_LOG_COLUMNS = %w[
+        league_id league_name season franchise_id franchise_name
+        games_total games_played pct_complete complete
+        champion_abbr batter_pitcher_blend created_at
+      ].freeze
+
       def schema_fingerprint
         parts = [
           Warehouse::BatterIngester::NAMED_COLUMNS,
@@ -64,6 +90,9 @@ module Warehouse
           Warehouse::FgProjectionIngester::PITCHING_COLUMNS,
           Warehouse::TeamIngester::BATTING_COLUMNS,
           Warehouse::TeamIngester::PITCHING_COLUMNS,
+          SIM_PLAYER_STATS_COLUMNS,
+          SIM_TEAM_STANDINGS_COLUMNS,
+          SIM_SEASON_LOG_COLUMNS,
         ].map { |cols| cols.join(",") }.join("|")
         Digest::MD5.hexdigest(parts)[0, 8]
       end
@@ -106,7 +135,10 @@ module Warehouse
             fg_projections_batting:  Warehouse::FgProjectionIngester.batting_csv_path.to_s,
             fg_projections_pitching: Warehouse::FgProjectionIngester.pitching_csv_path.to_s,
             teams_batting:           Warehouse::TeamIngester.batting_csv_path.to_s,
-            teams_pitching:          Warehouse::TeamIngester.pitching_csv_path.to_s
+            teams_pitching:          Warehouse::TeamIngester.pitching_csv_path.to_s,
+            sim_player_stats:        Warehouse::SimulationIngester.player_stats_csv_path.to_s,
+            sim_team_standings:      Warehouse::SimulationIngester.team_standings_csv_path.to_s,
+            sim_season_log:          Warehouse::SimulationIngester.season_log_csv_path.to_s,
           }
         })
 

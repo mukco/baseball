@@ -296,8 +296,13 @@ class MlbApiService
   def player_roster_status(player_id, team_id)
     return nil unless team_id
 
-    data = get("teams/#{team_id}/roster", { rosterType: "fullRoster" })
-    entry = (data["roster"] || []).find { |e| e.dig("person", "id") == player_id }
+    cache_key = "team_full_roster:#{team_id}"
+    unless self.class.cache_fresh?(cache_key)
+      data = get("teams/#{team_id}/roster", { rosterType: "fullRoster" })
+      self.class.cache_set(cache_key, data, 30 * 60)
+    end
+    roster = self.class.cache_get(cache_key)
+    entry = (roster["roster"] || []).find { |e| e.dig("person", "id") == player_id }
     entry&.dig("status", "description")
   rescue
     nil
@@ -440,8 +445,9 @@ class MlbApiService
     ttl = season.to_i == Date.today.year ? 30 * 60 : 24 * 3600
     return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
 
+    api_group = group.to_s == "batting" ? "hitting" : group
     splits = get("teams/stats", {
-      stats: "season", group: group, sportId: 1, season: season
+      stats: "season", group: api_group, sportId: 1, season: season
     }).dig("stats", 0, "splits") || []
 
     result = splits.filter_map do |split|
@@ -739,6 +745,25 @@ class MlbApiService
   # Play-by-play
   # ------------------------------------------------------------------ #
 
+  # Returns the actual batting order and pitching staff for a completed game.
+  # Cached on the first call; used to seed simulation lineups for real games.
+  def game_lineup(game_pk)
+    cache_key = "game_lineup:#{game_pk}"
+    return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
+
+    data  = get("game/#{game_pk}/boxscore")
+    teams = data["teams"] || {}
+
+    result = {
+      home: extract_lineup_from_boxscore(teams["home"]),
+      away: extract_lineup_from_boxscore(teams["away"]),
+    }
+    self.class.cache_set(cache_key, result, 24 * 3600)
+    result
+  rescue StandardError => e
+    { error: e.message }
+  end
+
   def play_by_play(game_pk)
     data = get_v11("game/#{game_pk}/feed/live")
     plays_data = data.dig("liveData", "plays") || {}
@@ -949,6 +974,34 @@ class MlbApiService
 
   private
 
+  def extract_lineup_from_boxscore(team_data)
+    players = (team_data || {})["players"] || {}
+
+    # battingOrder is a string like "100", "200", ..., "900" for starters.
+    # Sub-values ("101", "201") are pinch hitters; we include all who batted.
+    batters = players.values
+      .filter_map do |p|
+        order = p["battingOrder"].to_i
+        next unless order > 0
+        [order, p.dig("person", "id").to_i]
+      end
+      .sort_by { |order, _| order }
+      .map { |_, id| id }
+      .uniq   # keep first appearance (starter) when a spot is substituted
+
+    # All pitchers who threw at least one pitch, ordered by appearance (most IP first = SP first)
+    pitchers = players.values
+      .filter_map do |p|
+        ip = innings_to_float(p.dig("stats", "pitching", "inningsPitched").to_s)
+        next unless ip > 0
+        [ip, p.dig("person", "id").to_i]
+      end
+      .sort_by { |ip, _| -ip }
+      .map { |_, id| id }
+
+    { batting_order: batters, pitcher_ids: pitchers }
+  end
+
   def build_team_batting_row(id, name, meta, info, h)
     ab      = h["atBats"].to_i
     hits    = h["hits"].to_i
@@ -973,6 +1026,11 @@ class MlbApiService
       "League"   => info[:league],
       "Division" => info[:division],
       "G"        => h["gamesPlayed"].to_i,
+      "PA"       => pa,
+      "AB"       => ab,
+      "H"        => hits,
+      "2B"       => doubles,
+      "3B"       => triples,
       "AVG"      => to_f(h["avg"]),
       "OBP"      => to_f(h["obp"]),
       "SLG"      => to_f(h["slg"]),

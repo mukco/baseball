@@ -11,8 +11,12 @@ FactoryBot.define do
     age_curve_factor   { 1.0 }
     statcast_weight    { 0.5 }
     park_factors_enabled { true }
-    default_pa      { 550 }
-    default_ip      { 160.0 }
+    default_pa           { 550 }
+    default_ip           { 160.0 }
+    era_fip_blend        { 0.5 }
+    history_years        { 3 }
+    min_pa_for_history   { 30 }
+    min_ip_for_history   { 5.0 }
 
     trait :default do
       name       { "Baseline" }

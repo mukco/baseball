@@ -230,7 +230,7 @@ class ProjectionEngine
     # Derive full pitcher stat line from component rates.
     # components: { k_pct:, bb_pct:, hr_fb_pct:, babip:, gb_pct:, ip: }
     # -------------------------------------------------------------------------
-    def derive_pitcher_stats(components)
+    def derive_pitcher_stats(components, era_fip_blend: ERA_FIP_BLEND_WEIGHT)
       ip         = components[:ip].to_f
       k_pct      = components[:k_pct].to_f
       bb_pct     = components[:bb_pct].to_f
@@ -274,7 +274,7 @@ class ProjectionEngine
       # Anchor ERA to FIP so the BABIP component can't drift too far
       baserunners_per_inning = hits_per_inning + bb_per_inning + hr_per_inning
       babip_based_era = baserunners_per_inning * RUNS_PER_BASERUNNER * 9
-      era = (babip_based_era * ERA_FIP_BLEND_WEIGHT + fip * ERA_FIP_BLEND_WEIGHT).clamp(1.50, 8.00)
+      era = (babip_based_era * (1.0 - era_fip_blend) + fip * era_fip_blend).clamp(1.50, 8.00)
 
       whip = (hits_per_inning + bb_per_inning).round(2)
 

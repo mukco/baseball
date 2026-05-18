@@ -1,6 +1,28 @@
 class YahooFantasyDashboardService
+  LIVE_CACHE_TTL    = 3.minutes
+  DEFAULT_CACHE_TTL = 15.minutes
+
   class << self
-    def call(date: Date.current)
+    def call(date: Date.current, refresh: false)
+      cache_key = "yahoo_dashboard_#{date}"
+      Rails.cache.delete(cache_key) if refresh
+
+      cached = Rails.cache.read(cache_key)
+      return cached.merge(cached: true) if cached
+
+      result = fetch_dashboard(date: date)
+      Rails.cache.write(cache_key, result, expires_in: cache_ttl) unless result[:error]
+      result
+    end
+
+    private
+
+    def cache_ttl
+      hour = Time.current.in_time_zone("Eastern Time (US & Canada)").hour
+      hour.between?(11, 23) ? LIVE_CACHE_TTL : DEFAULT_CACHE_TTL
+    end
+
+    def fetch_dashboard(date:)
       roster_result = YahooFantasyService.roster
       return roster_result if roster_result[:error]
 
@@ -56,12 +78,10 @@ class YahooFantasyDashboardService
       { error: e.message }
     end
 
-    private
-
     def index_games_by_team(games)
       games.each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |game, index|
-        away_abbr = game.dig(:teams, :away, :abbreviation)
-        home_abbr = game.dig(:teams, :home, :abbreviation)
+        away_abbr = game.dig(:away, :abbreviation)
+        home_abbr = game.dig(:home, :abbreviation)
 
         index[away_abbr] << game if away_abbr.present?
         index[home_abbr] << game if home_abbr.present?
@@ -72,8 +92,8 @@ class YahooFantasyDashboardService
       game = pick_game(team_abbr, games)
       return { game_today: false, matchup: nil } unless game
 
-      away = game.dig(:teams, :away) || {}
-      home = game.dig(:teams, :home) || {}
+      away = game[:away] || {}
+      home = game[:home] || {}
       is_home = home[:abbreviation] == team_abbr
       team_side = is_home ? home : away
       opponent_side = is_home ? away : home
@@ -85,6 +105,7 @@ class YahooFantasyDashboardService
         matchup: {
           game_pk: game[:gamePk],
           status: game[:status],
+          abstract_state: game[:abstractState],
           game_date: game[:gameDate],
           is_home: is_home,
           opponent: {

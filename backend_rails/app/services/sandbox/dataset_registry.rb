@@ -12,7 +12,10 @@ module Sandbox
           fg_projections_batting_dataset(meta),
           fg_projections_pitching_dataset(meta),
           teams_batting_dataset(meta),
-          teams_pitching_dataset(meta)
+          teams_pitching_dataset(meta),
+          sim_player_stats_dataset(meta),
+          sim_team_standings_dataset(meta),
+          sim_season_log_dataset(meta),
         ]
       end
 
@@ -24,7 +27,10 @@ module Sandbox
           { name: "fg_projections_batting",  path: Warehouse::FgProjectionIngester.batting_csv_path.to_s },
           { name: "fg_projections_pitching", path: Warehouse::FgProjectionIngester.pitching_csv_path.to_s },
           { name: "teams_batting",           path: Warehouse::TeamIngester.batting_csv_path.to_s },
-          { name: "teams_pitching",          path: Warehouse::TeamIngester.pitching_csv_path.to_s }
+          { name: "teams_pitching",          path: Warehouse::TeamIngester.pitching_csv_path.to_s },
+          { name: "sim_player_stats",        path: Warehouse::SimulationIngester.player_stats_csv_path.to_s },
+          { name: "sim_team_standings",      path: Warehouse::SimulationIngester.team_standings_csv_path.to_s },
+          { name: "sim_season_log",          path: Warehouse::SimulationIngester.season_log_csv_path.to_s },
         ].select { |t| File.exist?(t[:path]) }
       end
 
@@ -367,6 +373,153 @@ module Sandbox
           { name: "k_per_9",          type: "double",  description: "Strikeouts per 9 innings — higher is better." },
           { name: "bb_per_9",         type: "double",  description: "Walks per 9 innings — lower is better." },
           { name: "k_minus_bb_pct",   type: "double",  description: "K-BB% — team strikeout rate minus walk rate. Higher is better." }
+        ]
+      end
+
+      # ------------------------------------------------------------------ #
+      # Simulation datasets
+      # ------------------------------------------------------------------ #
+
+      def sim_player_stats_dataset(meta)
+        {
+          id:              "sim_player_stats",
+          label:           "Sim Player Stats",
+          table:           "sim_player_stats",
+          description:     "Simulated season stats for every player across all simulation leagues. One row per player per league season.",
+          columns:         sim_player_stats_columns,
+          lastRefreshedAt: meta[:last_refreshed_at],
+          stale:           stale?(meta),
+          rowCount:        meta[:sim_player_stat_rows],
+          defaultSql:      <<~SQL.strip
+            SELECT player_name, player_type, team_id, league_name, season,
+                   g, ab, h, hr, rbi, avg, obp, slg, ops
+            FROM sim_player_stats
+            WHERE player_type = 'batter' AND ab >= 200
+            ORDER BY ops DESC
+            LIMIT 50
+          SQL
+        }
+      end
+
+      def sim_team_standings_dataset(meta)
+        {
+          id:              "sim_team_standings",
+          label:           "Sim Team Standings",
+          table:           "sim_team_standings",
+          description:     "Simulated final standings for every team across all simulation leagues. One row per team per league season.",
+          columns:         sim_team_standings_columns,
+          lastRefreshedAt: meta[:last_refreshed_at],
+          stale:           stale?(meta),
+          rowCount:        meta[:sim_standing_rows],
+          defaultSql:      <<~SQL.strip
+            SELECT league_name, season, division, team_abbr, team_name,
+                   w, l, pct, gb, rs, ra, run_diff
+            FROM sim_team_standings
+            ORDER BY league_id, division, pct DESC
+            LIMIT 60
+          SQL
+        }
+      end
+
+      def sim_season_log_dataset(meta)
+        {
+          id:              "sim_season_log",
+          label:           "Sim Season Log",
+          table:           "sim_season_log",
+          description:     "One summary row per simulation league season — completion status, champion, and configuration.",
+          columns:         sim_season_log_columns,
+          lastRefreshedAt: meta[:last_refreshed_at],
+          stale:           stale?(meta),
+          rowCount:        meta[:sim_season_rows],
+          defaultSql:      <<~SQL.strip
+            SELECT franchise_name, season, games_total, games_played,
+                   pct_complete, complete, champion_abbr, batter_pitcher_blend
+            FROM sim_season_log
+            ORDER BY franchise_name, season
+          SQL
+        }
+      end
+
+      def sim_player_stats_columns
+        [
+          { name: "player_id",    type: "integer", description: "Sim player identifier (MLB MLBAM ID where available)." },
+          { name: "player_name",  type: "text",    description: "Player full name." },
+          { name: "player_type",  type: "text",    description: "Role: 'batter' or 'pitcher'." },
+          { name: "team_id",      type: "integer", description: "Sim team identifier (MLB MLBAM team ID)." },
+          { name: "league_id",    type: "integer", description: "Simulation league (season) ID." },
+          { name: "league_name",  type: "text",    description: "Simulation league name." },
+          { name: "season",       type: "integer", description: "Simulated season year." },
+          { name: "franchise_id", type: "integer", description: "Parent franchise ID (NULL for standalone leagues)." },
+          # Batting
+          { name: "g",            type: "integer", description: "Games played as batter." },
+          { name: "ab",           type: "integer", description: "At-bats." },
+          { name: "h",            type: "integer", description: "Hits." },
+          { name: "hr",           type: "integer", description: "Home runs." },
+          { name: "r",            type: "integer", description: "Runs scored." },
+          { name: "rbi",          type: "integer", description: "Runs batted in." },
+          { name: "bb",           type: "integer", description: "Walks." },
+          { name: "k",            type: "integer", description: "Strikeouts." },
+          { name: "doubles",      type: "integer", description: "Doubles." },
+          { name: "triples",      type: "integer", description: "Triples." },
+          { name: "hbp",          type: "integer", description: "Hit by pitch." },
+          { name: "sf",           type: "integer", description: "Sacrifice flies." },
+          { name: "avg",          type: "double",  description: "Batting average (H / AB)." },
+          { name: "obp",          type: "double",  description: "On-base percentage ((H + BB) / (AB + BB))." },
+          { name: "slg",          type: "double",  description: "Slugging percentage (total bases / AB)." },
+          { name: "ops",          type: "double",  description: "OBP + SLG." },
+          # Pitching
+          { name: "g_pitched",    type: "integer", description: "Games appeared in as pitcher." },
+          { name: "gs",           type: "integer", description: "Games started." },
+          { name: "outs_pitched", type: "integer", description: "Total outs recorded." },
+          { name: "ip",           type: "text",    description: "Innings pitched in X.Y format." },
+          { name: "h_allowed",    type: "integer", description: "Hits allowed." },
+          { name: "er",           type: "integer", description: "Earned runs allowed." },
+          { name: "bb_allowed",   type: "integer", description: "Walks issued." },
+          { name: "k_pitched",    type: "integer", description: "Strikeouts recorded." },
+          { name: "bf",           type: "integer", description: "Batters faced." },
+          { name: "hr_allowed",   type: "integer", description: "Home runs allowed." },
+          { name: "w",            type: "integer", description: "Pitcher wins." },
+          { name: "l",            type: "integer", description: "Pitcher losses." },
+          { name: "sv",           type: "integer", description: "Saves." },
+          { name: "era",          type: "double",  description: "Earned Run Average (ER * 27 / outs_pitched)." },
+          { name: "whip",         type: "double",  description: "Walks + Hits per Inning Pitched." },
+        ]
+      end
+
+      def sim_team_standings_columns
+        [
+          { name: "league_id",    type: "integer", description: "Simulation league ID." },
+          { name: "league_name",  type: "text",    description: "Simulation league name." },
+          { name: "season",       type: "integer", description: "Simulated season year." },
+          { name: "franchise_id", type: "integer", description: "Parent franchise ID (NULL for standalone leagues)." },
+          { name: "team_id",      type: "integer", description: "MLB MLBAM team identifier." },
+          { name: "team_abbr",    type: "text",    description: "Team abbreviation (e.g. NYY)." },
+          { name: "team_name",    type: "text",    description: "Full team name." },
+          { name: "division",     type: "text",    description: "Division label (e.g. 'AL East')." },
+          { name: "w",            type: "integer", description: "Wins." },
+          { name: "l",            type: "integer", description: "Losses." },
+          { name: "pct",          type: "double",  description: "Win percentage (W / (W + L))." },
+          { name: "gb",           type: "double",  description: "Games behind division leader." },
+          { name: "rs",           type: "integer", description: "Runs scored." },
+          { name: "ra",           type: "integer", description: "Runs allowed." },
+          { name: "run_diff",     type: "integer", description: "Run differential (RS - RA)." },
+        ]
+      end
+
+      def sim_season_log_columns
+        [
+          { name: "league_id",           type: "integer", description: "Simulation league ID." },
+          { name: "league_name",         type: "text",    description: "Simulation league name." },
+          { name: "season",              type: "integer", description: "Simulated season year." },
+          { name: "franchise_id",        type: "integer", description: "Parent franchise ID (NULL for standalone leagues)." },
+          { name: "franchise_name",      type: "text",    description: "Franchise name." },
+          { name: "games_total",         type: "integer", description: "Total games scheduled in the league." },
+          { name: "games_played",        type: "integer", description: "Games simulated so far." },
+          { name: "pct_complete",        type: "double",  description: "Season completion percentage (0–100)." },
+          { name: "complete",            type: "integer", description: "1 if all games have been simulated, 0 otherwise." },
+          { name: "champion_abbr",       type: "text",    description: "World Series champion team abbreviation (NULL if playoffs not complete)." },
+          { name: "batter_pitcher_blend", type: "double", description: "Projection blend used (0 = all pitcher-based, 1 = all batter-based)." },
+          { name: "created_at",          type: "text",    description: "Date the league was created (YYYY-MM-DD)." },
         ]
       end
     end

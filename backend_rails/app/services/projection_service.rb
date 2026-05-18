@@ -224,7 +224,12 @@ class ProjectionService
     end
 
     def project_batter_for(player_id, age, scenario, type, before_season: nil)
-      history = ProjectionDataService.batter_history(player_id, before_season: before_season)
+      history = ProjectionDataService.batter_history(
+        player_id,
+        years:  scenario.history_years,
+        min_pa: scenario.min_pa_for_history,
+        before_season: before_season
+      )
       return { error: "No historical batting data found" } if history.empty?
 
       league  = ProjectionDataService.league_means(player_type: :batter)
@@ -285,7 +290,12 @@ class ProjectionService
     end
 
     def project_pitcher_for(player_id, age, scenario, type, before_season: nil)
-      history = ProjectionDataService.pitcher_history(player_id, before_season: before_season)
+      history = ProjectionDataService.pitcher_history(
+        player_id,
+        years:  scenario.history_years,
+        min_ip: scenario.min_ip_for_history,
+        before_season: before_season
+      )
       return { error: "No historical pitching data found" } if history.empty?
 
       league  = ProjectionDataService.league_means(player_type: :pitcher)
@@ -321,7 +331,7 @@ class ProjectionService
       ip = projected_ip(player_id, type, scenario, history: history)
       components[:ip] = ip
 
-      stats = ProjectionEngine.derive_pitcher_stats(components)
+      stats = ProjectionEngine.derive_pitcher_stats(components, era_fip_blend: scenario.era_fip_blend)
 
       {
         projected_stats: stats,
@@ -353,6 +363,10 @@ class ProjectionService
         park_factors_enabled: scenario.park_factors_enabled,
         default_pa:           scenario.default_pa,
         default_ip:           scenario.default_ip,
+        era_fip_blend:        scenario.era_fip_blend,
+        history_years:        scenario.history_years,
+        min_pa_for_history:   scenario.min_pa_for_history,
+        min_ip_for_history:   scenario.min_ip_for_history,
       }
     end
 

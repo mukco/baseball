@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
-import { ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { BarChart, Bar, ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+
+const MUTED = 'rgb(var(--color-content-muted))'
+const BORDER = 'rgb(var(--color-bg-border))'
 
 function ResidualsHistogram({ yTrue, yPred }) {
   const bins = useMemo(() => {
@@ -15,8 +18,9 @@ function ResidualsHistogram({ yTrue, yPred }) {
       counts[idx]++
     }
     return counts.map((count, i) => ({
-      mid: +(min + (i + 0.5) * width).toFixed(3),
+      bin: (min + i * width).toFixed(3),
       count,
+      mid: +(min + (i + 0.5) * width).toFixed(3),
     }))
   }, [yTrue, yPred])
 
@@ -28,20 +32,30 @@ function ResidualsHistogram({ yTrue, yPred }) {
       </p>
       <p className="text-xs text-content-muted mb-3">A symmetric bell centred near 0 means errors are unbiased.</p>
       <ResponsiveContainer width="100%" height={160}>
-        <ScatterChart margin={{ left: 4, right: 8, bottom: 20 }}>
-          <XAxis dataKey="mid" type="number" name="residual"
-            tick={{ fill: '#7A90AF', fontSize: 10 }}
-            label={{ value: 'Residual', position: 'insideBottom', offset: -10, fill: '#4A5A7A', fontSize: 11 }} />
-          <YAxis dataKey="count" type="number" name="count"
-            tick={{ fill: '#7A90AF', fontSize: 10 }} width={32} />
-          <Tooltip
-            contentStyle={{ background: '#0D1A2D', border: '1px solid #1C3050', borderRadius: 6 }}
-            itemStyle={{ color: '#E8EDF5', fontSize: 12 }}
-            formatter={(val, name) => [val, name === 'count' ? 'rows' : 'residual']}
+        <BarChart data={bins} margin={{ left: 4, right: 8, bottom: 20 }}>
+          <XAxis
+            dataKey="mid"
+            type="number"
+            scale="linear"
+            domain={['dataMin', 'dataMax']}
+            tick={{ fill: MUTED, fontSize: 10 }}
+            tickFormatter={v => v.toFixed(2)}
+            label={{ value: 'Residual (predicted − actual)', position: 'insideBottom', offset: -10, fill: MUTED, fontSize: 11 }}
           />
-          <ReferenceLine x={0} stroke="#475569" strokeDasharray="3 3" />
-          <Scatter data={bins} fill="#2563EB" shape="square" />
-        </ScatterChart>
+          <YAxis
+            tick={{ fill: MUTED, fontSize: 10 }}
+            width={32}
+            label={{ value: 'Count', angle: -90, position: 'insideLeft', offset: 14, fill: MUTED, fontSize: 11 }}
+          />
+          <Tooltip
+            contentStyle={{ background: 'rgb(var(--color-bg-elevated))', border: `1px solid ${BORDER}`, borderRadius: 6 }}
+            itemStyle={{ color: 'rgb(var(--color-content-primary))', fontSize: 12 }}
+            formatter={(val, name) => [val, 'rows']}
+            labelFormatter={v => `Residual ≈ ${Number(v).toFixed(3)}`}
+          />
+          <ReferenceLine x={0} stroke={MUTED} strokeDasharray="3 3" strokeOpacity={0.7} />
+          <Bar dataKey="count" fill="rgb(var(--color-brand))" fillOpacity={0.75} radius={[2, 2, 0, 0]} />
+        </BarChart>
       </ResponsiveContainer>
     </div>
   )
@@ -70,14 +84,14 @@ export default function PredActualChart({ testPredictions, target }) {
         <ResponsiveContainer width="100%" height={240}>
           <ScatterChart margin={{ left: 4, right: 8, bottom: 20 }}>
             <XAxis dataKey="true" type="number" name="Actual" domain={[lo, hi]}
-              tick={{ fill: '#7A90AF', fontSize: 10 }}
-              label={{ value: 'Actual', position: 'insideBottom', offset: -10, fill: '#4A5A7A', fontSize: 11 }} />
+              tick={{ fill: MUTED, fontSize: 10 }}
+              label={{ value: 'Actual', position: 'insideBottom', offset: -10, fill: MUTED, fontSize: 11 }} />
             <YAxis dataKey="pred" type="number" name="Predicted" domain={[lo, hi]}
-              tick={{ fill: '#7A90AF', fontSize: 10 }} width={50}
-              label={{ value: 'Predicted', angle: -90, position: 'insideLeft', offset: 10, fill: '#4A5A7A', fontSize: 11 }} />
+              tick={{ fill: MUTED, fontSize: 10 }} width={50}
+              label={{ value: 'Predicted', angle: -90, position: 'insideLeft', offset: 10, fill: MUTED, fontSize: 11 }} />
             <Tooltip
-              contentStyle={{ background: '#0D1A2D', border: '1px solid #1C3050', borderRadius: 6 }}
-              itemStyle={{ color: '#E8EDF5', fontSize: 12 }}
+              contentStyle={{ background: 'rgb(var(--color-bg-elevated))', border: `1px solid ${BORDER}`, borderRadius: 6 }}
+              itemStyle={{ color: 'rgb(var(--color-content-primary))', fontSize: 12 }}
               formatter={(val) => [val.toFixed(4)]}
             />
             <ReferenceLine segment={[{ x: lo, y: lo }, { x: hi, y: hi }]}

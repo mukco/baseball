@@ -57,21 +57,50 @@ function shortDateLabel(value) {
   return Number.isNaN(date.getTime()) ? value : `${date.getMonth() + 1}/${date.getDate()}`
 }
 
+function gameTime(isoDate) {
+  if (!isoDate) return null
+  const d = new Date(isoDate)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+}
+
 function matchupText(player) {
   if (!player.game_today || !player.matchup) {
-    return Number(player.daily_points || 0) > 0 ? 'Game already played' : 'No game today'
+    return 'No game today'
   }
 
-  const side = player.matchup.is_home ? 'vs' : '@'
-  const opponent = player.matchup.opponent?.abbreviation || player.matchup.opponent?.name || 'TBD'
-  const teamScore = player.matchup.score?.team
-  const opponentScore = player.matchup.score?.opponent
+  const { matchup } = player
+  const side = matchup.is_home ? 'vs' : '@'
+  const opponent = matchup.opponent?.abbreviation || matchup.opponent?.name || 'TBD'
+  const teamScore = matchup.score?.team
+  const opponentScore = matchup.score?.opponent
+  const hasScore = teamScore != null && opponentScore != null
+  const abstract = matchup.abstract_state || ''
+  const status = matchup.status || ''
 
-  if (teamScore != null && opponentScore != null) {
-    return `${side} ${opponent} · ${player.matchup.status} ${teamScore}-${opponentScore}`
+  if (abstract === 'Final' || status.includes('Final') || status.includes('Game Over')) {
+    return hasScore
+      ? `Final · ${side} ${opponent} ${teamScore}-${opponentScore}`
+      : `Final · ${side} ${opponent}`
   }
 
-  return `${side} ${opponent} · ${player.matchup.status}`
+  if (abstract === 'Live' || status.includes('Progress') || status.includes('Warmup')) {
+    return hasScore
+      ? `Live · ${side} ${opponent} ${teamScore}-${opponentScore}`
+      : `Live · ${side} ${opponent}`
+  }
+
+  const time = gameTime(matchup.game_date)
+  return time ? `Upcoming · ${side} ${opponent} ${time}` : `Upcoming · ${side} ${opponent}`
+}
+
+function matchupColorClass(player) {
+  if (!player.game_today || !player.matchup) return 'text-content-muted'
+  const abstract = player.matchup.abstract_state || ''
+  const status = player.matchup.status || ''
+  if (abstract === 'Live' || status.includes('Progress') || status.includes('Warmup')) return 'text-green-400'
+  if (abstract === 'Final' || status.includes('Final') || status.includes('Game Over')) return 'text-content-muted'
+  return 'text-content-secondary'
 }
 
 function formatDailyPoints(points) {
@@ -300,7 +329,7 @@ function PlayerRow({ player }) {
           <div className="text-[11px] text-content-muted">
             {player.team_abbr || player.team} · {player.position}
           </div>
-          <div className="text-[11px] text-content-secondary mt-0.5">
+          <div className={`text-[11px] mt-0.5 ${matchupColorClass(player)}`}>
             {matchupText(player)}
           </div>
           <DailyStatBreakdown stats={player.daily_stats} />

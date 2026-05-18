@@ -1,21 +1,28 @@
 import { useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 
-// ── palette & theme tokens (hardcoded, not CSS vars — ECharts uses them in canvas) ──
-
+// ── palette & theme tokens ────────────────────────────────────────────────────
+// PALETTE is intentionally static — it encodes categorical identity and must
+// remain consistent across re-renders and theme changes.
 const PALETTE = [
-  '#6366F1', '#F59E0B', '#10B981', '#EF4444',
-  '#8B5CF6', '#F97316', '#14B8A6', '#EC4899',
+  '#6366F1', '#F59E0B', '#10B981', '#F97316',
+  '#8B5CF6', '#0EA5E9', '#14B8A6', '#EC4899',
   '#84CC16', '#06B6D4', '#F43F5E', '#A855F7',
 ]
 
-const T = {
-  bg:        'transparent',
-  elevated:  '#161B24',
-  border:    '#1F2532',
-  primary:   '#E8ECF3',
-  secondary: '#8B95A3',
-  muted:     '#5B6573',
+// Read ECharts color tokens from CSS variables so the chart matches the
+// app theme (light or dark) rather than rendering as a dark island.
+function getThemeColors() {
+  const s = getComputedStyle(document.documentElement)
+  const rgb = (v) => `rgb(${s.getPropertyValue(v).trim()})`
+  return {
+    bg:        'transparent',
+    elevated:  rgb('--color-bg-elevated'),
+    border:    rgb('--color-bg-border-strong'),
+    primary:   rgb('--color-content-primary'),
+    secondary: rgb('--color-content-secondary'),
+    muted:     rgb('--color-content-muted'),
+  }
 }
 
 const CHART_TYPES = [
@@ -166,84 +173,83 @@ function histogramBuckets(objects, col, bins = 24) {
 
 // ── ECharts option builder ────────────────────────────────────────────────
 
-const AXIS_SHARED = {
-  axisLine:  { lineStyle: { color: T.border } },
-  axisTick:  { show: false },
-  splitLine: { lineStyle: { color: T.border, opacity: 0.6 } },
-}
-
-function valueAxis(name) {
-  return {
-    ...AXIS_SHARED,
-    type: 'value',
-    name,
-    nameLocation: 'middle',
-    nameGap: 48,
-    nameTextStyle: { color: T.muted, fontSize: 11 },
-    axisLabel: { color: T.muted, fontSize: 11, formatter: axisLabel },
+function buildOption({ chartType, chartData, xCol, yCols, colorBySeries, objects, limit, colorBy, scatterColorMap, T }) {
+  const AXIS_SHARED = {
+    axisLine:  { lineStyle: { color: T.border } },
+    axisTick:  { show: false },
+    splitLine: { lineStyle: { color: T.border, opacity: 0.6 } },
   }
-}
 
-function categoryAxis(data, name, extra = {}) {
-  return {
-    ...AXIS_SHARED,
-    type: 'category',
-    data,
-    name,
-    axisLabel: { color: T.muted, fontSize: 11, ...extra },
-    splitLine: { show: false },
+  function valueAxis(name) {
+    return {
+      ...AXIS_SHARED,
+      type: 'value',
+      name,
+      nameLocation: 'middle',
+      nameGap: 48,
+      nameTextStyle: { color: T.muted, fontSize: 11 },
+      axisLabel: { color: T.muted, fontSize: 11, formatter: axisLabel },
+    }
   }
-}
 
-function tooltipBase(trigger = 'axis') {
-  return {
-    trigger,
-    backgroundColor: T.elevated,
+  function categoryAxis(data, name, extra = {}) {
+    return {
+      ...AXIS_SHARED,
+      type: 'category',
+      data,
+      name,
+      axisLabel: { color: T.muted, fontSize: 11, ...extra },
+      splitLine: { show: false },
+    }
+  }
+
+  function tooltipBase(trigger = 'axis') {
+    return {
+      trigger,
+      backgroundColor: T.elevated,
+      borderColor: T.border,
+      textStyle: { color: T.primary, fontSize: 11 },
+      appendToBody: true,
+      extraCssText: 'box-shadow:0 4px 24px rgba(0,0,0,0.3);border-radius:8px;',
+    }
+  }
+
+  const ZOOM_SLIDER = {
+    type: 'slider',
+    height: 18,
+    bottom: 4,
     borderColor: T.border,
-    textStyle: { color: T.primary, fontSize: 11 },
-    appendToBody: true,
-    extraCssText: 'box-shadow:0 4px 24px rgba(0,0,0,0.5);border-radius:8px;',
+    backgroundColor: T.elevated,
+    fillerColor: 'rgba(99,102,241,0.12)',
+    handleStyle: { color: '#6366F1', borderColor: '#6366F1' },
+    moveHandleStyle: { color: '#6366F1' },
+    selectedDataBackground: {
+      lineStyle: { color: '#6366F1' },
+      areaStyle: { color: 'rgba(99,102,241,0.08)' },
+    },
+    dataBackground: {
+      lineStyle: { color: T.border },
+      areaStyle: { color: T.elevated },
+    },
+    textStyle: { color: T.muted },
   }
-}
 
-const ZOOM_SLIDER = {
-  type: 'slider',
-  height: 18,
-  bottom: 4,
-  borderColor: T.border,
-  backgroundColor: T.elevated,
-  fillerColor: 'rgba(99,102,241,0.12)',
-  handleStyle: { color: '#6366F1', borderColor: '#6366F1' },
-  moveHandleStyle: { color: '#6366F1' },
-  selectedDataBackground: {
-    lineStyle: { color: '#6366F1' },
-    areaStyle: { color: 'rgba(99,102,241,0.08)' },
-  },
-  dataBackground: {
-    lineStyle: { color: T.border },
-    areaStyle: { color: T.elevated },
-  },
-  textStyle: { color: T.muted },
-}
-
-function tooltipFmt(xCol, yLabel) {
-  return params => {
-    const arr = Array.isArray(params) ? params : [params]
-    const name = arr[0]?.axisValueLabel ?? arr[0]?.name ?? ''
-    const rows = arr
-      .filter(p => p.value != null)
-      .map(p => {
-        const val = Array.isArray(p.value) ? p.value[1] : p.value
-        return `<div style="display:flex;justify-content:space-between;gap:16px">
-          <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px"></span><span style="color:${T.secondary}">${p.seriesName}</span></span>
-          <strong style="color:${T.primary};font-family:monospace">${fmtNum(val)}</strong>
-        </div>`
-      })
-    return `<div style="color:${T.primary};font-weight:600;margin-bottom:5px">${name}</div>${rows.join('')}`
+  function tooltipFmt(xCol) {
+    return params => {
+      const arr = Array.isArray(params) ? params : [params]
+      const name = arr[0]?.axisValueLabel ?? arr[0]?.name ?? ''
+      const rows = arr
+        .filter(p => p.value != null)
+        .map(p => {
+          const val = Array.isArray(p.value) ? p.value[1] : p.value
+          return `<div style="display:flex;justify-content:space-between;gap:16px">
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px"></span><span style="color:${T.secondary}">${p.seriesName}</span></span>
+            <strong style="color:${T.primary};font-family:monospace">${fmtNum(val)}</strong>
+          </div>`
+        })
+      return `<div style="color:${T.primary};font-weight:600;margin-bottom:5px">${name}</div>${rows.join('')}`
+    }
   }
-}
-
-function buildOption({ chartType, chartData, xCol, yCols, colorBySeries, objects, limit, colorBy, scatterColorMap }) {
   const showLegend = !!(colorBySeries || yCols.length > 1)
   const hasSlider  = chartType === 'line' || chartType === 'area'
   const gridTop    = showLegend ? 40 : 16
@@ -335,10 +341,8 @@ function buildOption({ chartType, chartData, xCol, yCols, colorBySeries, objects
       },
       series: yCols.map((y, si) => ({
         name: y, type: 'bar',
-        data: slice.map((r, i) => ({
-          value: r[y],
-          itemStyle: { color: PALETTE[(si * slice.length + i) % PALETTE.length], borderRadius: [0, 3, 3, 0] },
-        })),
+        data: slice.map(r => r[y]),
+        itemStyle: { color: PALETTE[si % PALETTE.length], borderRadius: [0, 3, 3, 0], opacity: 0.85 },
         barMaxWidth: 24,
       })),
     }
@@ -451,6 +455,7 @@ export default function SandboxChart({ columns, rows }) {
   const option = useMemo(() => buildOption({
     chartType, chartData, xCol, yCols, colorBySeries,
     objects, limit, colorBy, scatterColorMap,
+    T: getThemeColors(),
   }), [chartType, chartData, xCol, yCols, colorBySeries, objects, limit, colorBy, scatterColorMap])
 
   function toggleY(col) {

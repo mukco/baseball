@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api'
 
-function BannerSkeleton() {
+function CardSkeleton() {
   return (
     <div className="card border-l-4 border-orange-500 p-4 animate-pulse">
       <div className="flex items-center gap-2 mb-3">
@@ -24,38 +24,22 @@ function BannerSkeleton() {
   )
 }
 
-export default function HotGameBanner({ date, hasFinalGames = false }) {
+function HotGameCard({ entry, rank }) {
   const navigate = useNavigate()
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['hot-game', date],
-    queryFn: () => api.schedule.hotGame(date),
-    staleTime: 30 * 60 * 1000,
-    enabled: hasFinalGames,
-    retry: 1,
-  })
-
-  if (!hasFinalGames) return null
-  if (isLoading) return <BannerSkeleton />
-
-  const hot = data?.hotGame
-  if (!hot) return null
-
-  const { game, summary } = hot
+  const { game, summary } = entry
   const { away, home } = game
+
+  const rankLabel = rank === 0 ? '🔥 Hot Game' : rank === 1 ? '🌶 Also Hot' : '⚡ Worth Watching'
 
   return (
     <div
       className="card border-l-4 border-orange-500 p-4 cursor-pointer hover:bg-bg-elevated transition-colors group"
       onClick={() => navigate(`/game/${game.gamePk}`)}
     >
-      {/* Badge */}
       <div className="flex items-center gap-1.5 mb-3">
-        <span className="text-sm leading-none">🔥</span>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">Hot Game</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">{rankLabel}</span>
       </div>
 
-      {/* Compact matchup */}
       <div className="flex items-center gap-2 mb-3">
         <img
           src={`https://www.mlbstatic.com/team-logos/${away.id}.svg`}
@@ -81,7 +65,6 @@ export default function HotGameBanner({ date, hasFinalGames = false }) {
         )}
       </div>
 
-      {/* AI summary */}
       {summary && (
         <div>
           {summary.headline && (
@@ -96,6 +79,35 @@ export default function HotGameBanner({ date, hasFinalGames = false }) {
       <div className="mt-3 text-[10px] font-medium text-orange-400 group-hover:underline">
         View full game →
       </div>
+    </div>
+  )
+}
+
+export default function HotGameBanner({ date, hasFinalGames = false }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['hot-games', date],
+    queryFn: () => api.schedule.hotGames(date),
+    staleTime: 30 * 60 * 1000,
+    enabled: hasFinalGames,
+    retry: 1,
+  })
+
+  if (!hasFinalGames) return null
+  if (isLoading) return (
+    <div className="space-y-3">
+      <CardSkeleton />
+      <CardSkeleton />
+    </div>
+  )
+
+  const hotGames = data?.hotGames
+  if (!hotGames?.length) return null
+
+  return (
+    <div className="space-y-3">
+      {hotGames.map((entry, i) => (
+        <HotGameCard key={entry.game?.gamePk ?? i} entry={entry} rank={i} />
+      ))}
     </div>
   )
 }

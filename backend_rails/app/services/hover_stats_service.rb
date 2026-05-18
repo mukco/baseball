@@ -1,6 +1,20 @@
 class HoverStatsService
+  CACHE_TTL = 15.minutes
+
   class << self
     def call(player_id:)
+      cache_key = "hover_stats:#{player_id}:#{Date.today.year}"
+      cached = Rails.cache.read(cache_key)
+      return cached if cached
+
+      result = fetch(player_id: player_id)
+      Rails.cache.write(cache_key, result, expires_in: CACHE_TTL) unless result[:error]
+      result
+    end
+
+    private
+
+    def fetch(player_id:)
       season = Date.today.year
       mlb    = MlbApiService.new
 
@@ -19,8 +33,6 @@ class HoverStatsService
     rescue StandardError => e
       { error: e.message }
     end
-
-    private
 
     def pitcher_stats(mlb, player_id, season, info, season_stats, pos)
       pit   = season_stats[:pitching] || {}

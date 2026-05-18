@@ -34,3 +34,42 @@ const BALLPARK_IMAGE_BY_VENUE = {
 export function ballparkImageForVenue(venue) {
   return BALLPARK_IMAGE_BY_VENUE[String(venue || '').trim()] || null
 }
+
+// Maps MLB team_id → home venue name so sim game cards can show ballpark backgrounds.
+const VENUE_BY_TEAM_ID = {
+  108: 'Angel Stadium',
+  109: 'Chase Field',
+  110: 'Oriole Park at Camden Yards',
+  111: 'Fenway Park',
+  112: 'Wrigley Field',
+  113: 'Great American Ball Park',
+  114: 'Progressive Field',
+  115: 'Coors Field',
+  116: 'Comerica Park',
+  117: 'Daikin Park',
+  118: 'Kauffman Stadium',
+  119: 'UNIQLO Field at Dodger Stadium',
+  120: 'Nationals Park',
+  121: 'Citi Field',
+  133: 'Sutter Health Park',
+  134: 'PNC Park',
+  135: 'Petco Park',
+  136: 'T-Mobile Park',
+  137: 'Oracle Park',
+  138: 'Busch Stadium',
+  139: 'Tropicana Field',
+  140: 'Globe Life Field',
+  141: 'Rogers Centre',
+  142: 'Target Field',
+  143: 'Citizens Bank Park',
+  144: 'Truist Park',
+  145: 'Rate Field',
+  146: 'loanDepot park',
+  147: 'Yankee Stadium',
+  158: 'American Family Field',
+}
+
+export function ballparkImageForTeam(teamId) {
+  const venue = VENUE_BY_TEAM_ID[Number(teamId)]
+  return venue ? ballparkImageForVenue(venue) : null
+}

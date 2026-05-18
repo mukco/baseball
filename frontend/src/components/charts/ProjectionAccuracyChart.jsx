@@ -62,7 +62,7 @@ function SubChart({ data, systems, mode, showLegend }) {
 
   return (
     <ResponsiveContainer width="100%" height={140}>
-      <BarChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 16 }}>
         <XAxis
           dataKey="label"
           tick={{ fontSize: 11, fill: MUTED, fontFamily: 'monospace' }}
@@ -77,6 +77,14 @@ function SubChart({ data, systems, mode, showLegend }) {
           tickFormatter={tickFmt}
           tickCount={5}
           width={44}
+          label={{
+            value: mode === 'bias' ? 'Bias (proj − actual)' : 'MAE',
+            angle: -90,
+            position: 'insideLeft',
+            offset: 14,
+            fill: MUTED,
+            fontSize: 10,
+          }}
         />
         {mode === 'bias' && (
           <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />

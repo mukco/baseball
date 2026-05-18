@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import clsx from 'clsx'
 import PlayerLink from './PlayerLink'
 import { ballparkImageForVenue } from '../lib/ballparkImages'
+import { api } from '../api'
 
 function TeamLogo({ teamId, name, size = 10 }) {
   return (
@@ -85,14 +88,29 @@ function StatusPill({ status, isLive, isPreview, currentInning, inningHalf, time
   )
 }
 
+const GAME_INSIGHT_SECTIONS = {
+  key_takeaways: 'Key Takeaways',
+  matchup_edges: 'Matchup Edges',
+  risk_flags:    'Risk Flags',
+  watch_list:    'Watch List',
+}
+
 export default function GameCard({ game }) {
   const navigate = useNavigate()
+  const [showInsights, setShowInsights] = useState(false)
   const {
     gamePk, gameDate, status, abstractState,
     away, home, awayProbable, homeProbable,
     venue, currentInning, inningHalf,
   } = game
   const gameUrl = gamePk ? `/game/${gamePk}` : null
+
+  const { data: insightsData, isLoading: insightsLoading } = useQuery({
+    queryKey: ['game-insights', gamePk],
+    queryFn:  () => api.games.insights(gamePk),
+    staleTime: 10 * 60 * 1000,
+    enabled:  showInsights && !!gamePk,
+  })
 
   let timeLabel = 'TBD'
   try {
@@ -166,7 +184,21 @@ export default function GameCard({ game }) {
           </button>
         )}
         <div className="flex-1" />
-        {venue && <span className="text-[11px] text-content-muted truncate max-w-[140px]">{venue}</span>}
+        {venue && <span className="text-[11px] text-content-muted truncate max-w-[100px]">{venue}</span>}
+        {gamePk && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowInsights(v => !v) }}
+            className={clsx(
+              'text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full transition-colors',
+              showInsights
+                ? 'bg-brand/15 text-brand'
+                : 'bg-bg-elevated text-content-muted hover:text-content-primary'
+            )}
+          >
+            AI
+          </button>
+        )}
       </div>
 
       {/* Matchup body */}
@@ -213,6 +245,42 @@ export default function GameCard({ game }) {
             <ProbablePitcher pitcher={homeProbable} />
           </div>
         </div>
+
+        {/* AI Insights panel */}
+        {showInsights && (
+          <div
+            className="mt-3 pt-3 border-t border-bg-border space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {insightsLoading && (
+              <div className="flex items-center gap-2 text-content-muted text-xs py-1">
+                <div className="w-3 h-3 border-2 border-brand border-t-transparent rounded-full animate-spin shrink-0" />
+                Generating insights…
+              </div>
+            )}
+            {insightsData?.insights && (
+              <div className="space-y-2">
+                {Object.entries(GAME_INSIGHT_SECTIONS).map(([key, label]) => {
+                  const lines = insightsData.insights[key] || []
+                  if (!lines.length) return null
+                  return (
+                    <div key={key}>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">{label}</p>
+                      <ul className="space-y-0.5">
+                        {lines.map((line, i) => (
+                          <li key={i} className="text-xs text-content-secondary flex gap-1.5">
+                            <span className="text-brand shrink-0 mt-0.5">•</span>
+                            <span>{line}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

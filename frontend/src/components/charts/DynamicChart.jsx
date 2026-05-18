@@ -56,7 +56,7 @@ const AXIS_PROPS = {
   },
 }
 
-const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 0 }
+const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 16 }
 
 export default function DynamicChart({ type, title, data, xKey = 'name', yKey = 'value', color, height = 180 }) {
   const containerRef = useRef(null)
@@ -77,16 +77,12 @@ export default function DynamicChart({ type, title, data, xKey = 'name', yKey = 
         <XAxis dataKey={xKey} {...AXIS_PROPS} interval={0} tick={{ ...AXIS_PROPS.tick, fontSize: 10 }} />
         <YAxis {...AXIS_PROPS} width={40} />
         <Tooltip content={<CustomTooltip xKey={xKey} yKey={yKey} type="bar" />} cursor={{ fill: SURFACE }} />
-        <Bar dataKey={yKey} radius={[3, 3, 0, 0]} maxBarSize={40}>
-          {data.map((_, i) => (
-            <Cell key={i} fill={color || BRAND} fillOpacity={Math.max(0.5, 0.85 - i * 0.03)} />
-          ))}
-        </Bar>
+        <Bar dataKey={yKey} fill={color || BRAND} fillOpacity={0.85} radius={[3, 3, 0, 0]} maxBarSize={40} />
       </BarChart>
     )
   } else if (type === 'horizontal_bar') {
     chart = (
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 48, left: 4, bottom: 4 }}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 48, left: 4, bottom: 16 }}>
         <XAxis type="number" {...AXIS_PROPS} />
         <YAxis type="category" dataKey={xKey} {...AXIS_PROPS} width={90} tick={{ ...AXIS_PROPS.tick, fontSize: 10 }} />
         <Tooltip content={<CustomTooltip xKey={xKey} yKey={yKey} type="horizontal_bar" />} cursor={{ fill: SURFACE }} />
@@ -117,16 +113,12 @@ export default function DynamicChart({ type, title, data, xKey = 'name', yKey = 
     )
   } else if (type === 'scatter') {
     chart = (
-      <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+      <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 16 }}>
         <CartesianGrid stroke={BORDER} strokeDasharray="3 3" strokeOpacity={0.6} />
         <XAxis type="number" dataKey={xKey} name={xKey} {...AXIS_PROPS} label={{ value: xKey, position: 'insideBottom', offset: -2, fill: MUTED, fontSize: 10 }} />
         <YAxis type="number" dataKey={yKey} name={yKey} {...AXIS_PROPS} width={40} label={{ value: yKey, angle: -90, position: 'insideLeft', fill: MUTED, fontSize: 10 }} />
         <Tooltip content={<CustomTooltip xKey={xKey} yKey={yKey} type="scatter" />} cursor={{ strokeDasharray: '3 3' }} />
-        <Scatter data={data}>
-          {data.map((_, i) => (
-            <Cell key={i} fill={PALETTE[i % PALETTE.length]} fillOpacity={0.8} />
-          ))}
-        </Scatter>
+        <Scatter data={data} fill={color || BRAND} fillOpacity={0.8} />
       </ScatterChart>
     )
   }
@@ -163,7 +155,8 @@ function ExportButtons({ containerRef, title, data }) {
     canvas.height = height * scale
     const ctx = canvas.getContext('2d')
     ctx.scale(scale, scale)
-    ctx.fillStyle = '#0F0F17'
+    const bgColor = getComputedStyle(containerRef.current).backgroundColor || '#ffffff'
+    ctx.fillStyle = bgColor
     ctx.fillRect(0, 0, width, height)
 
     const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })

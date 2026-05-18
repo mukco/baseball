@@ -45,7 +45,11 @@ module Api
         :age_curve_enabled, :age_curve_factor,
         :statcast_weight,
         :park_factors_enabled,
-        :default_pa, :default_ip
+        :default_pa, :default_ip,
+        :era_fip_blend,
+        :history_years,
+        :min_pa_for_history,
+        :min_ip_for_history
       )
     end
   end

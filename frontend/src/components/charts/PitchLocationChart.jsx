@@ -55,6 +55,8 @@ function hexToRgb(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
+const MIN_SAMPLES = 5 // cells below this show "—" to prevent misleading small-n rates
+
 function cellColor(cell, metric, maxDensity, densityRgb) {
   if (cell.n === 0) return 'transparent'
 
@@ -68,14 +70,18 @@ function cellColor(cell, metric, maxDensity, densityRgb) {
   }
 
   const [r, g, b] = metric === 'density' ? densityRgb : METRIC_COLORS[metric]
-  const alpha = intensity === 0 ? 0.06 : 0.12 + intensity * 0.8
+  // Dim cells with too few pitches to be meaningful
+  const tooSparse = metric !== 'density' && cell.n < MIN_SAMPLES
+  const alpha = tooSparse ? 0.08 : intensity === 0 ? 0.06 : 0.12 + intensity * 0.8
   return `rgba(${r}, ${g}, ${b}, ${Math.min(0.92, alpha)})`
 }
 
 function cellLabel(cell, metric) {
   if (cell.n === 0) return ''
   if (metric === 'density') return ''
-  if (metric === 'swing')   return cell.n > 0 ? `${Math.round(cell.sw / cell.n * 100)}%` : ''
+  // Show "—" for sparse cells so readers aren't misled by n=1 → 100% rates
+  if (cell.n < MIN_SAMPLES) return '—'
+  if (metric === 'swing')   return `${Math.round(cell.sw / cell.n * 100)}%`
   return cell.sw > 0 ? `${Math.round(cell.wh / cell.sw * 100)}%` : ''
 }
 

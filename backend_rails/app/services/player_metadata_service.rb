@@ -1,10 +1,13 @@
 require "nokogiri"
 
 class PlayerMetadataService
-  CACHE_TTL = 12 * 3600
+  CACHE_TTL      = 12 * 3600
+  PAGE_CACHE_TTL =  6 * 3600
 
-  @@cache = {}
+  @@cache            = {}
   @@cache_timestamps = {}
+  @@page_cache            = {}
+  @@page_cache_timestamps = {}
 
   class << self
     def fetch(player_id:, team_id:, player_name:, season: Date.today.year)
@@ -52,7 +55,7 @@ class PlayerMetadataService
       slug = TeamFinanceService::TEAM_SLUGS[team_id.to_i]
       return nil unless slug
 
-      html = finance_connection.get("https://www.fangraphs.com/roster-resource/payroll/#{slug}").body
+      html = fetch_payroll_page(slug)
       doc = Nokogiri::HTML(html)
       row = doc.css("table tbody tr").find { |tr| tr.css("td")[0]&.text&.squish == player_name.to_s.squish }
       return nil unless row
@@ -89,6 +92,16 @@ class PlayerMetadataService
 
     def mlb_service
       @mlb_service ||= MlbApiService.new
+    end
+
+    def fetch_payroll_page(slug)
+      if @@page_cache.key?(slug) && @@page_cache_timestamps[slug].to_i > Time.now.to_i - PAGE_CACHE_TTL
+        return @@page_cache[slug]
+      end
+      html = finance_connection.get("https://www.fangraphs.com/roster-resource/payroll/#{slug}").body
+      @@page_cache[slug]            = html
+      @@page_cache_timestamps[slug] = Time.now.to_i
+      html
     end
 
     def finance_connection
