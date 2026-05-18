@@ -1,6 +1,92 @@
 # Statline — Baseball Analytics Platform
 
-A full-featured baseball analytics application built on a Rails 8 API backend, a React/Vite frontend, and a Python ML service. It aggregates data from MLB's Stats API, Baseball Savant (Statcast), FanGraphs, ESPN, and Yahoo Fantasy into a single interface with player profiles, sortable leaderboards, AI-powered insights, a SQL sandbox, a custom projection engine, Yahoo Fantasy integration, and an interactive ML model builder.
+A full-featured baseball analytics application built on a Rails 8 API backend, a React/Vite frontend, and a Python ML service. It aggregates data from MLB's Stats API, Baseball Savant (Statcast), FanGraphs, ESPN, and Yahoo Fantasy into a single interface.
+
+---
+
+## Features
+
+### Live Games & Scores
+- Date-navigable schedule with live game cards, scores, and probable pitchers
+- Per-game box scores, inning-by-inning linescores, and play-by-play
+- Live win probability chart updated each half-inning
+- AI-generated game narratives and betting picks
+- Real-game result sync into simulations
+
+### Player & Team Profiles
+- Full batting and pitching stat pages with career trend charts
+- Statcast percentile cards (exit velocity, spin rate, barrel rate, etc.)
+- Spray chart (hit location scatter), pitch movement scatter, rolling averages
+- Team rosters, game logs, and historical records
+
+### Leaderboards & Stats
+- Sortable batting, pitching, and team tables sourced from FanGraphs advanced metrics
+- Sabermetric glossary with definitions for every stat (wRC+, FIP, xFIP, SIERA, BABIP, etc.)
+- Bat-tracking leaderboard (bat speed, swing length, blast rate) — available 2024+
+
+### Season Simulation
+Full game-by-game simulation engine driven by FanGraphs projections.
+
+- **League setup** — pick a season, scenario, and batter/pitcher projection blend
+- **Day-by-day control** — simulate one day, simulate through a date, or sim the whole season
+- **Real-result sync** — pull actual MLB scores in place of simulated ones for the current season
+- **Live schedule view** — date-navigable game list with win probability for each matchup
+- **Standings** — show all games, real only, or simulated only, with full division breakdowns
+- **Roster editor** — drag-and-drop batting order and rotation; assign bullpen roles
+- **Box scores** — inning-by-inning linescore, batting + pitching box, real vs. sim score toggle
+- **Season leaderboards** — batting and pitching stats accumulated across all simulated games
+- **Player profiles** — per-player sim stats, trend charts, and AI-generated insights
+- **Team pages** — standings, roster, and team-level sim stats
+- **Injuries** — simulated injury tracker with severity and return timelines
+- **Transactions** — free agent signings and trades generated during simulation
+- **Season Calendar** — month-by-month view of simulated days with AI-generated daily stories and game links
+- **Playoff bracket** — seed and simulate the postseason round by round (Wild Card → LCS → World Series)
+- **Playoff awards** — AI committee selects WS MVP, ALCS MVP, and NLCS MVP with written rationale
+- **Season awards** — Silver Slugger, Gold Glove, Cy Young, and MVP voting
+
+### Multi-Season Franchises
+- Create a franchise to run continuous multi-year simulations
+- Advance completed seasons → new season inherits rosters and clones or fetches the schedule
+- Per-franchise season history with champion tracking and completion progress
+- All franchise data flows into the DuckDB warehouse for cross-season SQL analysis
+
+### SQL Sandbox
+- In-browser SQL editor backed by a DuckDB warehouse
+- 9 queryable tables: batters, pitchers, FG batting/pitching projections, team batting/pitching, sim player stats, sim team standings, sim season log
+- Column glossary with stat definitions and data types
+- Pivot table view and chart visualization (bar, line, scatter)
+- Stale-detection: warehouse auto-invalidates when ingester schemas change
+- CodeMirror editor with SQL autocomplete (table names + column names)
+
+### ML Builder
+- Train ML models on warehouse data directly from the browser — no code required
+- Supported models: Linear Regression, Logistic Regression, Random Forest, Gradient Boosting, Neural Network (PyTorch MLP)
+- Configure features, target, test split, and all hyperparameters from the UI
+- Neural network layer builder with live parameter count and architecture diagram
+- Results: R², RMSE, accuracy, F1, confusion matrix, feature importance, training loss curve
+- Educational explainer panel covering neural networks, overfitting, activation functions, and more
+
+### Projections
+- Internal projection engine (Marcel + regression-to-mean)
+- Configurable scenario builder — tune weights, aging curves, and regression factors
+- Season leaderboard view of projected stats
+- Projection accuracy backtesting against final stats
+
+### Yahoo Fantasy
+- OAuth 2.0 integration with token persistence
+- Roster, matchup, and free agent views
+- AI-generated lineup recommendations and waiver wire analysis
+
+### AI Assistant
+- Floating chat sidebar available on every page
+- Tools: player stats lookup, game data, SQL sandbox queries, ML model training
+- Context-aware — knows what page you're on
+
+### News & Content
+- Live MLB news feed
+- Daily AI-generated digest of previous day's action
+- Recent MLB transactions feed
+- Gambling picks with AI analysis of daily odds
 
 ---
 
@@ -10,10 +96,11 @@ A full-featured baseball analytics application built on a Rails 8 API backend, a
 - [Prerequisites](#prerequisites)
 - [Environment Variables & Credentials](#environment-variables--credentials)
 - [Running the App](#running-the-app)
-- [Yahoo Fantasy Setup (OAuth + Tunnel)](#yahoo-fantasy-setup-oauth--tunnel)
+- [Yahoo Fantasy Setup](#yahoo-fantasy-setup-oauth--tunnel)
 - [Data Warehouse & Sandbox](#data-warehouse--sandbox)
+- [Simulation System](#simulation-system)
 - [ML Builder](#ml-builder)
-- [Pages & Features](#pages--features)
+- [All Routes](#all-routes)
 - [Backend Architecture](#backend-architecture)
 - [Frontend Architecture](#frontend-architecture)
 - [Data Sources](#data-sources)
@@ -25,54 +112,52 @@ A full-featured baseball analytics application built on a Rails 8 API backend, a
 
 ```
 baseball/
-├── start.sh                         # One-command startup script (Rails + ML service + Vite)
-├── backend_rails/                   # Rails 8 API — runs on :8000
-│   ├── .env                         # API keys (git-ignored, you must create this)
-│   ├── Gemfile
-│   ├── config/
-│   │   ├── routes.rb                # All /api/* routes
-│   │   └── environments/
+├── start.sh                         # One-command startup (Rails + ML service + Vite)
+├── backend_rails/                   # Rails 8 API — port 8000
+│   ├── .env                         # API keys (git-ignored)
 │   ├── app/
-│   │   ├── controllers/api/         # Thin controllers, one per resource
+│   │   ├── controllers/api/         # Thin controllers — one per resource
 │   │   ├── services/                # All business logic
-│   │   │   ├── mlb_api_service.rb   # MLB Stats API
-│   │   │   ├── statcast_service.rb  # Baseball Savant + FanGraphs
-│   │   │   ├── ml_service.rb        # HTTP client calling the Python ML service
-│   │   │   ├── open_ai/client.rb    # OpenAI wrapper (all AI calls go here)
-│   │   │   ├── assistant_service.rb # AI assistant with tool-calling
-│   │   │   ├── yahoo_fantasy_service.rb
-│   │   │   ├── warehouse/           # Data ingestion (FanGraphs + Savant CSVs)
-│   │   │   └── sandbox/             # SQL query layer over DuckDB
-│   │   └── models/                  # SQLite: ProjectionScenario, PlayerProjection
+│   │   │   ├── mlb_api_service.rb
+│   │   │   ├── statcast_service.rb
+│   │   │   ├── simulation_service.rb
+│   │   │   ├── game_simulation_engine.rb
+│   │   │   ├── franchise_service.rb
+│   │   │   ├── playoff_simulation_service.rb
+│   │   │   ├── open_ai/client.rb    # All AI calls go here
+│   │   │   ├── warehouse/           # Data ingestion → CSV → DuckDB
+│   │   │   └── sandbox/             # SQL execution layer
+│   │   ├── models/                  # SQLite: projections + simulation state
+│   │   └── jobs/                    # Background jobs (simulate season, news generation)
 │   ├── db/                          # SQLite migrations
 │   └── script/
-│       ├── warehouse_build.py       # Python: CSV → DuckDB builder
-│       └── sandbox_duckdb_query.py  # Python: runs SQL against DuckDB
+│       ├── warehouse_build.py       # CSV → DuckDB
+│       └── sandbox_duckdb_query.py  # SQL runner
 │
-├── ml_service/                      # Python ML service — runs on :8002
-│   ├── main.py                      # FastAPI app: /health, /columns/:table, /train
-│   ├── data_loader.py               # Reads from DuckDB warehouse with filter support
-│   ├── trainer.py                   # Dispatches to the right model, returns unified result
-│   ├── models/
-│   │   ├── neural_network.py        # PyTorch MLP — configurable layers, activations, dropout
-│   │   └── sklearn_models.py        # Linear Reg, Logistic Reg, Random Forest, Gradient Boosting
-│   └── requirements.txt
+├── ml_service/                      # Python FastAPI — port 8002
+│   ├── main.py                      # /health, /columns/:table, /train
+│   ├── data_loader.py               # Reads DuckDB warehouse
+│   ├── trainer.py                   # Model dispatch
+│   └── models/
+│       ├── neural_network.py        # PyTorch MLP
+│       └── sklearn_models.py        # Linear, Logistic, RF, GB
 │
-└── frontend/                        # React 18 + Vite + Tailwind — runs on :5173
+└── frontend/                        # React 18 + Vite + Tailwind — port 5173
     ├── vite.config.js               # /api proxy → :8000
     └── src/
-        ├── App.jsx                  # Routes
-        ├── api.js                   # All fetch() calls (never call fetch directly in components)
-        ├── pages/                   # One file per page/route
-        ├── components/              # Shared UI components
+        ├── App.jsx                  # All routes
+        ├── api.js                   # All fetch() calls
+        ├── pages/                   # One file per route
+        ├── components/
+        │   ├── sim/                 # Simulation UI primitives
         │   ├── ml/                  # ML Builder components
-        │   └── charts/              # Chart components (Recharts + ECharts)
+        │   └── charts/              # Recharts + ECharts wrappers
         └── lib/
-            ├── statHelp.js          # STAT_HELP glossary + STAT_ALIASES
+            ├── statHelp.js          # Stat glossary + aliases
             └── gamblingHelp.js
 ```
 
-The Vite dev server proxies all `/api/*` requests to the Rails backend at `localhost:8000`. The Rails backend calls the ML service directly at `localhost:8002` — the frontend never talks to the ML service directly.
+The Vite dev server proxies all `/api/*` requests to the Rails backend. The frontend never calls the ML service directly — Rails proxies those too.
 
 ---
 
@@ -85,53 +170,36 @@ The Vite dev server proxies all `/api/*` requests to the Rails backend at `local
 | Node.js | 18+ | |
 | npm | 9+ | |
 | Python | 3.9+ | Required for Sandbox and ML Builder |
-| DuckDB Python package | latest | `pip install duckdb` — required for Sandbox |
-| PyTorch + scikit-learn | latest | `pip install -r ml_service/requirements.txt` — required for ML Builder |
+| DuckDB Python package | latest | `pip install duckdb` |
+| PyTorch + scikit-learn | latest | `pip install -r ml_service/requirements.txt` |
 
-`start.sh` checks for missing Python packages and installs them automatically.
+`start.sh` checks and installs Python packages automatically.
 
 ---
 
 ## Environment Variables & Credentials
 
-Create a file at `backend_rails/.env` (it is git-ignored). The `start.sh` script reads this file automatically via `dotenv-rails`.
+Create `backend_rails/.env` (git-ignored):
 
 ```bash
-# backend_rails/.env
-
-# ── Required for all AI features ──────────────────────────────────────────────
+# Required for all AI features
 OPENAI_API_KEY=sk-...
 
-# Optional overrides (defaults shown):
+# Optional overrides
 # OPENAI_MODEL=gpt-4.1
 # OPENAI_BASE_URL=https://api.openai.com
-# OPENAI_PROJECT=proj_...          # Only needed if your org uses Projects
 
-# ── Required for Yahoo Fantasy ─────────────────────────────────────────────────
+# Required for Yahoo Fantasy
 YAHOO_CLIENT_ID=...
 YAHOO_CLIENT_SECRET=...
-YAHOO_LEAGUE_ID=211665             # The number in your league URL
-YAHOO_REDIRECT_URI=https://xxxx.loca.lt/api/yahoo/callback   # See Yahoo section below
+YAHOO_LEAGUE_ID=211665
+YAHOO_REDIRECT_URI=https://xxxx.loca.lt/api/yahoo/callback
 ```
 
-### Credential Details
-
-#### `OPENAI_API_KEY` — **Required**
-Used by the floating AI assistant, game insights, factoids, daily digest, fantasy insights, the "Picks" feature, and the ML Builder assistant tools. Get one at [platform.openai.com](https://platform.openai.com/).
-
-The model defaults to `gpt-4.1`. All AI calls go through `OpenAi::Client#json_completion`, which logs every request to `log/openai_requests.jsonl`.
-
-#### `YAHOO_CLIENT_ID` + `YAHOO_CLIENT_SECRET` — **Required for /fantasy**
-Yahoo Fantasy uses OAuth 2.0. See the [Yahoo Fantasy Setup](#yahoo-fantasy-setup-oauth--tunnel) section.
-
-#### `YAHOO_LEAGUE_ID` — **Required for /fantasy**
-The numeric ID from your league URL. For `baseball.fantasysports.yahoo.com/b1/211665`, the league ID is `211665`.
-
-#### `YAHOO_REDIRECT_URI` — **Managed automatically by start.sh**
-OAuth callback URL. Must be HTTPS — handled via localtunnel. See Yahoo section.
-
-#### No key required
-MLB Stats API, Baseball Savant, FanGraphs, and ESPN are free public endpoints.
+- **`OPENAI_API_KEY`** — Used by the AI assistant, game insights, factoids, daily digest, picks, simulation news/awards/insights, and the ML Builder assistant. All calls logged to `log/openai_requests.jsonl`.
+- **`YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`** — Yahoo OAuth 2.0. See setup section below.
+- **`YAHOO_LEAGUE_ID`** — Numeric ID from your league URL.
+- **No key required** — MLB Stats API, Baseball Savant, FanGraphs, and ESPN are free public endpoints.
 
 ---
 
@@ -141,25 +209,18 @@ MLB Stats API, Baseball Savant, FanGraphs, and ESPN are free public endpoints.
 ./start.sh
 ```
 
-This script starts three services:
-1. Rails API on `:8000`
-2. Python ML service on `:8002`
-3. Vite dev server on `:5173`
+Starts Rails on `:8000`, the ML service on `:8002`, and Vite on `:5173`. Open **http://localhost:5173**.
 
-It also checks and installs Ruby gems, npm packages, and Python ML dependencies automatically.
-
-Open **http://localhost:5173** in your browser.
-
-To start services manually:
+To start manually:
 
 ```bash
-# Terminal 1 — backend
+# Terminal 1
 cd backend_rails && bundle exec rails server -p 8000
 
-# Terminal 2 — ML service
+# Terminal 2
 cd ml_service && python main.py
 
-# Terminal 3 — frontend
+# Terminal 3
 cd frontend && npm run dev
 ```
 
@@ -167,181 +228,165 @@ cd frontend && npm run dev
 
 ## Yahoo Fantasy Setup (OAuth + Tunnel)
 
-### The Problem
+Yahoo OAuth requires HTTPS. `start.sh` automatically starts a localtunnel (`npx localtunnel --port 8000`) to provide one.
 
-Yahoo's OAuth requires the redirect URI to be HTTPS, but the backend runs on plain HTTP locally. You need a tunnel to bridge this.
+**One-time setup:**
+1. Go to [developer.yahoo.com/apps](https://developer.yahoo.com/apps/) → Create App
+2. Set Application Type: Web Application, Callback Domain: `loca.lt`, API Permissions: Fantasy Sports → Read
+3. Copy Client ID and Secret to `.env`
+4. Run `./start.sh` — it prints the tunnel URL
+5. Paste the tunnel URL into your Yahoo app's Redirect URI field
+6. Open `/fantasy` → Connect Yahoo Fantasy
 
-### The Solution: localtunnel
+Tokens are saved to `backend_rails/tmp/yahoo_tokens.json`. The tunnel URL changes on every restart — update it in Yahoo's app settings each time.
 
-`start.sh` automatically starts a localtunnel (`npx localtunnel --port 8000`) giving you a temporary HTTPS URL like `https://happy-tiger-12.loca.lt`. This is written to `.env` as `YAHOO_REDIRECT_URI`.
-
-**The tunnel URL changes on every restart.** Each time it changes you must update the Redirect URI in your Yahoo app settings.
-
-### One-Time Setup Steps
-
-1. Go to [developer.yahoo.com/apps](https://developer.yahoo.com/apps/) → **Create App**
-2. Fill in:
-   - **Application Type**: Web Application
-   - **Callback Domain**: `loca.lt`
-   - **API Permissions**: Fantasy Sports → Read
-3. Copy **Client ID** and **Client Secret** into `backend_rails/.env`
-4. Run `./start.sh` — it prints the current tunnel URL
-5. Paste that URL into your Yahoo app's **Redirect URI(s)** field
-6. Open http://localhost:5173/fantasy → click **Connect Yahoo Fantasy**
-7. Tokens are saved to `backend_rails/tmp/yahoo_tokens.json` — tunnel not needed again until tokens expire
-
-### Alternatives to localtunnel
-
-- **ngrok**: `ngrok http 8000` — set `YAHOO_REDIRECT_URI` manually in `.env`
-- **Cloudflare Tunnel**: `cloudflared tunnel --url http://localhost:8000` — free and stable
-
-To re-authorize: delete `backend_rails/tmp/yahoo_tokens.json` and re-run `./start.sh`.
+To re-authorize: delete `backend_rails/tmp/yahoo_tokens.json`.
 
 ---
 
 ## Data Warehouse & Sandbox
 
-The **Sandbox** (`/sandbox`) is an in-browser SQL interface backed by a DuckDB warehouse.
+The **Sandbox** (`/sandbox`) is an in-browser SQL interface over a DuckDB warehouse.
 
-### How It Works
+### Tables
 
-1. **Refresh Data** (button in Sandbox, or `POST /api/sandbox/refresh`) triggers `Warehouse::Manager.refresh!`
-2. Ingesters fetch CSVs from FanGraphs and Baseball Savant:
-   - `BatterIngester` — FanGraphs batting + discipline + Savant bat-tracking (2010–present)
-   - `PitcherIngester` — FanGraphs pitching + FIP components
-   - `FgProjectionIngester` — Steamer/ZiPS projections
-   - `TeamIngester` — team batting and pitching splits
-3. Each ingester writes a CSV to `backend_rails/tmp/warehouse/`
-4. `warehouse_build.py` loads those CSVs into `backend_rails/tmp/warehouse/baseball.duckdb`
-5. SQL queries run via `sandbox_duckdb_query.py` against that file
+| Table | Source | Description |
+|-------|--------|-------------|
+| `batters` | FanGraphs + Savant | Season batting stats + Statcast bat-tracking, 2010–present |
+| `pitchers` | FanGraphs | Season pitching stats + FIP components, 2010–present |
+| `fg_projections_batting` | FanGraphs Steamer | Current-season batting projections |
+| `fg_projections_pitching` | FanGraphs Steamer | Current-season pitching projections |
+| `teams_batting` | MLB Stats API | Team-level batting stats, 2010–present |
+| `teams_pitching` | MLB Stats API | Team-level pitching stats, 2010–present |
+| `sim_player_stats` | Simulation | Per-player stats across all simulated league seasons |
+| `sim_team_standings` | Simulation | Per-team final standings across all simulated league seasons |
+| `sim_season_log` | Simulation | One row per league season — completion, champion, configuration |
 
-**Python + `pip install duckdb` required** for steps 4–5.
+### Workflow
 
-### Notes
+1. Click **Refresh** in Sandbox (or `POST /api/sandbox/refresh`)
+2. Ingesters fetch data and write CSVs to `backend_rails/tmp/warehouse/`
+3. `warehouse_build.py` loads the CSVs into `baseball.duckdb`
+4. SQL queries run via `sandbox_duckdb_query.py`
 
-- Bat-tracking stats (`bat_speed`, `swing_length`, `hard_swing_rate`, `squared_up_per_swing`, `blast_per_swing`) only available from **2024** onward — earlier rows have NULL.
-- Warehouse covers seasons 2010–present.
-- Refresh takes 1–3 minutes. Cached for 6 hours.
-- Only read-only SELECT queries allowed.
-- If you add/remove columns from any ingester's `NAMED_COLUMNS`, the schema fingerprint changes and the warehouse is treated as stale automatically.
+Warehouse refresh takes 2–10 minutes and is cached for 6 hours. The schema fingerprint auto-invalidates the cache if any ingester's column list changes.
+
+Bat-tracking stats (`bat_speed`, `swing_length`, `blast_per_swing`, etc.) are only available from **2024** onward.
+
+---
+
+## Simulation System
+
+### Game Engine
+
+`GameSimulationEngine` simulates one game at a time using FanGraphs projections:
+
+- Each at-bat draws a hit/walk/strikeout/out outcome from the batter's projected rates
+- Hit type (single/double/triple/HR) is weighted from the batter's power profile
+- Rotation managed by starts (SP) — bullpen takes over after SP limit or blowout
+- Bullpen roles: closer, setup, middle relief cycled by game state
+- Injuries can pull a player mid-game; replacement logic fills from roster
+
+Stats accumulate into `SimulationPlayerStat` and `SimulationGame` (full box score JSON).
+
+### Simulation Service
+
+`SimulationService` orchestrates everything above:
+
+- `setup_league` — creates 30 rosters from projections, imports the MLB schedule
+- `simulate_game` / `simulate_day` / `simulate_through` / `simulate_season` — game simulation entry points (all run as background jobs for the full-season path)
+- `compute_standings` — calculates W/L/PCT/GB from simulated game results
+- `import_real_results` — syncs actual MLB scores for a date range
+- Roster management: update lineup order, rotation, bullpen roles
+
+### Franchises
+
+`FranchiseService` wraps multi-season simulation:
+
+- Creates a franchise + first-season league in one transaction
+- `advance_season` — marks current season complete, creates next season, clones rosters, fetches or clones the schedule
+- Schedule fallback: if the MLB API doesn't have a schedule for a future year, dates are shifted from the previous season
+
+### Background Jobs
+
+Long-running operations (simulate season, generate daily news, generate awards) run as `SolidQueue` background jobs with status polling via `SimulationJobRun`.
+
+### Playoff Simulation
+
+`PlayoffSimulationService` seeds and simulates the postseason:
+
+- Wild Card → Division Series → LCS → World Series
+- Each series simulates game by game using the same engine
+- Home-field advantage applied based on regular-season record
+- `PlayoffAwardService` calls the AI to select MVP winners with rationale
 
 ---
 
 ## ML Builder
 
-The **ML Builder** (`/ml`) lets you train machine learning models on warehouse stats directly from the browser — no code required.
-
-### Architecture
-
-The ML service is a separate FastAPI process (`ml_service/`) on port **8002**. The Rails backend proxies requests to it via `MlService` (Faraday client, 180s timeout). The frontend never calls the ML service directly.
-
-```
-Browser → Rails :8000/api/ml/train → MlService → ml_service :8002/train → DuckDB warehouse
-```
-
-The ML service reads training data directly from the DuckDB file — no row serialization over HTTP.
+The ML service is a separate FastAPI process on port **8002**. Rails proxies to it — the frontend never talks to it directly.
 
 ### Supported Models
 
-| Model | Task |
-|-------|------|
+| Model | Tasks |
+|-------|-------|
 | Linear Regression | Regression |
 | Logistic Regression | Classification |
 | Random Forest | Both |
 | Gradient Boosting | Both |
 | Neural Network (PyTorch MLP) | Both |
 
-### What You Can Configure
+### Configuration
 
-- **Data source** — any warehouse table (batters, pitchers, teams, projections)
-- **Feature columns** — multi-select; hover for stat definitions
-- **Target column** — what you're predicting
-- **Task** — regression (continuous) or classification (categorical)
-- **One-hot encoding** — bins a continuous target into quantile-based classes (e.g. tier_1 through tier_4)
-- **Test split** — fraction of rows held back for evaluation
-- **Hyperparameters** — per-model panel:
-  - **NN**: hidden layers (add/remove, set neuron count), activation function, learning rate, epochs, dropout
-  - **RF / GB**: n_estimators, max_depth, learning rate
-  - **Linear / Logistic**: regularization type and strength
-
-### Neural Network Features
-
-- **Live parameter count** — displayed in the UI as you adjust layers, computed in JavaScript before training starts
-- **Architecture diagram** — layered boxes showing Input → Dense layers → Output
-- **Loss curve** — per-epoch training loss chart after training completes
+- **Data source** — any warehouse table
+- **Features** — multi-select with stat definition tooltips
+- **Target** — any column; one-hot encoding bins continuous targets into quantile classes
+- **Hyperparameters** — per-model: layers/neurons/activation/dropout for NN; n_estimators/max_depth for RF/GB; regularization for linear models
 
 ### Results
 
-| Output | When shown |
-|--------|-----------|
-| R², RMSE, MAE | Regression |
-| Accuracy, F1, Precision, Recall | Classification |
-| Confusion matrix (color-coded) | Classification |
-| Feature importance chart | All models except NN |
-| Training loss curve | Neural network only |
-| Parameter count + architecture string | Neural network only |
-
-### Educational Explainer
-
-Click **"How it works"** in the header to open an inline panel covering:
-- What a neural network is (neurons, weights, backpropagation)
-- What a parameter is (with the math)
-- Regression vs. Classification
-- Activation functions (ReLU, Tanh, Sigmoid, Leaky ReLU)
-- Overfitting and dropout
-- Random Forest vs. Gradient Boosting
-
-Every hyperparameter input also has a tooltip explaining what it does.
-
-### Assistant Integration
-
-The floating AI assistant has two ML tools:
-- `get_ml_columns` — lists available columns for a table
-- `train_ml_model` — trains a model and returns results conversationally
-
-Example: *"Train a random forest to predict ERA using k_pct, bb_pct, and gb_pct"* — the assistant will call the tool and explain the results.
-
-### Requirements
-
-```bash
-pip install -r ml_service/requirements.txt
-# fastapi, uvicorn, scikit-learn, torch, numpy, pandas, duckdb
-```
-
-The warehouse must be built first (hit Refresh in Sandbox). If the warehouse doesn't exist, the ML service returns a clear error.
+Regression: R², RMSE, MAE. Classification: accuracy, F1, precision, recall, confusion matrix. All models: feature importance chart. Neural network: training loss curve, parameter count, architecture diagram.
 
 ---
 
-## Pages & Features
+## All Routes
 
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | Today | Live schedule with game cards, scores, probable pitchers. Date-navigable. |
-| `/game/:gamePk` | Game Details | Box score, play-by-play, win probability chart, AI insights, game picks |
-| `/player/:id` | Player Profile | Full stat page with batting/pitching tabs, Statcast percentile cards, spray chart, pitch movement, career trends |
-| `/team/:id` | Team Profile | Roster, stats, game log, historical records |
-| `/leaderboards` | Leaderboards | Sortable batting, pitching, and teams tables from FanGraphs |
-| `/teams` | Teams | 30-team grid with records and standings |
-| `/sandbox` | Sandbox | SQL interface over DuckDB warehouse with pivot tables and charts |
-| `/ml` | ML Builder | Train ML models on warehouse stats; configure features, hyperparameters, NN layers |
-| `/projections` | Projections | Player projections via internal engine; leaderboard; accuracy backtesting |
-| `/projections/scenarios` | Scenario Builder | Create/edit projection parameter scenarios |
-| `/fantasy` | Yahoo Fantasy | Roster, matchup, free agent analysis, AI insights |
-| `/prospects` | Prospects | FanGraphs top-100 prospects by team |
-| `/gambling` | Gambling | Daily odds (ESPN), AI picks |
-| `/news` | News | MLB news feed |
-| `/digest` | Daily Summary | AI-generated daily summary of previous day's action |
-| `/transactions` | Transactions | Recent MLB transactions |
-| `/live` | Live TV | Embedded MLB.TV stream links |
-| `/stats-reference` | Stats Reference | Inline glossary for common sabermetric stats |
-| `/simulation` | Simulation Hub | Create and manage simulation leagues; choose season, scenario, and batter/pitcher blend |
-| `/simulation/:id` | League Command Center | Date-navigable schedule, standings (All/Real/Sim), per-game sim controls, win probability, season sim, real-result sync |
-| `/simulation/:id/game/:gameId` | Box Score | Inning-by-inning linescore, batting/pitching box, real vs. sim score toggle |
-| `/simulation/:id/roster/:teamId` | Roster | View and reorder lineup, rotation, and bullpen roles |
-| `/simulation/:id/leaders` | Leaders | Season batting and pitching leaderboards accumulated from simulated games |
-| `/simulation/:id/playoffs` | Playoffs | Seed and simulate the postseason bracket round by round |
-
-A floating **AI Assistant** is available on every page with access to player stats, game data, the SQL sandbox, and the ML Builder via tool-calling.
+| Route | Page |
+|-------|------|
+| `/` | Today — live schedule |
+| `/game/:gamePk` | Game details — box score, win probability, AI insights |
+| `/player/:id` | Player profile |
+| `/team/:id` | Team profile |
+| `/teams` | 30-team grid |
+| `/leaderboards` | FanGraphs batting/pitching leaderboards |
+| `/projections` | Projection leaderboard + accuracy backtesting |
+| `/projections/scenarios` | Scenario builder |
+| `/sandbox` | SQL sandbox |
+| `/ml` | ML Builder |
+| `/fantasy` | Yahoo Fantasy dashboard |
+| `/prospects` | Top-100 prospects |
+| `/gambling` | Daily odds + AI picks |
+| `/news` | MLB news |
+| `/digest` | AI daily summary |
+| `/transactions` | Recent transactions |
+| `/live` | MLB.TV stream links |
+| `/stats-reference` | Sabermetric glossary |
+| `/gambling-reference` | Gambling terms glossary |
+| `/baseball-reference` | Baseball rules reference |
+| `/simulation` | Simulation hub — manage leagues and franchises |
+| `/franchise/:id` | Franchise detail — season history and advance controls |
+| `/simulation/:id` | League command center — schedule, standings, sim controls |
+| `/simulation/:id/game/:gameId` | Sim box score |
+| `/simulation/:id/roster/:teamId` | Roster editor — drag-and-drop lineup and rotation |
+| `/simulation/:id/leaders` | Season stat leaderboards |
+| `/simulation/:id/teams` | All-team standings grid |
+| `/simulation/:id/team/:teamId` | Individual team page |
+| `/simulation/:id/player/:playerId` | Individual player sim stats |
+| `/simulation/:id/playoffs` | Playoff bracket and awards |
+| `/simulation/:id/awards` | Season awards (MVP, Cy Young, Silver Slugger, Gold Glove) |
+| `/simulation/:id/injuries` | Injury tracker |
+| `/simulation/:id/news` | Season calendar with AI daily stories |
+| `/simulation/:id/config` | League configuration |
 
 ---
 
@@ -349,129 +394,117 @@ A floating **AI Assistant** is available on every page with access to player sta
 
 ### Controllers
 
-All controllers live in `app/controllers/api/` and inherit from `Api::BaseController`. Controllers are thin — no business logic, just `render json: SomeService.call(...)`.
-
-`BaseController` provides:
-- `rescue_from StandardError` → returns `{ error: message }` with HTTP 502
-- `mlb` helper that lazy-initializes `MlbApiService`
+All controllers in `app/controllers/api/` inherit from `Api::BaseController`. Controllers are thin — no business logic. `BaseController` provides `rescue_from StandardError` → `{ error: message }` with HTTP 502 and a `mlb` lazy helper.
 
 ### Services
 
 | Service | Purpose |
 |---------|---------|
-| `MlbApiService` | MLB Stats API: schedule, player info, stats, standings, team data |
-| `StatcastService` | Baseball Savant (pitch-by-pitch CSVs) + FanGraphs leaderboards |
-| `MlService` | HTTP client calling the Python ML service on :8002 |
-| `OpenAi::Client` | All OpenAI calls. Never call OpenAI directly — use this. |
-| `AssistantService` | AI assistant with tool-calling (bypasses JSON mode intentionally) |
-| `FactoidsService` | AI-generated player/game facts |
-| `GameInsightsService` | AI narrative for a finished or in-progress game |
-| `DailySummaryService` | AI summary of yesterday's games |
-| `NewsService` | MLB news via RSS |
-| `OddsService` | Live game odds via ESPN's unofficial API |
-| `ProjectionEngine` | Marcel/regression-to-mean projection math |
-| `ProjectionService` | Orchestrates runs, persists to SQLite |
-| `ProspectService` | FanGraphs prospect board |
-| `YahooFantasyService` | OAuth token management + Yahoo Fantasy API |
-| `HoverStatsService` | Quick stats for player hover cards |
-| `Warehouse::*` | Data ingestion pipeline |
+| `MlbApiService` | MLB Stats API: schedule, scores, players, standings |
+| `StatcastService` | Baseball Savant + FanGraphs leaderboards |
+| `SimulationService` | League setup, game/day/season simulation, standings, roster management |
+| `GameSimulationEngine` | At-bat engine: hit rates, lineup cycling, rotation/bullpen |
+| `FranchiseService` | Multi-season franchise create/advance |
+| `PlayoffSimulationService` | Postseason bracket simulation |
+| `AwardService` | Season award voting (MVP, Cy Young, SS, GG) |
+| `PlayoffAwardService` | AI-selected playoff MVP awards |
+| `SimulationNewsService` | AI-generated daily game stories |
+| `OpenAi::Client` | All OpenAI calls — never call OpenAI directly |
+| `AssistantService` | AI assistant with tool-calling |
+| `ProjectionEngine` | Marcel projection math |
+| `ProjectionService` | Orchestrates projection runs |
+| `YahooFantasyService` | OAuth + Yahoo Fantasy API |
+| `Warehouse::Manager` | Orchestrates all ingesters + DuckDB build |
+| `Warehouse::BatterIngester` | FanGraphs batting → CSV |
+| `Warehouse::PitcherIngester` | FanGraphs pitching → CSV |
+| `Warehouse::FgProjectionIngester` | Steamer projections → CSV |
+| `Warehouse::TeamIngester` | MLB team stats → CSV |
+| `Warehouse::SimulationIngester` | Sim player stats, standings, season log → CSV |
+| `Sandbox::DatasetRegistry` | Dataset metadata (columns, row counts, default SQL) |
 | `Sandbox::QueryService` | Read-only SQL execution against DuckDB |
-| `SimulationService` | Simulation orchestration: league setup, game/day/season sim, standings, roster management, real-result sync, playoffs |
-| `GameSimulationEngine` | At-bat engine: projection-based hit/walk/strikeout rates, lineup cycling, rotation/bullpen logic, box score accumulation |
 
 ### OpenAI Integration
 
-All AI calls (except the assistant) go through `OpenAi::Client#json_completion`:
+All AI calls go through `OpenAi::Client#json_completion`:
 
 ```ruby
-client = OpenAi::Client.new
 result = client.json_completion(
   system_prompt:    "...",
-  user_payload:     { player: ..., stats: ... },
-  interaction_type: "factoids",   # labels the log entry
-  temperature:      0.2           # 0.2 for structured, 0.7 for creative
+  user_payload:     { ... },
+  interaction_type: "game_insights",  # labels the log entry
+  temperature:      0.2               # 0.2 structured / 0.7 creative
 )
-result[:output]   # parsed JSON
 ```
 
-Every call is logged to `log/openai_requests.jsonl` with timing, token counts, and a redacted preview.
-
-### Caching
-
-Services cache externally-fetched data in class-level hashes (`@@cache`, `@@cache_timestamps`) with a 6-hour TTL. Error results are never cached. The pattern is in `StatcastService` and documented in `CLAUDE.md`.
+Every call is logged to `log/openai_requests.jsonl`. Error results are never cached.
 
 ### Models (SQLite)
 
-SQLite stores both projection and simulation data.
+**Projection**: `ProjectionScenario`, `PlayerProjection`, `ProjectionRun`
 
-**Projection models**: `ProjectionScenario`, `PlayerProjection`, `ProjectionRun`
-
-**Simulation models**: `SimulationLeague`, `SimulationGame`, `SimulationRoster`, `SimulationPlayerStat`, `SimulationJobRun`, `SimulationPlayoffSeries`
-
-Simulation games store a full `box_score_json` blob but heavy columns are excluded from query hot paths via `STANDINGS_COLS` / `SCHEDULE_COLS` select constants to keep responses fast.
+**Simulation**: `SimulationLeague`, `SimulationFranchise`, `SimulationGame`, `SimulationRoster`, `SimulationPlayerStat`, `SimulationPlayoffSeries`, `SimulationPlayoffPlayerStat`, `SimulationJobRun`, `SimulationNewsStory`, `SimulationInjury`, `SimulationTransaction`, `SimulationInsight`, `SimulationConfig`
 
 ---
 
 ## Frontend Architecture
 
-### Data Fetching
+### Conventions
 
-All API calls go through `frontend/src/api.js`. Never call `fetch` directly from a component. Use `useQuery` from `@tanstack/react-query` for all data fetching.
+- All API calls go through `frontend/src/api.js` — never `fetch` in components
+- `useQuery` from `@tanstack/react-query` for all data fetching
+- `staleTime`: live data 0–2 min · player stats 15 min · leaderboards 30+ min
+- Tailwind only — no inline styles, no CSS modules
+- Drag-and-drop via `@dnd-kit/core` + `@dnd-kit/sortable`
 
-`staleTime` by convention: live game data 0–2 min · player stats 15 min · leaderboards 30+ min.
+### Design Tokens
 
-### Styling
-
-Tailwind only — no inline styles, no CSS modules.
-
-| Token class | Usage |
-|-------------|-------|
+| Class | Role |
+|-------|------|
 | `text-content-primary` | Main text |
-| `text-content-secondary` | Labels, secondary |
-| `text-content-muted` | Timestamps, hints |
-| `text-brand` / `text-brand-light` | Links, actions |
-| `bg-bg-surface` | Card backgrounds |
+| `text-content-secondary` | Labels |
+| `text-content-muted` | Hints, timestamps |
+| `text-brand` | Actions, links |
+| `bg-bg-surface` | Card background |
 | `bg-bg-elevated` | Elevated surfaces |
 | `border-bg-border` | Dividers |
-
-Reusable component classes in `index.css`: `.card`, `.btn-primary`, `.tab-active`, `.tab-inactive`, etc.
+| `.card` | Standard card container |
+| `.btn-primary` | Primary action button |
 
 ### Key Components
 
 | Component | Purpose |
 |-----------|---------|
-| `StatCard` | Single numeric stat with optional percentile bar |
-| `FactoidsPanel` | AI factoids — accepts `queryKey` + `queryFn` |
+| `StatCard` | Single stat with optional percentile bar |
+| `FactoidsPanel` | AI factoids — pass `queryKey` + `queryFn` |
 | `FloatingAssistant` | Slide-in AI chat sidebar |
-| `ml/LayerBuilder` | NN layer configuration with live architecture diagram |
-| `ml/ModelResults` | Training results: metrics, loss curve, feature importance, confusion matrix |
-| `ml/NNExplainer` | Educational explainer for ML concepts |
-| `charts/PitchMovementChart` | H/V break scatter plot |
-| `charts/SprayChart` | Hit location scatter on field diagram |
-| `charts/WinProbabilityChart` | Game win probability over time |
+| `sim/SimUI` | Shared sim primitives: `TeamLogo`, `SimPlayerAvatar` |
+| `sim/SimStatsTable` | Reusable sortable stats table for sim pages |
+| `SimInsightPanel` | AI insight cards for simulation context |
+| `ml/LayerBuilder` | NN layer editor with live parameter count |
+| `ml/ModelResults` | Training results: metrics, charts, confusion matrix |
+| `charts/WinProbabilityChart` | Win probability over game time |
+| `charts/SprayChart` | Hit location on field diagram |
 
 ---
 
 ## Data Sources
 
-| Source | What it provides | Auth |
-|--------|-----------------|------|
-| MLB Stats API (`statsapi.mlb.com`) | Schedule, scores, player bio, standard stats, standings, rosters | None |
-| Baseball Savant (`baseballsavant.mlb.com`) | Pitch-by-pitch Statcast CSV, bat-tracking leaderboard (2024+) | None |
-| FanGraphs (`fangraphs.com`) | Leaderboards, advanced metrics, projections, prospects | None |
-| ESPN unofficial API | Live game odds | None |
+| Source | What | Auth |
+|--------|------|------|
+| MLB Stats API | Schedule, scores, rosters, player bio, standings | None |
+| Baseball Savant | Pitch-by-pitch Statcast, bat-tracking (2024+) | None |
+| FanGraphs | Leaderboards, advanced metrics, projections, prospects | None |
+| ESPN unofficial API | Live odds | None |
 | Yahoo Fantasy API | Fantasy roster, matchup, transactions | OAuth 2.0 |
-| OpenAI | All AI features + ML assistant tools | API key |
+| OpenAI | All AI features | API key |
 
 ---
 
 ## Adding New Endpoints
 
-Follow these four steps every time:
+1. **Route** — add to `config/routes.rb` under `namespace :api`
+2. **Controller** — add action in `app/controllers/api/`, inherit `Api::BaseController`
+3. **Service** — put logic in `app/services/` using `class << self`
+4. **Frontend** — add fetch call to `api.js`, use `useQuery` in the component
 
-1. **Route**: Add to `backend_rails/config/routes.rb` under `namespace :api`
-2. **Controller**: Add an action in `app/controllers/api/` (inherit `Api::BaseController`, one line)
-3. **Service**: Put all logic in `app/services/` using `class << self`
-4. **Frontend**: Add the fetch call to `frontend/src/api.js`, then use `useQuery` in the component
-
-The caching pattern to copy is in `StatcastService`. External HTTP always uses Faraday with explicit timeouts and retry middleware. See `CLAUDE.md` at the repo root for the full set of project conventions.
+External HTTP always uses Faraday with explicit timeouts and retry middleware. The caching pattern (class-level `@@cache` with 6-hour TTL, never cache errors) is in `StatcastService`. See `CLAUDE.md` for full project conventions.
