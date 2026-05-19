@@ -1,5 +1,5 @@
 class Api::SimulationsController < Api::BaseController
-  before_action :load_league, only: %i[show destroy sync simulate_day simulate_through simulate_game schedule roster update_roster game_show probabilities game_insights analysis job_status stats team_player_stats player_stats simulate_season seed_playoffs simulate_playoff_round playoffs season_insights player_insights team_insights awards generate_awards playoff_awards generate_playoff_awards news news_calendar]
+  before_action :load_league, only: %i[show destroy sync simulate_day simulate_through simulate_game schedule roster update_roster game_show probabilities game_insights analysis job_status stats team_player_stats player_stats simulate_season seed_playoffs simulate_playoff_round playoffs season_insights player_insights team_insights awards generate_awards playoff_awards generate_playoff_awards playoff_leaders playoff_insights news news_calendar]
 
   def index
     leagues = SimulationLeague.recent.includes(:projection_scenario)
@@ -288,6 +288,16 @@ class Api::SimulationsController < Api::BaseController
     }
   end
 
+  def playoff_leaders
+    stats = @league.simulation_playoff_player_stats.to_a
+    render json: serialize_playoff_leaders(stats)
+  end
+
+  def playoff_insights
+    refresh = params[:refresh] == "true"
+    render json: SimulationPlayoffInsightService.call(league: @league, refresh: refresh)
+  end
+
   def playoff_awards
     data = PlayoffAwardService.playoff_awards_data(@league)
     render json: data ? { generated: true, awards: data } : { generated: false }
@@ -303,6 +313,65 @@ class Api::SimulationsController < Api::BaseController
   end
 
   private
+
+  def serialize_playoff_leaders(stats)
+    aggregated = aggregate_playoff_stats(stats)
+    batters    = aggregated.select { |s| s[:player_type] == "batter" && s[:ab] >= 3 }
+    pitchers   = aggregated.select { |s| s[:player_type] == "pitcher" && s[:outs_pitched] >= 1 }
+
+    {
+      batting: {
+        ops: top_playoff(batters.select { |s| s[:ab] >= 6 }, :ops, 10),
+        avg: top_playoff(batters.select { |s| s[:ab] >= 6 }, :avg, 10),
+        slg: top_playoff(batters.select { |s| s[:ab] >= 6 }, :slg, 10),
+        hr:  top_playoff(batters, :hr, 10),
+        rbi: top_playoff(batters, :rbi, 10),
+        r:   top_playoff(batters, :r, 10),
+      },
+      pitching: {
+        era:  top_playoff(pitchers, :era, 10, asc: true),
+        k:    top_playoff(pitchers, :k_pitched, 10),
+        whip: top_playoff(pitchers, :whip, 10, asc: true),
+        w:    top_playoff(pitchers, :w, 10),
+      },
+    }
+  end
+
+  def aggregate_playoff_stats(stats)
+    stats.group_by(&:player_id).map do |_pid, rows|
+      first  = rows.first
+      totals = rows.each_with_object(Hash.new(0)) do |row, h|
+        %i[ab bb hbp sf h hr doubles triples r rbi k outs_pitched er bb_allowed h_allowed k_pitched w l sv bf hr_allowed g g_pitched gs].each do |col|
+          h[col] += row.send(col).to_i
+        end
+      end
+      pa  = totals[:ab] + totals[:bb] + totals[:hbp] + totals[:sf]
+      tb  = (totals[:h] - totals[:hr] - totals[:doubles] - totals[:triples]).clamp(0, Float::INFINITY) +
+            2 * totals[:doubles] + 3 * totals[:triples] + 4 * totals[:hr]
+      avg = totals[:ab].positive? ? (totals[:h].to_f / totals[:ab]).round(3) : 0.0
+      obp = pa.positive? ? ((totals[:h] + totals[:bb] + totals[:hbp]).to_f / pa).round(3) : 0.0
+      slg = totals[:ab].positive? ? (tb.to_f / totals[:ab]).round(3) : 0.0
+      era  = totals[:outs_pitched].positive? ? (totals[:er] * 27.0 / totals[:outs_pitched]).round(2) : 0.0
+      whip = totals[:outs_pitched].positive? ? ((totals[:bb_allowed] + totals[:h_allowed]) / (totals[:outs_pitched] / 3.0)).round(2) : 0.0
+      ip_f = (totals[:outs_pitched] / 3.0).round(1)
+
+      totals.merge(
+        player_id:   first.player_id,
+        player_name: first.player_name,
+        player_type: first.player_type,
+        team_id:     first.team_id,
+        pa: pa, avg: avg, obp: obp, slg: slg, ops: (obp + slg).round(3),
+        era: era, whip: whip, ip: ip_f,
+      )
+    end
+  end
+
+  def top_playoff(collection, stat, limit, asc: false)
+    sorted = asc ? collection.sort_by { |s| s[stat] } : collection.sort_by { |s| -s[stat] }
+    sorted.first(limit).map do |s|
+      { player_id: s[:player_id], name: s[:player_name], team_id: s[:team_id], value: s[stat] }
+    end
+  end
 
   def load_league
     @league = SimulationLeague.includes(:projection_scenario).find(params[:id])

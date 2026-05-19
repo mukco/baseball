@@ -6,7 +6,8 @@ class SimulationLeague < ApplicationRecord
   has_many   :simulation_games,          dependent: :destroy
   has_many   :simulation_job_runs,       dependent: :destroy
   has_many   :simulation_player_stats,   dependent: :destroy
-  has_many   :simulation_playoff_series, dependent: :destroy
+  has_many   :simulation_playoff_series,       dependent: :destroy
+  has_many   :simulation_playoff_player_stats, dependent: :destroy
   has_many   :simulation_insights,       dependent: :destroy
   has_many   :simulation_injuries,       dependent: :destroy
   has_many   :simulation_transactions,   dependent: :destroy

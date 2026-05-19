@@ -209,7 +209,7 @@ function LeagueRankings({ leagueId, playerId, isBatter }) {
 
 // ─── Batter stats section ─────────────────────────────────────────────────────
 
-function BatterStats({ sl, games, leagueId, playerId }) {
+function BatterStats({ sl, games, leagueId, playerId, spray = {} }) {
   const ab    = sl.ab  || 0
   const h     = sl.h   || 0
   const hr    = sl.hr  || 0
@@ -783,7 +783,7 @@ export default function SimulationPlayer() {
       {/* ── Stat cards + percentiles + trends ── */}
       {sl && Object.keys(sl).length > 0 ? (
         isBatter
-          ? <BatterStats sl={sl} games={games} leagueId={id} playerId={playerId} />
+          ? <BatterStats sl={sl} games={games} leagueId={id} playerId={playerId} spray={spray} />
           : <PitcherStats sl={sl} games={games} />
       ) : (
         <div className="card p-6 text-center text-content-muted text-sm">

@@ -130,6 +130,9 @@ class PlayoffSimulationService
       away_r = SimulationRoster.find_by(simulation_league: league, team_id: series.away_team_id)
       return series.update!(status: "complete", winner_team_id: series.home_team_id) unless home_r && away_r
 
+      reset_pitcher_rest(home_r)
+      reset_pitcher_rest(away_r)
+
       player_info     = build_player_info(home_r, series.home_team_id, away_r, series.away_team_id)
       all_bat_stats   = {}
       all_pitch_stats = {}
@@ -251,6 +254,20 @@ class PlayoffSimulationService
 
     def team_hash_from_series(series)
       winner_team_hash(series)
+    end
+
+    # Clear last_pitched and consecutive_days so every pitcher is fresh at the
+    # start of each playoff series, matching real baseball's between-round rest.
+    def reset_pitcher_rest(roster)
+      state = roster.pitcher_state
+      return unless state["pitchers"].is_a?(Hash)
+      state["pitchers"].each_value do |p|
+        p["last_pitched"]     = nil
+        p["consecutive_days"] = 0
+      end
+      roster.update_columns(pitcher_state_json: state.to_json)
+    rescue => e
+      Rails.logger.warn("[PlayoffSimulationService] reset_pitcher_rest: #{e.message}")
     end
 
     def build_player_info(home_r, home_team_id, away_r, away_team_id)

@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_PID=""
 FRONTEND_PID=""
 ML_PID=""
+JOBS_PID=""
 TUNNEL_PID=""
 
 ENV_FILE="${ROOT_DIR}/backend_rails/.env"
@@ -15,14 +16,14 @@ cleanup() {
   local exit_code=$?
   trap - INT TERM EXIT
 
-  for pid_var in FRONTEND_PID BACKEND_PID ML_PID TUNNEL_PID; do
+  for pid_var in FRONTEND_PID BACKEND_PID ML_PID JOBS_PID TUNNEL_PID; do
     local pid="${!pid_var}"
     if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
       kill "${pid}" 2>/dev/null || true
     fi
   done
 
-  for pid_var in FRONTEND_PID BACKEND_PID ML_PID TUNNEL_PID; do
+  for pid_var in FRONTEND_PID BACKEND_PID ML_PID JOBS_PID TUNNEL_PID; do
     local pid="${!pid_var}"
     [[ -n "${pid}" ]] && wait "${pid}" 2>/dev/null || true
   done
@@ -187,6 +188,13 @@ echo "Starting ML service..."
 ) &
 ML_PID=$!
 
+echo "Starting job worker..."
+(
+  cd "${ROOT_DIR}/backend_rails"
+  bundle exec ruby bin/jobs start
+) &
+JOBS_PID=$!
+
 echo "Starting frontend dev server..."
 (
   cd "${ROOT_DIR}/frontend"
@@ -196,8 +204,25 @@ FRONTEND_PID=$!
 
 echo "Backend PID:  ${BACKEND_PID}"
 echo "ML PID:       ${ML_PID}"
+echo "Jobs PID:     ${JOBS_PID}"
 echo "Frontend PID: ${FRONTEND_PID}"
 [[ -n "${TUNNEL_PID}" ]] && echo "Tunnel PID:   ${TUNNEL_PID}"
 echo "Press Ctrl+C to stop all services."
 
-wait -n "${BACKEND_PID}" "${ML_PID}" "${FRONTEND_PID}"
+# Warm caches in the background once the backend is ready.
+# Polls health endpoint (max 60s) then fires both warming tiers.
+(
+  for _ in $(seq 1 30); do
+    if curl -sf http://localhost:8000/up >/dev/null 2>&1; then
+      echo "[cache-warm] Backend ready — triggering cache warming..."
+      curl -sf -X POST http://localhost:8000/api/cache/warm >/dev/null 2>&1 && \
+        echo "[cache-warm] Done." || \
+        echo "[cache-warm] Warning: warm request failed (non-fatal)."
+      exit 0
+    fi
+    sleep 2
+  done
+  echo "[cache-warm] Backend did not start in 60s — skipping cache warm."
+) &
+
+wait -n "${BACKEND_PID}" "${ML_PID}" "${JOBS_PID}" "${FRONTEND_PID}"

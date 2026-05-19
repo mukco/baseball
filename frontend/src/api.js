@@ -259,7 +259,9 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ round }),
     }),
-    playoffs: (id) => fetchJSON(`/simulations/${id}/playoffs`),
+    playoffs:        (id) => fetchJSON(`/simulations/${id}/playoffs`),
+    playoffLeaders:  (id) => fetchJSON(`/simulations/${id}/playoff_leaders`),
+    playoffInsights: (id, { refresh = false } = {}) => fetchJSON(`/simulations/${id}/playoff_insights${refresh ? '?refresh=true' : ''}`),
     awards: (id) => fetchJSON(`/simulations/${id}/awards`),
     generateAwards: (id) => fetchJSON(`/simulations/${id}/generate_awards`, { method: 'POST' }),
     playoffAwards: (id) => fetchJSON(`/simulations/${id}/playoff_awards`),
@@ -278,5 +280,9 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ preset }),
     }),
+  },
+  cache: {
+    status: () => fetchJSON('/cache/status'),
+    warm: (tier) => fetchJSON(`/cache/warm${tier ? `?tier=${tier}` : ''}`, { method: 'POST' }),
   },
 }

@@ -1,7 +1,7 @@
 class SimulationInsight < ApplicationRecord
   belongs_to :simulation_league
 
-  validates :subject_type, inclusion: { in: %w[player team season awards playoff_awards] }
+  validates :subject_type, inclusion: { in: %w[player team season awards playoff_awards playoffs] }
 
   def bullets
     JSON.parse(bullets_json || "{}")

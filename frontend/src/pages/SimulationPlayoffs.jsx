@@ -4,54 +4,244 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import { TeamLogo, SimPlayerAvatar } from '../components/sim/SimUI'
 
-function SeriesCard({ series, leagueId }) {
-  const homeWon = series.winner_team_id === series.home_team_id
-  const awayWon = series.winner_team_id === series.away_team_id
-  const isComplete = series.status === 'complete'
+// ── Playoff Stat Leaders ─────────────────────────────────────────────────────
 
+const BATTING_CATS  = [
+  { key: 'ops', label: 'OPS',  fmt: v => v.toFixed(3) },
+  { key: 'avg', label: 'AVG',  fmt: v => v.toFixed(3) },
+  { key: 'slg', label: 'SLG',  fmt: v => v.toFixed(3) },
+  { key: 'hr',  label: 'HR',   fmt: v => v },
+  { key: 'rbi', label: 'RBI',  fmt: v => v },
+  { key: 'r',   label: 'R',    fmt: v => v },
+]
+const PITCHING_CATS = [
+  { key: 'era',  label: 'ERA',  fmt: v => v.toFixed(2) },
+  { key: 'whip', label: 'WHIP', fmt: v => v.toFixed(2) },
+  { key: 'k',    label: 'K',    fmt: v => v },
+  { key: 'w',    label: 'W',    fmt: v => v },
+]
+
+function LeaderColumn({ cat, rows, leagueId }) {
   return (
-    <div className={`card p-3 space-y-2 ${isComplete ? '' : 'border-brand/20'}`}>
-      {/* Team rows */}
-      {[
-        { abbr: series.away_team_abbr, color: series.away_team_color, teamId: series.away_team_id, wins: series.away_wins, won: awayWon },
-        { abbr: series.home_team_abbr, color: series.home_team_color, teamId: series.home_team_id, wins: series.home_wins, won: homeWon },
-      ].map(({ abbr, color, teamId, wins, won }) => (
-        <div key={abbr} className={`flex items-center justify-between gap-2 ${isComplete && !won ? 'opacity-40' : ''}`}>
-          <Link to={`/simulation/${leagueId}/team/${teamId}`} className="flex items-center gap-2 hover:opacity-75 transition-opacity">
-            <TeamLogo teamId={teamId} abbr={abbr} color={color} size={22} />
-            <span className={`font-mono font-bold text-sm ${won ? 'text-content-primary' : 'text-content-secondary'}`}>{abbr}</span>
-            {won && <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Win</span>}
+    <div className="space-y-1.5">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-content-muted">{cat.label}</div>
+      {rows.slice(0, 5).map((r, i) => (
+        <div key={r.player_id} className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-content-muted w-3 shrink-0">{i + 1}</span>
+          <Link
+            to={`/simulation/${leagueId}/player/${r.player_id}`}
+            className="flex items-center gap-1.5 flex-1 min-w-0 hover:text-brand transition-colors"
+          >
+            <SimPlayerAvatar playerId={r.player_id} name={r.name} size={18} />
+            <span className="text-xs font-medium text-content-secondary hover:text-brand transition-colors truncate">{r.name}</span>
           </Link>
-          <span className={`font-mono font-black text-lg tabular-nums ${won ? 'text-content-primary' : 'text-content-muted'}`}>
-            {wins}
-          </span>
+          <span className="text-xs font-mono font-bold text-content-primary tabular-nums">{cat.fmt(r.value)}</span>
         </div>
       ))}
+    </div>
+  )
+}
 
-      {/* Game dots */}
-      {(series.games || []).length > 0 && (
-        <div className="flex items-center gap-1 pt-1 border-t border-bg-border/40">
-          {series.games.map((g, i) => {
+function LeaderSection({ title, cats, source, leagueId }) {
+  return (
+    <div className="space-y-3">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-content-muted border-b border-bg-border pb-1">{title}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-4">
+        {cats.map(cat => (
+          <LeaderColumn key={cat.key} cat={cat} rows={(source?.[cat.key]) || []} leagueId={leagueId} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PlayoffLeaders({ leagueId }) {
+  const { data, isLoading } = useQuery({
+    queryKey:  ['sim-playoff-leaders', leagueId],
+    queryFn:   () => api.simulations.playoffLeaders(leagueId),
+    staleTime: 300_000,
+  })
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <div className="card p-5 space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-content-secondary">Batting Leaders</h2>
+        {isLoading ? (
+          <div className="flex justify-center py-6"><div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" /></div>
+        ) : (
+          <LeaderSection title="" cats={BATTING_CATS} source={data?.batting} leagueId={leagueId} />
+        )}
+      </div>
+      <div className="card p-5 space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-content-secondary">Pitching Leaders</h2>
+        {isLoading ? (
+          <div className="flex justify-center py-6"><div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" /></div>
+        ) : (
+          <LeaderSection title="" cats={PITCHING_CATS} source={data?.pitching} leagueId={leagueId} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Playoff AI Insights ──────────────────────────────────────────────────────
+
+function PlayoffInsights({ leagueId }) {
+  const qc = useQueryClient()
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey:  ['sim-playoff-insights', leagueId],
+    queryFn:   () => api.simulations.playoffInsights(leagueId),
+    staleTime: 3_600_000,
+  })
+
+  const refreshMutation = useMutation({
+    mutationFn: () => api.simulations.playoffInsights(leagueId, { refresh: true }),
+    onSuccess:  (d) => qc.setQueryData(['sim-playoff-insights', leagueId], d),
+  })
+
+  const bullets = data?.bullets || {}
+  const sections = [
+    { key: 'series_storylines',   label: 'Series Storylines' },
+    { key: 'standout_performers', label: 'Standout Performers' },
+    { key: 'champion_notes',      label: 'Champion' },
+  ]
+
+  return (
+    <div className="card p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-content-secondary">Playoff Insights</h2>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand/10 text-brand border border-brand/20 font-mono">AI</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => refreshMutation.mutate()}
+          disabled={refreshMutation.isPending || isFetching}
+          className="text-[10px] font-bold uppercase tracking-wider text-content-muted hover:text-brand transition-colors disabled:opacity-40"
+        >
+          {refreshMutation.isPending ? 'Generating…' : 'Regenerate'}
+        </button>
+      </div>
+
+      {(isLoading || isFetching) && !data ? (
+        <div className="flex justify-center py-6">
+          <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : data?.error ? (
+        <p className="text-xs text-red-400 text-center py-4">{data.error}</p>
+      ) : data ? (
+        <div className="space-y-4">
+          {data.narrative && (
+            <p className="text-sm text-content-secondary leading-relaxed">{data.narrative}</p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {sections.map(({ key, label }) => (
+              (bullets[key]?.length > 0) && (
+                <div key={key} className="space-y-1.5">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-content-muted">{label}</div>
+                  <ul className="space-y-1">
+                    {bullets[key].map((b, i) => (
+                      <li key={i} className="text-xs text-content-secondary leading-relaxed flex gap-1.5">
+                        <span className="text-brand shrink-0 mt-0.5">›</span>
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            ))}
+          </div>
+          {data.generated_at && (
+            <p className="text-[10px] text-content-muted">
+              Generated {new Date(data.generated_at).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-content-muted text-center py-4">
+          Insights generate after the playoffs are complete.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function SeriesCard({ series, leagueId }) {
+  const [expanded, setExpanded] = useState(false)
+  const homeWon    = series.winner_team_id === series.home_team_id
+  const awayWon    = series.winner_team_id === series.away_team_id
+  const isComplete = series.status === 'complete'
+  const games      = series.games || []
+
+  return (
+    <div className={`card overflow-hidden ${isComplete ? '' : 'border-brand/20'}`}>
+      {/* Clickable header */}
+      <button
+        type="button"
+        onClick={() => games.length > 0 && setExpanded(e => !e)}
+        className={`w-full p-3 space-y-2 text-left ${games.length > 0 ? 'hover:bg-bg-elevated/40 transition-colors' : ''}`}
+      >
+        {/* Team rows */}
+        {[
+          { abbr: series.away_team_abbr, color: series.away_team_color, teamId: series.away_team_id, wins: series.away_wins, won: awayWon },
+          { abbr: series.home_team_abbr, color: series.home_team_color, teamId: series.home_team_id, wins: series.home_wins, won: homeWon },
+        ].map(({ abbr, color, teamId, wins, won }) => (
+          <div key={abbr} className={`flex items-center justify-between gap-2 ${isComplete && !won ? 'opacity-40' : ''}`}>
+            <div className="flex items-center gap-2">
+              <TeamLogo teamId={teamId} abbr={abbr} color={color} size={22} />
+              <span className={`font-mono font-bold text-sm ${won ? 'text-content-primary' : 'text-content-secondary'}`}>{abbr}</span>
+              {won && <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Win</span>}
+            </div>
+            <span className={`font-mono font-black text-lg tabular-nums ${won ? 'text-content-primary' : 'text-content-muted'}`}>
+              {wins}
+            </span>
+          </div>
+        ))}
+
+        {/* Game dots + status */}
+        {games.length > 0 && (
+          <div className="flex items-center gap-1.5 pt-1 border-t border-bg-border/40">
+            {games.map((g, i) => {
+              const homeW = g.home_score > g.away_score
+              return (
+                <div
+                  key={i}
+                  title={`Game ${i + 1}: ${series.away_team_abbr} ${g.away_score}–${series.home_team_abbr} ${g.home_score}`}
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ background: homeW ? series.home_team_color : series.away_team_color }}
+                />
+              )
+            })}
+            <span className="text-[10px] text-content-muted ml-auto">
+              {isComplete
+                ? `${homeWon ? series.home_team_abbr : series.away_team_abbr} wins`
+                : 'in progress'}
+            </span>
+            <span className="text-[10px] text-content-muted">{expanded ? '▲' : '▼'}</span>
+          </div>
+        )}
+      </button>
+
+      {/* Expanded game log */}
+      {expanded && games.length > 0 && (
+        <div className="border-t border-bg-border/60 px-3 pb-3 pt-2 space-y-1.5">
+          {games.map((g, i) => {
             const homeW = g.home_score > g.away_score
             return (
-              <div
-                key={i}
-                title={`Game ${i + 1}: ${series.away_team_abbr} ${g.away_score} – ${series.home_team_abbr} ${g.home_score}`}
-                className="w-2 h-2 rounded-full"
-                style={{ background: homeW ? series.home_team_color : series.away_team_color }}
-              />
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span className="text-content-muted font-mono w-12 shrink-0">Game {i + 1}</span>
+                <span className={`font-mono tabular-nums ${!homeW ? 'font-bold text-content-primary' : 'text-content-muted'}`}>
+                  {series.away_team_abbr} {g.away_score}
+                </span>
+                <span className="text-content-muted">–</span>
+                <span className={`font-mono tabular-nums ${homeW ? 'font-bold text-content-primary' : 'text-content-muted'}`}>
+                  {series.home_team_abbr} {g.home_score}
+                </span>
+              </div>
             )
           })}
-          <span className="text-[10px] text-content-muted ml-1">
-            {isComplete ? `${series.winner_team_id === series.home_team_id ? series.home_team_abbr : series.away_team_abbr} wins series` : 'in progress'}
-          </span>
         </div>
       )}
-
-      {/* Series format */}
-      <div className="text-[10px] text-content-muted">
-        Best of {series.series_length}
-      </div>
     </div>
   )
 }
@@ -431,23 +621,41 @@ export default function SimulationPlayoffs() {
               : 'Simulate the full regular season first, then seed the playoffs.'}
           </p>
         </div>
-      ) : allComplete ? (
+      ) : (
         <>
-          {/* Champion banner */}
-          {rounds.find(r => r.round === 'ws')?.series?.[0]?.winner_team_id && (
+          {/* Champion banner — only once WS is done */}
+          {allComplete && rounds.find(r => r.round === 'ws')?.series?.[0]?.winner_team_id && (
             <ChampionBanner ws={rounds.find(r => r.round === 'ws').series[0]} leagueId={id} />
           )}
 
-          <PlayoffAwardsSection leagueId={id} />
+          {/* Format key */}
+          <div className="flex items-center gap-3 flex-wrap px-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-content-muted">Format:</span>
+            {[
+              { label: 'Wild Card', format: 'Bo3' },
+              { label: 'Division Series', format: 'Bo5' },
+              { label: 'Championship Series', format: 'Bo7' },
+              { label: 'World Series', format: 'Bo7' },
+            ].map(({ label, format }) => (
+              <span key={label} className="text-[10px] text-content-muted">
+                <span className="font-semibold text-content-secondary">{label}</span> · {format}
+              </span>
+            ))}
+          </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Insights — full width at top */}
+          <PlayoffInsights leagueId={id} />
+
+          {/* Bracket — full width */}
+          <div className="grid gap-5 grid-cols-2 xl:grid-cols-4">
             {rounds.map(r => <RoundColumn key={r.round} roundData={r} leagueId={id} />)}
           </div>
+
+          {/* Batting + Pitching leaders side by side */}
+          <PlayoffLeaders leagueId={id} />
+
+          {allComplete && <PlayoffAwardsSection leagueId={id} />}
         </>
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {rounds.map(r => <RoundColumn key={r.round} roundData={r} />)}
-        </div>
       )}
     </div>
   )
