@@ -4,7 +4,7 @@ class ProjectionService
 
   # Statcast-to-projection adjustment parameters
   BARREL_TO_HR_FB_MULTIPLIER    = 2.2   # barrel% converts to implied HR/FB at ~2.2x rate
-  LEAGUE_AVG_HARD_HIT_RATE      = 0.33  # ~2024 MLB league-average hard-hit rate
+  def self.league_avg_hard_hit_rate = LeagueConstantsService.batter["hard_hit_pct"] || 0.33
   HARD_HIT_HR_SENSITIVITY       = 1.5   # how much above/below league-average hard-hit shifts HR/FB
   STATCAST_HR_FB_WEIGHT_FRACTION = 0.5  # Statcast HR/FB estimate blended at half the scenario statcast_weight
 
@@ -13,6 +13,8 @@ class ProjectionService
   MIN_IP_FOR_SEASON_PACE  = 5.0
   MIN_PA_FOR_ACTUAL_STATS = 30
   MIN_IP_FOR_ACTUAL_STATS = 5.0
+
+  SPRAY_DEFAULTS = { pull_pct: 0.40, cent_pct: 0.33, oppo_pct: 0.27 }.freeze
 
   class << self
     # -----------------------------------------------------------------------
@@ -232,7 +234,7 @@ class ProjectionService
       )
       return { error: "No historical batting data found" } if history.empty?
 
-      league  = ProjectionDataService.league_means(player_type: :batter)
+      league  = ProjectionDataService.league_means_for(player_type: :batter)
       weights = scenario.year_weights
 
       components = {}
@@ -244,6 +246,12 @@ class ProjectionService
 
       components[:fb_pct]    = league[:fb_pct]
       components[:hr_fb_pct] = estimate_hr_fb_pct(history, league)
+
+      # Spray direction — weighted average of available seasons; fall back to league norms.
+      [:pull_pct, :cent_pct, :oppo_pct].each do |stat|
+        val = ProjectionEngine.weighted_average(history, weights, stat)
+        components[stat] = val || SPRAY_DEFAULTS[stat]
+      end
 
       if scenario.statcast_weight > 0
         recent_season = history.first
@@ -298,7 +306,7 @@ class ProjectionService
       )
       return { error: "No historical pitching data found" } if history.empty?
 
-      league  = ProjectionDataService.league_means(player_type: :pitcher)
+      league  = ProjectionDataService.league_means_for(player_type: :pitcher)
       weights = scenario.year_weights
 
       components = {}
@@ -493,7 +501,7 @@ class ProjectionService
       if scenario.statcast_weight > 0
         recent_season = history.first
         if recent_season&.dig(:hard_hit_pct)
-          deviation_from_league = recent_season[:hard_hit_pct] - LEAGUE_AVG_HARD_HIT_RATE
+          deviation_from_league = recent_season[:hard_hit_pct] - league_avg_hard_hit_rate
           adjusted = league[:hr_fb_pct] * (1 + deviation_from_league * HARD_HIT_HR_SENSITIVITY)
           return blend(league[:hr_fb_pct], adjusted, scenario.statcast_weight)
         end

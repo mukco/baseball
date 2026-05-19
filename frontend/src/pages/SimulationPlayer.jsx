@@ -25,6 +25,9 @@ const BATTING_THRESHOLDS = {
   iso:         { p10: 0.095, p25: 0.130, p50: 0.165, p75: 0.210, p90: 0.250 },
   babip:       { p10: 0.255, p25: 0.273, p50: 0.295, p75: 0.318, p90: 0.340 },
   kBbPct:      { p10: 3,   p25: 8,   p50: 13,  p75: 19,  p90: 26, invert: true },
+  pullPct:     { p10: 32,  p25: 36,  p50: 40,  p75: 44,  p90: 50 },
+  centPct:     { p10: 26,  p25: 30,  p50: 33,  p75: 37,  p90: 41 },
+  oppoPct:     { p10: 18,  p25: 22,  p50: 27,  p75: 32,  p90: 37 },
 }
 
 const PITCHING_THRESHOLDS = {
@@ -291,6 +294,18 @@ function BatterStats({ sl, games, leagueId, playerId }) {
               <StatCard label="HBP"   value={sl.hbp} />
             </div>
           </div>
+
+          {(spray.pull_pct != null || spray.cent_pct != null || spray.oppo_pct != null) && (
+          <div>
+            <p className="text-[10px] text-content-muted/60 uppercase tracking-wider mb-2">Spray tendencies</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {spray.pull_pct != null && <StatCard label="Pull%" value={`${(spray.pull_pct * 100).toFixed(1)}%`} percentile={approxPercentile(spray.pull_pct * 100, BATTING_THRESHOLDS.pullPct)} />}
+              {spray.cent_pct != null && <StatCard label="Cent%" value={`${(spray.cent_pct * 100).toFixed(1)}%`} percentile={approxPercentile(spray.cent_pct * 100, BATTING_THRESHOLDS.centPct)} />}
+              {spray.oppo_pct != null && <StatCard label="Oppo%" value={`${(spray.oppo_pct * 100).toFixed(1)}%`} percentile={approxPercentile(spray.oppo_pct * 100, BATTING_THRESHOLDS.oppoPct)} />}
+            </div>
+          </div>
+          )}
+
         </div>
       </section>
 
@@ -661,7 +676,7 @@ export default function SimulationPlayer() {
     return <div className="card p-8 text-center text-red-400">{data?.error || 'Player not found.'}</div>
   }
 
-  const { player_name, player_type, team_id, team_abbr, team_color, position, ratings, season_line, mlb_season_line, game_log, injury_status } = data
+  const { player_name, player_type, team_id, team_abbr, team_color, position, ratings, season_line, mlb_season_line, game_log, injury_status, spray = {} } = data
   const isBatter = player_type === 'batter'
   const sl       = season_line    || {}
   const games    = game_log       || []

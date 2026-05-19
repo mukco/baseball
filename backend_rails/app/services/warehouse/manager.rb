@@ -25,6 +25,7 @@ module Warehouse
         sim_counts    = Warehouse::SimulationIngester.ingest!
 
         build_duckdb!
+        LeagueConstantsService.refresh!
 
         meta = {
           last_refreshed_at:    Time.now.utc.iso8601,

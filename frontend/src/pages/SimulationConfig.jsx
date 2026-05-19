@@ -4,6 +4,99 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import { SimBadge, SimSpinner } from '../components/sim/SimUI'
 
+function pct(v) { return v == null ? '—' : `${(v * 100).toFixed(1)}%` }
+function rate(v, d = 3) { return v == null ? '—' : v.toFixed(d) }
+function timeAgo(iso) {
+  if (!iso) return 'never'
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
+function Chip({ label, value }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 px-3 py-2 bg-bg-elevated rounded border border-bg-border min-w-[72px]">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-content-muted">{label}</span>
+      <span className="text-sm font-mono font-bold text-content-primary">{value}</span>
+    </div>
+  )
+}
+
+function LeagueBaseline({ constants }) {
+  const [open, setOpen] = useState(false)
+  if (!constants) return null
+  const b = constants.batter || {}
+  const p = constants.pitcher || {}
+  const l = constants.league || {}
+
+  return (
+    <div className="card overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-3 hover:bg-bg-elevated/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold uppercase tracking-wider text-content-secondary">League Baseline</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand/10 text-brand font-mono border border-brand/20">
+            derived
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-content-muted">
+            {constants.derived_at ? `updated ${timeAgo(constants.derived_at)}` : 'not yet derived'}
+          </span>
+          <span className="text-content-muted text-xs">{open ? '▲' : '▼'}</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 space-y-4 border-t border-bg-border">
+          <p className="text-[11px] text-content-muted pt-3">
+            These values are derived from the data warehouse and used as the simulation baseline.
+            Multipliers like Run Environment scale against these numbers.
+          </p>
+
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Batters</div>
+            <div className="flex flex-wrap gap-2">
+              <Chip label="K%"     value={pct(b.k_pct)} />
+              <Chip label="BB%"    value={pct(b.bb_pct)} />
+              <Chip label="BABIP"  value={rate(b.babip)} />
+              <Chip label="ISO"    value={rate(b.iso)} />
+              <Chip label="HR/FB"  value={pct(b.hr_fb_pct)} />
+              <Chip label="FB%"    value={pct(b.fb_pct)} />
+              <Chip label="GB%"    value={pct(b.gb_pct)} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Pitchers</div>
+            <div className="flex flex-wrap gap-2">
+              <Chip label="K%"    value={pct(p.k_pct)} />
+              <Chip label="BB%"   value={pct(p.bb_pct)} />
+              <Chip label="BABIP" value={rate(p.babip)} />
+              <Chip label="HR/FB" value={pct(p.hr_fb_pct)} />
+              <Chip label="GB%"   value={pct(p.gb_pct)} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-content-muted">League</div>
+            <div className="flex flex-wrap gap-2">
+              <Chip label="wOBA"     value={rate(l.woba)} />
+              <Chip label="RC/PA"    value={rate(l.rc_per_pa)} />
+              <Chip label="FIP Const" value={rate(l.fip_constant, 2)} />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const PRESETS = [
   { key: 'realistic',    label: 'Realistic',      desc: 'MLB-accurate defaults' },
   { key: 'no_injuries',  label: 'No Injuries',    desc: 'Disable the injury system' },
@@ -208,6 +301,8 @@ export default function SimulationConfig() {
               <span className="text-xs text-red-400">{saveMutation.error?.message}</span>
             )}
           </div>
+
+          <LeagueBaseline constants={data?.constants} />
         </>
       )}
     </div>

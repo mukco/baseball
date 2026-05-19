@@ -1,22 +1,31 @@
 class GameSimulationEngine
-  LEAGUE_AVG_BATTER = {
-    k_pct:     0.215,
-    bb_pct:    0.087,
-    hbp_pct:   0.010,
-    hr_fb_pct: 0.105,
-    fb_pct:    0.36,
-    gb_pct:    0.44,
-    babip:     0.298,
-  }.freeze
+  def self.league_avg_batter
+    c = LeagueConstantsService.batter
+    {
+      k_pct:     c["k_pct"],
+      bb_pct:    c["bb_pct"],
+      hbp_pct:   c["hbp_pct"],
+      hr_fb_pct: c["hr_fb_pct"],
+      fb_pct:    c["fb_pct"],
+      gb_pct:    c["gb_pct"],
+      babip:     c["babip"],
+      pull_pct:  c["pull_pct"],
+      cent_pct:  c["cent_pct"],
+      oppo_pct:  c["oppo_pct"],
+    }
+  end
 
-  LEAGUE_AVG_RELIEVER = {
-    k_pct:     0.235,
-    bb_pct:    0.085,
-    hr_fb_pct: 0.105,
-    gb_pct:    0.44,
-    fb_pct:    0.36,
-    babip:     0.295,
-  }.freeze
+  def self.league_avg_reliever
+    c = LeagueConstantsService.pitcher_reliever
+    {
+      k_pct:     c["k_pct"],
+      bb_pct:    c["bb_pct"],
+      hr_fb_pct: c["hr_fb_pct"],
+      gb_pct:    c["gb_pct"],
+      fb_pct:    c["fb_pct"],
+      babip:     c["babip"],
+    }
+  end
 
   SP_MAX_BF = 27   # ~5-6 IP before considering bullpen
   SP_MAX_ER = 5    # blown up — go to the pen
@@ -128,14 +137,14 @@ class GameSimulationEngine
 
       ppid = pitcher[:player_id]
       pitcher_stats[ppid] ||= blank_pitcher_stat
-      pr = pitcher[:rates] || LEAGUE_AVG_RELIEVER
+      pr = pitcher[:rates] || league_avg_reliever
 
       while outs < 3
         batter = lineup[pos % lineup.size]
         pos += 1
         pid = batter[:player_id]
         batter_stats[pid] ||= blank_batter_stat
-        br = batter[:rates] || LEAGUE_AVG_BATTER
+        br = batter[:rates] || league_avg_batter
 
         outcome = simulate_pa(br, pr, blend, config)
         pitcher_stats[ppid][:bf] += 1
@@ -244,8 +253,8 @@ class GameSimulationEngine
     def simulate_pa(batter_rates, pitcher_rates, blend, config = {})
       br = blend.to_f.clamp(0.0, 1.0)
       pr = 1.0 - br
-      db = LEAGUE_AVG_BATTER
-      dp = LEAGUE_AVG_RELIEVER
+      db = league_avg_batter
+      dp = league_avg_reliever
 
       run_env = (config["run_environment"] || 1.0).to_f.clamp(0.5, 2.0)
       hr_env  = (config["hr_environment"]  || 1.0).to_f.clamp(0.3, 3.0)
@@ -408,7 +417,7 @@ class GameSimulationEngine
     end
 
     def fallback_pitcher
-      { player_id: :league_avg_rp, name: "Bullpen", rates: LEAGUE_AVG_RELIEVER }
+      { player_id: :league_avg_rp, name: "Bullpen", rates: league_avg_reliever }
     end
 
     def r(rates, key, defaults)
