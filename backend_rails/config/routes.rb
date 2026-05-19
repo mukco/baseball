@@ -137,6 +137,8 @@ Rails.application.routes.draw do
     post   "simulations/:id/seed_playoffs",                  to: "simulations#seed_playoffs"
     post   "simulations/:id/simulate_playoff_round",         to: "simulations#simulate_playoff_round"
     get    "simulations/:id/playoffs",                       to: "simulations#playoffs"
+    get    "simulations/:id/playoff_leaders",                to: "simulations#playoff_leaders"
+    get    "simulations/:id/playoff_insights",               to: "simulations#playoff_insights"
     get    "simulations/:id/playoff_awards",                 to: "simulations#playoff_awards"
     post   "simulations/:id/generate_playoff_awards",        to: "simulations#generate_playoff_awards"
     get    "simulations/:id/team_player_stats/:team_id",      to: "simulations#team_player_stats"
@@ -149,5 +151,9 @@ Rails.application.routes.draw do
     patch  "simulations/:id/rosters/:team_id",               to: "simulations#update_roster"
     get    "simulations/:simulation_id/config",              to: "simulation_configs#show"
     patch  "simulations/:simulation_id/config",              to: "simulation_configs#update"
+
+    # Cache warming
+    get  "cache/status",  to: "cache_warming#status"
+    post "cache/warm",    to: "cache_warming#warm"
   end
 end

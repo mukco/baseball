@@ -41,8 +41,11 @@ Full game-by-game simulation engine driven by FanGraphs projections.
 - **Transactions** — free agent signings and trades generated during simulation
 - **Season Calendar** — month-by-month view of simulated days with AI-generated daily stories and game links
 - **Playoff bracket** — seed and simulate the postseason round by round (Wild Card → LCS → World Series)
+- **Playoff stat leaders** — batting and pitching leaderboards across all postseason games
+- **Playoff insights** — AI-generated postseason narrative and key storylines once the bracket is complete
 - **Playoff awards** — AI committee selects WS MVP, ALCS MVP, and NLCS MVP with written rationale
 - **Season awards** — Silver Slugger, Gold Glove, Cy Young, and MVP voting
+- **Player ratings** — league-relative 1–3 star ratings (contact/power/discipline for batters; stuff/control/HR prevention for pitchers) displayed on roster and player pages
 
 ### Multi-Season Franchises
 - Create a franchise to run continuous multi-year simulations
@@ -122,6 +125,11 @@ baseball/
 │   │   │   ├── statcast_service.rb
 │   │   │   ├── simulation_service.rb
 │   │   │   ├── game_simulation_engine.rb
+│   │   │   ├── bullpen_manager.rb   # Rest/workload-aware bullpen state
+│   │   │   ├── manager_strategy.rb  # In-game decision interface
+│   │   │   ├── player_rating_service.rb  # 1-3 star percentile ratings
+│   │   │   ├── league_constants_service.rb  # Baseline rates from DuckDB
+│   │   │   ├── cache_warming_service.rb  # Background cache pre-warming
 │   │   │   ├── franchise_service.rb
 │   │   │   ├── playoff_simulation_service.rb
 │   │   │   ├── open_ai/client.rb    # All AI calls go here
@@ -283,8 +291,9 @@ Bat-tracking stats (`bat_speed`, `swing_length`, `blast_per_swing`, etc.) are on
 
 - Each at-bat draws a hit/walk/strikeout/out outcome from the batter's projected rates
 - Hit type (single/double/triple/HR) is weighted from the batter's power profile
-- Rotation managed by starts (SP) — bullpen takes over after SP limit or blowout
-- Bullpen roles: closer, setup, middle relief cycled by game state
+- **`BullpenManager`** tracks rest days (SP: 5, CL/SU: 1, LR: 2), consecutive-appearance limits, and seasonal workload caps per role; falls back to legacy rotation logic for rosters without pitcher state
+- **`ManagerStrategy`** is the decision interface for in-game events — currently a deterministic stub; designed to support `basic` (rule-based) and `sharp` (optimization-based) difficulty levels without touching the engine
+- Spray direction (pull/center/oppo tendency) is sourced from FanGraphs batted-ball data and affects fielder assignment
 - Injuries can pull a player mid-game; replacement logic fills from roster
 
 Stats accumulate into `SimulationPlayerStat` and `SimulationGame` (full box score JSON).
@@ -310,6 +319,14 @@ Stats accumulate into `SimulationPlayerStat` and `SimulationGame` (full box scor
 ### Background Jobs
 
 Long-running operations (simulate season, generate daily news, generate awards) run as `SolidQueue` background jobs with status polling via `SimulationJobRun`.
+
+**Scheduled jobs** (`config/recurring.yml`, production only):
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| `WarmSimulationCacheJob` | Every 30 minutes | Pre-warms Statcast + projection caches for all active sim league roster players |
+| `WarmLeaderboardCacheJob` | Every 6 hours | Pre-warms FanGraphs batting/pitching leaderboard caches (the 30–89 s HTTP outliers) |
+| `clear_solid_queue_finished_jobs` | Every hour | Prunes completed SolidQueue job records |
 
 ### Playoff Simulation
 
@@ -382,7 +399,7 @@ Regression: R², RMSE, MAE. Classification: accuracy, F1, precision, recall, con
 | `/simulation/:id/teams` | All-team standings grid |
 | `/simulation/:id/team/:teamId` | Individual team page |
 | `/simulation/:id/player/:playerId` | Individual player sim stats |
-| `/simulation/:id/playoffs` | Playoff bracket and awards |
+| `/simulation/:id/playoffs` | Playoff bracket, stat leaders, awards, and AI insights |
 | `/simulation/:id/awards` | Season awards (MVP, Cy Young, Silver Slugger, Gold Glove) |
 | `/simulation/:id/injuries` | Injury tracker |
 | `/simulation/:id/news` | Season calendar with AI daily stories |
@@ -401,18 +418,29 @@ All controllers in `app/controllers/api/` inherit from `Api::BaseController`. Co
 | Service | Purpose |
 |---------|---------|
 | `MlbApiService` | MLB Stats API: schedule, scores, players, standings |
-| `StatcastService` | Baseball Savant + FanGraphs leaderboards |
+| `StatcastService` | Baseball Savant + FanGraphs leaderboards (Statcast, bat-tracking, spray direction) |
 | `SimulationService` | League setup, game/day/season simulation, standings, roster management |
 | `GameSimulationEngine` | At-bat engine: hit rates, lineup cycling, rotation/bullpen |
+| `BullpenManager` | Per-roster pitcher state: rest days, consecutive appearances, seasonal workload caps by role |
+| `ManagerStrategy` | In-game decision interface (injury rates, substitution logic); stub today, extensible to difficulty levels |
+| `PlayerRatingService` | League-relative 1–3 star ratings: contact/power/discipline (batters), stuff/control/HR prevention (pitchers) |
+| `LeagueConstantsService` | Derives MLB baseline rates (K%, BB%, BABIP, ISO, etc.) from DuckDB warehouse at runtime |
+| `CacheWarmingService` | Two-tier pre-warming: simulation players (Statcast + projections) and FanGraphs leaderboards |
 | `FranchiseService` | Multi-season franchise create/advance |
 | `PlayoffSimulationService` | Postseason bracket simulation |
 | `AwardService` | Season award voting (MVP, Cy Young, SS, GG) |
 | `PlayoffAwardService` | AI-selected playoff MVP awards |
 | `SimulationNewsService` | AI-generated daily game stories |
+| `SimulationGameInsightsService` | AI insights for individual sim game box scores |
+| `SimulationPlayerInsightService` | AI insights for individual player sim seasons |
+| `SimulationTeamInsightService` | AI insights for individual team sim seasons |
+| `SimulationSeasonInsightService` | AI insights for the full simulated season |
+| `SimulationPlayoffInsightService` | AI narrative and bullets for the completed postseason |
 | `OpenAi::Client` | All OpenAI calls — never call OpenAI directly |
 | `AssistantService` | AI assistant with tool-calling |
 | `ProjectionEngine` | Marcel projection math |
 | `ProjectionService` | Orchestrates projection runs |
+| `ProjectionDataService` | Fetches player data (Statcast, FanGraphs) for projection inputs |
 | `YahooFantasyService` | OAuth + Yahoo Fantasy API |
 | `Warehouse::Manager` | Orchestrates all ingesters + DuckDB build |
 | `Warehouse::BatterIngester` | FanGraphs batting → CSV |
