@@ -4,7 +4,11 @@ module Api
 
     def show
       config = @league.simulation_config || SimulationConfig.new(simulation_league: @league)
-      render json: { params: config.effective, presets: SimulationConfig::PRESETS.keys }
+      render json: {
+        params:    config.effective,
+        presets:   SimulationConfig::PRESETS.keys,
+        constants: LeagueConstantsService.all.merge("derived_at" => LeagueConstantsService.derived_at&.iso8601),
+      }
     end
 
     def update

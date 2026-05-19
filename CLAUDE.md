@@ -11,6 +11,13 @@
 - Treat those docs as the source of truth for Rails controller, service object, Active Record, Active Job, and testing patterns.
 - Prefer existing project style when it conflicts with generic defaults.
 
+## Quick Start
+
+```bash
+cd backend_rails && bundle exec rails s -p 8000
+cd frontend && npm run dev
+```
+
 ## Project Overview
 
 Baseball analytics app: Rails 8 API backend + React/Vite frontend.

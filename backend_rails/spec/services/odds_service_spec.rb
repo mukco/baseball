@@ -72,7 +72,7 @@ RSpec.describe OddsService do
     end
 
     it "returns { error: } when the ESPN call raises" do
-      allow(Faraday).to receive(:get).and_raise(Faraday::ConnectionFailed.new("timeout"))
+      allow_any_instance_of(Faraday::Connection).to receive(:get).and_raise(Faraday::ConnectionFailed.new("timeout"))
 
       result = described_class.today(date: date_str)
       expect(result).to have_key(:error)
@@ -80,7 +80,7 @@ RSpec.describe OddsService do
 
     it "uses today's date when no date argument is given" do
       allow(Date).to receive(:current).and_return(Date.parse(date_str))
-      allow(Faraday).to receive(:get).and_return(
+      allow_any_instance_of(Faraday::Connection).to receive(:get).and_return(
         double(body: JSON.generate({ "events" => [] }))
       )
 

@@ -27,11 +27,13 @@ class ProjectionEngine
     hr:   2.082,
   }.freeze
 
-  WOBA_SCALE       = 1.157  # converts wOBA to wRC+
-  LEAGUE_WOBA      = 0.317  # ~2024 MLB average wOBA
-  LEAGUE_RC_PER_PA = 0.115  # ~2024 MLB runs created per plate appearance
+  WOBA_SCALE = 1.157  # wOBA→wRC+ scaling constant; published by FanGraphs, update annually
 
-  FIP_CONSTANT = 3.20  # ~2024 MLB FIP constant
+  # Derived from DuckDB warehouse at runtime; see LeagueConstantsService.
+  def self.league_woba           = LeagueConstantsService.league["woba"]
+  def self.league_rc_per_pa      = LeagueConstantsService.league["rc_per_pa"]
+  def self.fip_constant          = LeagueConstantsService.league["fip_constant"]
+  def self.xfip_normalizing_hr_fb_pct = LeagueConstantsService.league["xfip_hr_fb_pct"]
 
   # Batters faced per inning of work (~neutral MLB average)
   AVG_BATTERS_FACED_PER_INNING = 4.3
@@ -49,9 +51,6 @@ class ProjectionEngine
 
   # ERA is blended equally between the BABIP-based estimate and FIP to prevent BABIP from drifting too far
   ERA_FIP_BLEND_WEIGHT = 0.5
-
-  # League-average HR/FB rate used to normalize xFIP (removes pitcher luck on HR/FB)
-  XFIP_NORMALIZING_HR_FB_PCT = 0.105
 
   class << self
     # -------------------------------------------------------------------------
@@ -194,14 +193,14 @@ class ProjectionEngine
       ) / pa
 
       # wRC+ (simplified; league context = 100)
-      wrc_plus = ((woba - LEAGUE_WOBA) / WOBA_SCALE + LEAGUE_RC_PER_PA) / LEAGUE_RC_PER_PA * 100
+      wrc_plus = ((woba - league_woba) / WOBA_SCALE + league_rc_per_pa) / league_rc_per_pa * 100
 
       # Counting stats
       projected_hr   = (hr_per_pa   * pa).round
       projected_bb   = (bb_pct      * pa).round
       projected_hits = (hit_rate     * pa).round
       projected_ab   = (pa - projected_bb - hbp_pct * pa).round
-      projected_runs = (wrc_plus / 100.0 * pa * LEAGUE_RC_PER_PA).round
+      projected_runs = (wrc_plus / 100.0 * pa * league_rc_per_pa).round
       projected_rbi  = projected_runs
 
       {
@@ -261,11 +260,11 @@ class ProjectionEngine
       hr_per_inning = hr_per_9 / 9.0
       bb_per_inning = bb_per_9 / 9.0
       k_per_inning  = k_per_9  / 9.0
-      fip = (13 * hr_per_inning + 3 * bb_per_inning - 2 * k_per_inning) + FIP_CONSTANT
+      fip = (13 * hr_per_inning + 3 * bb_per_inning - 2 * k_per_inning) + fip_constant
 
       # xFIP normalizes HR/FB% to a league-average rate, removing the pitcher's luck on HR
-      xfip_hr_per_inning = fly_ball_pct * XFIP_NORMALIZING_HR_FB_PCT * AVG_BATTERS_FACED_PER_INNING
-      xfip = (13 * xfip_hr_per_inning + 3 * bb_per_inning - 2 * k_per_inning) + FIP_CONSTANT
+      xfip_hr_per_inning = fly_ball_pct * xfip_normalizing_hr_fb_pct * AVG_BATTERS_FACED_PER_INNING
+      xfip = (13 * xfip_hr_per_inning + 3 * bb_per_inning - 2 * k_per_inning) + fip_constant
 
       # ERA — BABIP applies only to true balls in play (exclude BB, K, HR)
       hr_rate_per_bf       = fly_ball_pct * hr_fb_pct

@@ -24,9 +24,9 @@ RSpec.describe Sandbox::DatasetRegistry do
   describe ".datasets" do
     before { allow(Warehouse::Manager).to receive(:metadata).and_return(fresh_meta) }
 
-    it "returns exactly 6 dataset entries" do
+    it "returns exactly 9 dataset entries" do
       result = described_class.datasets
-      expect(result.size).to eq(6)
+      expect(result.size).to eq(9)
     end
 
     it "returns entries with the expected ids" do
@@ -34,7 +34,8 @@ RSpec.describe Sandbox::DatasetRegistry do
       expect(ids).to contain_exactly(
         "batters", "pitchers",
         "fg_projections_batting", "fg_projections_pitching",
-        "teams_batting", "teams_pitching"
+        "teams_batting", "teams_pitching",
+        "sim_player_stats", "sim_team_standings", "sim_season_log"
       )
     end
 
@@ -68,7 +69,7 @@ RSpec.describe Sandbox::DatasetRegistry do
     end
 
     it "each dataset has required keys" do
-      required = %i[id label table description columns seasons lastRefreshedAt stale rowCount defaultSql]
+      required = %i[id label table description columns lastRefreshedAt stale rowCount defaultSql]
       described_class.datasets.each do |ds|
         expect(ds.keys).to include(*required)
       end

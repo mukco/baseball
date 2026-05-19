@@ -6,8 +6,6 @@ module Api
       return render json: { error: "q must be at least 2 characters" }, status: :unprocessable_entity if q.length < 2
 
       render json: mlb.search_players(q)
-    rescue => e
-      render json: { error: "search_unavailable", message: e.message }, status: :service_unavailable
     end
 
     # GET /api/players/:id

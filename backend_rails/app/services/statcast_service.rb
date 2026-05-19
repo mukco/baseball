@@ -77,6 +77,18 @@ class StatcastService
       data
     end
 
+    def spray_direction(player_id, season)
+      key = "spray_#{season}"
+      unless cache_fresh?(key)
+        data = fetch_fangraphs_batted_ball(season)
+        cache_set(key, data) if data.any?
+      end
+      @@cache[key]&.find { |r| r[:player_id].to_i == player_id.to_i } || {}
+    rescue StandardError => e
+      Rails.logger.warn("StatcastService#spray_direction failed (#{player_id}/#{season}): #{e.message}")
+      {}
+    end
+
     private
 
     # ---------------------------------------------------------------- #
@@ -373,6 +385,7 @@ class StatcastService
 
       # Spray chart — sample hit-location rows
       spray_rows = rows.reject { |r| r["hc_x"].nil? || r["hc_y"].nil? }
+
       spray_rows = spray_rows.sample(SPRAY_SAMPLE) if spray_rows.size > SPRAY_SAMPLE
       spray_data = spray_rows.map do |r|
         ev = r["launch_speed"].presence&.to_f
@@ -385,6 +398,28 @@ class StatcastService
     # ---------------------------------------------------------------- #
     # FanGraphs leaderboard helpers
     # ---------------------------------------------------------------- #
+
+    def fetch_fangraphs_batted_ball(season)
+      url    = "#{FANGRAPHS_BASE}/api/leaders/major-league/data"
+      params = {
+        pos: "all", stats: "bat", lg: "all",
+        qual: 0, type: 2,
+        season: season, season1: season,
+        ind: 0, pageitems: 2000, pagenum: 1
+      }
+      rows = fetch_fangraphs_json(url, params)
+      rows.filter_map do |r|
+        id = r["xMLBAMID"]&.to_i
+        next unless id && id > 0
+        { player_id: id,
+          pull_pct: r["Pull%"]&.to_f,
+          cent_pct: r["Cent%"]&.to_f,
+          oppo_pct: r["Oppo%"]&.to_f }
+      end
+    rescue StandardError => e
+      Rails.logger.error("FanGraphs batted ball error: #{e.message}")
+      []
+    end
 
     def fetch_fangraphs_batting(season, min_pa)
       # FanGraphs custom leaderboard type=8 = dashboard (includes wRC+, WAR, K%, BB%)

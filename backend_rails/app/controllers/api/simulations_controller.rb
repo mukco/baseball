@@ -286,8 +286,6 @@ class Api::SimulationsController < Api::BaseController
       games_by_date:    games_by_date,
       notable:          notable_calendar_dates(@league.season, season_start),
     }
-  rescue => e
-    render json: { error: e.message }, status: :internal_server_error
   end
 
   def playoff_awards
@@ -302,8 +300,6 @@ class Api::SimulationsController < Api::BaseController
     else
       render json: { generated: true, awards: result }
     end
-  rescue => e
-    render json: { error: e.message }, status: :unprocessable_entity
   end
 
   private

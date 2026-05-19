@@ -136,15 +136,15 @@ class YahooFantasyDashboardService
 
     def game_priority(status)
       return 0 if live_status?(status)
-      return 1 if status.to_s.include?('Preview')
-      return 2 if status.to_s.include?('Scheduled')
-      return 3 if status.to_s.include?('Final')
+      return 1 if status.to_s.include?('Pre-Game')
+      return 2 if status.to_s.match?(/Scheduled|Preview/)
+      return 3 if status.to_s.match?(/Final|Game Over|Completed/)
 
       4
     end
 
     def live_status?(status)
-      status.to_s.include?('Progress') || status.to_s.include?('Live')
+      status.to_s.match?(/Progress|Warmup|Review/)
     end
 
     def resolve_mlb_ids(roster, mlb)

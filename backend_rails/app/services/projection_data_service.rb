@@ -11,25 +11,14 @@ class ProjectionDataService
   DAYS_PER_YEAR     = 365.25
   NEUTRAL_AGE_DEFAULT = 28  # used when birth date is unavailable; neutral point on age curves
 
-  # Default league-average component rates (~2024 MLB)
-  LEAGUE_MEANS = {
-    batter: {
-      bb_pct:    0.083,
-      k_pct:     0.225,
-      babip:     0.299,
-      iso:       0.165,
-      hr_fb_pct: 0.130,
-      fb_pct:    0.360,
-      hbp_pct:   0.010,
-    },
-    pitcher: {
-      k_pct:     0.225,
-      bb_pct:    0.083,
-      hr_fb_pct: 0.105,
-      babip:     0.297,
-      gb_pct:    0.430,
-    },
-  }.freeze
+  # League-average component rates — derived from DuckDB warehouse at runtime.
+  # See LeagueConstantsService. This method replaces the old league_means constant.
+  def self.league_means
+    {
+      batter:  LeagueConstantsService.batter.transform_keys(&:to_sym),
+      pitcher: LeagueConstantsService.pitcher.transform_keys(&:to_sym),
+    }
+  end
 
   # Approximate games per MLB season (used for RoS PA projection)
   GAMES_PER_SEASON = 162
@@ -73,13 +62,14 @@ class ProjectionDataService
         # 1.0 = 100% of PA; subtract non-BIP outcomes to get the fraction that result in a batted ball
         balls_in_play_rate = (1.0 - walk_rate - strikeout_rate - hbp_rate).clamp(0.30, 0.90)
         hr_per_pa          = pa > 0 ? home_runs / pa : 0.0
-        league_fly_ball_pct = LEAGUE_MEANS[:batter][:fb_pct]
+        league_fly_ball_pct = league_means[:batter][:fb_pct]
         hr_fb_rate_est = (league_fly_ball_pct * balls_in_play_rate) > 0 ?
           (hr_per_pa / (league_fly_ball_pct * balls_in_play_rate)).clamp(0.02, 0.40) : nil
 
         # Statcast enhancement for most-recent season
         statcast_result = StatcastService.batter(player_id, season)
         statcast_data   = statcast_result[:error] ? {} : (statcast_result[:summary] || {})
+        spray           = StatcastService.spray_direction(player_id, season)
 
         {
           season: season,
@@ -98,6 +88,9 @@ class ProjectionDataService
           hard_hit_pct:  statcast_data[:hardHitPct].then { |v| v&. / 100.0 },
           sprint_speed:  statcast_data[:sprintSpeed],
           avg_exit_velo: statcast_data[:avgExitVelo],
+          pull_pct:      spray[:pull_pct],
+          cent_pct:      spray[:cent_pct],
+          oppo_pct:      spray[:oppo_pct],
         }
       end
     end
@@ -124,12 +117,12 @@ class ProjectionDataService
         walks         = pitching_stats["baseOnBalls"].to_f
         home_runs     = pitching_stats["homeRuns"].to_f
         hits_allowed  = pitching_stats["hits"].to_f
-        k_pct  = batters_faced.positive? ? strikeouts / batters_faced : LEAGUE_MEANS[:pitcher][:k_pct]
-        bb_pct = batters_faced.positive? ? walks      / batters_faced : LEAGUE_MEANS[:pitcher][:bb_pct]
+        k_pct  = batters_faced.positive? ? strikeouts / batters_faced : league_means[:pitcher][:k_pct]
+        bb_pct = batters_faced.positive? ? walks      / batters_faced : league_means[:pitcher][:bb_pct]
 
         # BABIP for pitchers: (H - HR) / (BF - K - BB - HR)
         balls_in_play = batters_faced - strikeouts - walks - home_runs
-        babip = balls_in_play.positive? ? (hits_allowed - home_runs) / balls_in_play : LEAGUE_MEANS[:pitcher][:babip]
+        babip = balls_in_play.positive? ? (hits_allowed - home_runs) / balls_in_play : league_means[:pitcher][:babip]
 
         # Statcast for recent season
         statcast_result = StatcastService.pitcher(player_id, season)
@@ -156,8 +149,8 @@ class ProjectionDataService
     # League means for regression targets.
     # player_type: :batter or :pitcher
     # -----------------------------------------------------------------------
-    def league_means(player_type:)
-      LEAGUE_MEANS.fetch(player_type)
+    def league_means_for(player_type:)
+      league_means.fetch(player_type)
     end
 
     # -----------------------------------------------------------------------
@@ -263,7 +256,7 @@ class ProjectionDataService
     def compute_babip(h, hr, ab, k, sf)
       numerator   = h - hr
       denominator = ab - k - hr + sf
-      return LEAGUE_MEANS[:batter][:babip] if denominator <= 0
+      return league_means[:batter][:babip] if denominator <= 0
       (numerator / denominator).clamp(0.100, 0.500)
     end
 
