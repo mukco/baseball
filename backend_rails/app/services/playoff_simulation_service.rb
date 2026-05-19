@@ -264,8 +264,11 @@ class PlayoffSimulationService
       state["pitchers"].each_value do |p|
         p["last_pitched"]     = nil
         p["consecutive_days"] = 0
+        p["season_outs"]      = 0
       end
-      roster.update_columns(pitcher_state_json: state.to_json)
+      json = state.to_json
+      roster.update_columns(pitcher_state_json: json)
+      roster.pitcher_state_json = json  # keep in-memory object in sync
     rescue => e
       Rails.logger.warn("[PlayoffSimulationService] reset_pitcher_rest: #{e.message}")
     end
