@@ -141,7 +141,7 @@ class MlbApiService
 
   def schedule(date)
     cache_key = "schedule:#{date}"
-    ttl = date == Date.today.iso8601 ? CACHE_TTLS[:schedule_today] : CACHE_TTLS[:schedule_past]
+    ttl = date == Date.current.iso8601 ? CACHE_TTLS[:schedule_today] : CACHE_TTLS[:schedule_past]
     return self.class.cache_get(cache_key) if self.class.cache_fresh?(cache_key)
 
     data = get("schedule", {

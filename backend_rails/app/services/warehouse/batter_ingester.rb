@@ -13,6 +13,7 @@ module Warehouse
       wrc_plus war woba babip k_pct bb_pct ld_pct gb_pct fb_pct hr_fb_pct
       o_swing_pct z_swing_pct bat_speed
       swing_length hard_swing_rate squared_up_per_swing blast_per_swing
+      pull_pct cent_pct oppo_pct
     ].freeze
 
     # Savant only began tracking bat speed in 2024
@@ -40,9 +41,10 @@ module Warehouse
 
       def season_rows(season)
         Rails.logger.info("Warehouse::BatterIngester: fetching #{season}")
-        rows = fetch_fangraphs_batting(season)
-        disc = fetch_fangraphs_discipline(season)
+        rows   = fetch_fangraphs_batting(season)
+        disc   = fetch_fangraphs_discipline(season)
         speeds = season >= BAT_SPEED_START ? fetch_savant_bat_speed(season) : {}
+        spray  = fetch_fangraphs_spray_direction(season)
 
         disc_by_id   = disc.each_with_object({}) do |r, h|
           id = integer_or_nil(r["xMLBAMID"] || r["MLBID"])
@@ -60,6 +62,7 @@ module Warehouse
           pos_info   = positions[player_id] || {}
           d          = disc_by_id[player_id] || {}
           spd        = speeds[player_id] || {}
+          spr        = spray[player_id]  || {}
 
           {
             player_id: player_id,
@@ -100,7 +103,10 @@ module Warehouse
             swing_length:         spd[:swing_length],
             hard_swing_rate:      spd[:hard_swing_rate],
             squared_up_per_swing: spd[:squared_up_per_swing],
-            blast_per_swing:      spd[:blast_per_swing]
+            blast_per_swing:      spd[:blast_per_swing],
+            pull_pct:             spr[:pull_pct],
+            cent_pct:             spr[:cent_pct],
+            oppo_pct:             spr[:oppo_pct]
           }
         end
       rescue StandardError => e
@@ -159,6 +165,32 @@ module Warehouse
         end
       rescue StandardError => e
         Rails.logger.warn("Warehouse::BatterIngester bat speed fetch failed (#{season}): #{e.message}")
+        {}
+      end
+
+      # FanGraphs type 2 (batted ball) leaderboard — includes Pull%, Cent%, Oppo% per batter.
+      # Verified column names: "Pull%", "Cent%", "Oppo%" — values are decimal fractions (0.40 = 40%).
+      def fetch_fangraphs_spray_direction(season)
+        conn = fangraphs_conn
+        resp = conn.get("https://www.fangraphs.com/api/leaders/major-league/data", {
+          pos: "all", stats: "bat", lg: "all", qual: 0, type: 2,
+          season: season, season1: season, ind: 0, pageitems: 2000, pagenum: 1
+        })
+        json = JSON.parse(resp.body)
+        rows = json["data"] || json
+        return {} unless rows.is_a?(Array)
+
+        rows.each_with_object({}) do |row, memo|
+          id = integer_or_nil(row["xMLBAMID"] || row["MLBID"])
+          next unless id
+          memo[id] = {
+            pull_pct: float_or_nil(row["Pull%"]),
+            cent_pct: float_or_nil(row["Cent%"]),
+            oppo_pct: float_or_nil(row["Oppo%"]),
+          }
+        end
+      rescue StandardError => e
+        Rails.logger.warn("Warehouse::BatterIngester spray direction fetch failed (#{season}): #{e.message}")
         {}
       end
 

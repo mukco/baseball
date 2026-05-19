@@ -1,6 +1,6 @@
 class OddsService
-  SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard'
-  ODDS_BASE      = 'https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb'
+  SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard'.freeze
+  ODDS_BASE      = 'https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb'.freeze
 
   CACHE_TTL = 5.minutes
 
@@ -20,7 +20,13 @@ class OddsService
 
     def fetch_today(date_str)
       scoreboard_url = "#{SCOREBOARD_URL}?dates=#{date_str.delete('-')}"
-      scoreboard_resp = Faraday.get(scoreboard_url)
+      scoreboard_conn = Faraday.new do |f|
+        f.request  :retry, max: 2, interval: 1.0
+        f.response :raise_error
+        f.options.timeout      = 15
+        f.options.open_timeout = 10
+      end
+      scoreboard_resp = scoreboard_conn.get(scoreboard_url)
       scoreboard = JSON.parse(scoreboard_resp.body)
       events = Array(scoreboard['events'])
 
@@ -76,7 +82,9 @@ class OddsService
       return [] if games.empty?
 
       conn = Faraday.new do |f|
-        f.options.timeout = 10
+        f.request  :retry, max: 2, interval: 1.0
+        f.response :raise_error
+        f.options.timeout      = 10
         f.options.open_timeout = 5
       end
 

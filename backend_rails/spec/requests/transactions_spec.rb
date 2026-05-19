@@ -7,11 +7,11 @@ RSpec.describe "Api::TransactionsController", type: :request do
     ]
   end
 
+  let(:mlb) { instance_double(MlbApiService) }
+
   before do
-    mlb = instance_double(MlbApiService)
     allow(MlbApiService).to receive(:new).and_return(mlb)
     allow(mlb).to receive(:transactions).and_return(transactions_result)
-    @mlb = mlb
   end
 
   describe "GET /api/transactions" do
@@ -23,7 +23,7 @@ RSpec.describe "Api::TransactionsController", type: :request do
     end
 
     it "passes team_id and player_id to MlbApiService" do
-      expect(@mlb).to receive(:transactions).with(
+      expect(mlb).to receive(:transactions).with(
         hash_including(team_id: "110", player_id: "660271")
       ).and_return([])
 
@@ -33,7 +33,7 @@ RSpec.describe "Api::TransactionsController", type: :request do
     end
 
     it "defaults start_date to 30 days ago and limit to 200" do
-      expect(@mlb).to receive(:transactions).with(
+      expect(mlb).to receive(:transactions).with(
         hash_including(limit: 200)
       ).and_return([])
 
@@ -43,7 +43,7 @@ RSpec.describe "Api::TransactionsController", type: :request do
     end
 
     it "caps limit at 500" do
-      expect(@mlb).to receive(:transactions).with(
+      expect(mlb).to receive(:transactions).with(
         hash_including(limit: 500)
       ).and_return([])
 
@@ -53,7 +53,7 @@ RSpec.describe "Api::TransactionsController", type: :request do
     end
 
     it "returns 502 when MlbApiService raises" do
-      allow(@mlb).to receive(:transactions).and_raise(StandardError, "MLB API down")
+      allow(mlb).to receive(:transactions).and_raise(StandardError, "MLB API down")
 
       get "/api/transactions"
 

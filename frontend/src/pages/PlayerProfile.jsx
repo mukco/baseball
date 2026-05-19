@@ -157,6 +157,9 @@ const BATTING_THRESHOLDS = {
   blastPerSwing:    { p10: 9,   p25: 12,   p50: 16,   p75: 20,   p90: 25 },
   oSwingPct:        { p10: 38,  p25: 34,   p50: 30,   p75: 26,   p90: 22, invert: true },
   zSwingPct:        { p10: 60,  p25: 64,   p50: 68,   p75: 72,   p90: 77 },
+  pullPct:          { p10: 32,  p25: 36,   p50: 40,   p75: 44,   p90: 50 },
+  centPct:          { p10: 26,  p25: 30,   p50: 33,   p75: 37,   p90: 41 },
+  oppoPct:          { p10: 18,  p25: 22,   p50: 27,   p75: 32,   p90: 37 },
 }
 
 const PITCHING_THRESHOLDS = {
@@ -874,6 +877,9 @@ function BattingTab({ playerId, mlbStats, statcast, projection, gameLog, batSide
     { label: 'Barrel%',       value: sc.barrelPct   != null ? `${sc.barrelPct}%`   : null, percentile: approxPercentile(sc.barrelPct,   BATTING_THRESHOLDS.barrelPct) },
     { label: 'xwOBA',         value: fmt(sc.xwOBA),                                         percentile: approxPercentile(sc.xwOBA,       BATTING_THRESHOLDS.xwOBA) },
     { label: 'Sprint Speed',  value: sc.sprintSpeed != null ? `${sc.sprintSpeed} ft/s` : null, percentile: approxPercentile(sc.sprintSpeed, BATTING_THRESHOLDS.sprintSpeed) },
+    { label: 'Pull%',         value: sc.pullPct != null ? `${sc.pullPct}%` : null,          percentile: approxPercentile(sc.pullPct, BATTING_THRESHOLDS.pullPct) },
+    { label: 'Cent%',         value: sc.centPct != null ? `${sc.centPct}%` : null,          percentile: approxPercentile(sc.centPct, BATTING_THRESHOLDS.centPct) },
+    { label: 'Oppo%',         value: sc.oppoPct != null ? `${sc.oppoPct}%` : null,          percentile: approxPercentile(sc.oppoPct, BATTING_THRESHOLDS.oppoPct) },
   ]
 
   return (

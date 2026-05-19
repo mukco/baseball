@@ -59,13 +59,15 @@ class PicksService
         g[:home_team] == home_name && g[:away_team] == away_name
       end
       match&.[](:odds_data)
-    rescue
+    rescue StandardError => e
+      Rails.logger.warn("PicksService#fetch_odds: #{e.message}")
       nil
     end
 
     def fetch_team_records(mlb)
       mlb.send(:standings_map)
-    rescue
+    rescue StandardError => e
+      Rails.logger.warn("PicksService#fetch_team_records: #{e.message}")
       {}
     end
 
@@ -90,7 +92,8 @@ class PicksService
           losses: pit["losses"],
           strikeOuts: pit["strikeOuts"]
         }.compact
-      rescue
+      rescue StandardError => e
+        Rails.logger.warn("PicksService#build_pitcher_context pitcher #{pitcher[:id]}: #{e.message}")
         { id: pitcher[:id], name: pitcher[:name] }
       end
     end

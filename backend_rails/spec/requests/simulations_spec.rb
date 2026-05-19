@@ -413,6 +413,8 @@ RSpec.describe "Api::SimulationsController", type: :request do
   # -----------------------------------------------------------------------
   describe "GET /api/simulations/:id/stats/:player_id" do
     it "returns 200 with season_line and game_log when player exists" do
+      allow(ProjectionService).to receive(:project_player).and_return(component_stats: {})
+
       league = create(:simulation_league)
       create(:simulation_player_stat, simulation_league: league,
              team_id: 147, player_id: 55, player_name: "Test Batter",
@@ -580,26 +582,15 @@ RSpec.describe "Api::SimulationsController", type: :request do
       expect(response).to have_http_status(:bad_gateway)
     end
 
-    it "calls AwardService and returns awards" do
+    it "enqueues a background job and returns pending" do
       league = create(:simulation_league)
-      allow(AwardService).to receive(:generate_awards).with(league).and_return(ai_response)
 
       post "/api/simulations/#{league.id}/generate_awards", as: :json
 
       expect(response).to have_http_status(:ok)
       body = response.parsed_body
-      expect(body["generated"]).to be true
-      expect(body["awards"]).to eq(ai_response)
-    end
-
-    it "returns unprocessable_entity when AwardService raises" do
-      league = create(:simulation_league)
-      allow(AwardService).to receive(:generate_awards).and_raise("OpenAI error")
-
-      post "/api/simulations/#{league.id}/generate_awards", as: :json
-
-      expect(response).to have_http_status(:unprocessable_entity)
-      expect(response.parsed_body["error"]).to eq("OpenAI error")
+      expect(body).to have_key("job_id")
+      expect(body["status"]).to eq("pending")
     end
   end
 end

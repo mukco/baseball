@@ -289,14 +289,14 @@ RSpec.describe SimulationService do
   # -----------------------------------------------------------------------
   # rotation_starter (private) — day-rest-aware
   # -----------------------------------------------------------------------
-  describe ".rotation_starter (private)" do
+  describe ".legacy_rotation_starter (private)" do
     let(:league) { create(:simulation_league) }
     let(:game_date) { Date.new(2025, 4, 15) }
 
     it "returns the first pitcher when no rotation state exists" do
       roster = create(:simulation_roster, simulation_league: league, team_id: 147,
                       rotation_json: [10, 11, 12].to_json)
-      result = described_class.send(:rotation_starter, league, 147, roster, game_date: game_date)
+      result = described_class.send(:legacy_rotation_starter, league, 147, roster, game_date: game_date)
       expect(result).to eq(10)
     end
 
@@ -306,7 +306,7 @@ RSpec.describe SimulationService do
                       rotation_json: [10, 11, 12].to_json,
                       rotation_state_json: { "10" => recent_date }.to_json)
 
-      result = described_class.send(:rotation_starter, league, 147, roster, game_date: game_date)
+      result = described_class.send(:legacy_rotation_starter, league, 147, roster, game_date: game_date)
       expect(result).to eq(11)  # skips 10 (tired), returns 11
     end
 
@@ -316,7 +316,7 @@ RSpec.describe SimulationService do
                       rotation_json: [10, 11, 12].to_json,
                       rotation_state_json: { "10" => five_days_ago }.to_json)
 
-      result = described_class.send(:rotation_starter, league, 147, roster, game_date: game_date)
+      result = described_class.send(:legacy_rotation_starter, league, 147, roster, game_date: game_date)
       expect(result).to eq(10)  # exactly 5 days — eligible
     end
 
@@ -333,12 +333,12 @@ RSpec.describe SimulationService do
                home_team_id: 147, away_team_id: 111)
       end
 
-      result = described_class.send(:rotation_starter, league, 147, roster, game_date: game_date)
+      result = described_class.send(:legacy_rotation_starter, league, 147, roster, game_date: game_date)
       expect([10, 11, 12]).to include(result)
     end
 
     it "accepts a plain array and returns the first entry (no state)" do
-      result = described_class.send(:rotation_starter, league, 147, [10, 11, 12], game_date: game_date)
+      result = described_class.send(:legacy_rotation_starter, league, 147, [10, 11, 12], game_date: game_date)
       expect(result).to eq(10)
     end
   end
@@ -636,6 +636,10 @@ RSpec.describe SimulationService do
 
   describe ".player_season_stats" do
     let(:league) { create(:simulation_league) }
+
+    before do
+      allow(ProjectionService).to receive(:project_player).and_return(component_stats: {})
+    end
 
     context "with a batter stat record" do
       let!(:stat) do

@@ -820,6 +820,11 @@ class SimulationService
         }
       end
 
+      rates = fetch_rates(player_id, league)
+      spray = if stat.player_type == "batter"
+        { pull_pct: rates[:pull_pct], cent_pct: rates[:cent_pct], oppo_pct: rates[:oppo_pct] }.compact
+      end
+
       {
         player_id:    player_id,
         player_name:  stat.player_name,
@@ -833,6 +838,7 @@ class SimulationService
         mlb_season_line: mlb_line,
         game_log:     game_log,
         injury_status: injury_status,
+        spray:        spray,
       }
     rescue => e
       { error: e.message }

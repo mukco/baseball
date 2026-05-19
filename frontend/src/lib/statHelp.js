@@ -182,6 +182,27 @@ const STAT_HELP = {
     interpretation: 'Higher is better for speed and baserunning impact.',
     intuition: 'Think of it as top-end running speed — 30 ft/s is elite, 27 is average.'
   },
+  pullPct: {
+    label: 'Pull%',
+    definition: 'Share of batted balls hit to the pull side of the field.',
+    formula: 'Pull-side batted balls / total batted balls.',
+    interpretation: 'Higher pull rates often correlate with more power; very high rates can be exploited defensively.',
+    intuition: 'Think of it as how often the batter yanks the ball — dead-pull hitters are shifted against, spray hitters are harder to defend.'
+  },
+  centPct: {
+    label: 'Cent%',
+    definition: 'Share of batted balls hit to center field.',
+    formula: 'Center batted balls / total batted balls.',
+    interpretation: 'Higher center rates indicate a spray or gap hitter.',
+    intuition: 'Think of it as how often the batter goes up the middle — balanced hitters tend to have the highest center rates.'
+  },
+  oppoPct: {
+    label: 'Oppo%',
+    definition: 'Share of batted balls hit to the opposite field.',
+    formula: 'Opposite-field batted balls / total batted balls.',
+    interpretation: 'Higher opposite rates indicate a disciplined, contact-oriented hitter.',
+    intuition: 'Think of it as how often the batter goes the other way — high oppo rates often mean excellent bat control.'
+  },
   babip: {
     label: 'BABIP',
     definition: 'Batting Average on Balls in Play measures hit rate on non-HR balls put in play.',
@@ -578,6 +599,9 @@ const STAT_ALIASES = {
   iso: 'iso',
   hard_hit_pct: 'hardHitPct',
   barrel_pct: 'barrelPct',
+  pull_pct: 'pullPct',
+  cent_pct: 'centPct',
+  oppo_pct: 'oppoPct',
   sweet_spot_pct: 'sweetSpotPct',
   sprint_speed: 'sprintSpeed',
   launch_angle: 'launchAngle',

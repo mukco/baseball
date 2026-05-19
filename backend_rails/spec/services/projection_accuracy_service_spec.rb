@@ -1,12 +1,6 @@
 require "rails_helper"
 
 RSpec.describe ProjectionAccuracyService do
-  before do
-    # Clear in-memory cache between tests
-    described_class.class_variable_set(:@@cache,    {})
-    described_class.class_variable_set(:@@cache_ts, {})
-  end
-
   describe ".league_accuracy" do
     context "when no PlayerProjections exist" do
       it "returns empty aggregate with sample_size: 0" do
@@ -18,10 +12,11 @@ RSpec.describe ProjectionAccuracyService do
     end
 
     context "with cached data" do
-      it "returns the cached result on second call without re-computing" do
+      it "returns the cached result without re-computing" do
         cached = { player_type: "batter", aggregate: {}, sample_size: 0, seasons_range: [] }
-        described_class.class_variable_get(:@@cache)["league_batter"] = cached
-        described_class.class_variable_get(:@@cache_ts)["league_batter"] = Time.now.to_i
+        allow(Rails.cache).to receive(:read)
+          .with("projection_accuracy_league_batter")
+          .and_return(cached)
 
         expect(described_class).not_to receive(:compute_league)
         result = described_class.league_accuracy(player_type: "batter")
