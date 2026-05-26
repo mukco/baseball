@@ -14,11 +14,13 @@ RSpec.describe CacheWarmingService do
   def stub_statcast_ok(player_id, season)
     allow(StatcastService).to receive(:batter).with(player_id, season).and_return({ summary: { exit_velo: 90.0 } })
     allow(StatcastService).to receive(:pitcher).with(player_id, season).and_return({ summary: { k_pct: 0.25 } })
+    allow(HoverStatsService).to receive(:call).with(player_id: player_id).and_return({ batting_avg: 0.270 })
   end
 
   def stub_statcast_error(player_id, season)
     allow(StatcastService).to receive(:batter).with(player_id, season).and_return({ error: "timeout" })
     allow(StatcastService).to receive(:pitcher).with(player_id, season).and_return({ error: "timeout" })
+    allow(HoverStatsService).to receive(:call).with(player_id: player_id).and_return({ error: "timeout" })
   end
 
   # -----------------------------------------------------------------------
@@ -46,7 +48,7 @@ RSpec.describe CacheWarmingService do
 
       it "returns a hash with warmed keys" do
         result = described_class.warm_simulation_players!
-        expect(result[:warmed].size).to eq(4)  # 2 players × 2 calls each
+        expect(result[:warmed].size).to eq(6)  # 2 players × 3 calls each
         expect(result[:errors]).to be_empty
       end
 
@@ -54,7 +56,7 @@ RSpec.describe CacheWarmingService do
         described_class.warm_simulation_players!
         expect(File.exist?(log_path)).to be true
         logged = JSON.parse(File.read(log_path))
-        expect(logged["simulation"]["warmed"]).to eq(4)
+        expect(logged["simulation"]["warmed"]).to eq(6)
         expect(logged["simulation"]["duration_s"]).to be >= 0
       end
     end
@@ -69,7 +71,7 @@ RSpec.describe CacheWarmingService do
       it "counts errors but does not raise" do
         result = described_class.warm_simulation_players!
         expect(result[:errors]).to be_empty  # errors returned as :error hash, counted in :skipped
-        expect(result[:skipped].size).to eq(2)
+        expect(result[:skipped].size).to eq(3)
       end
     end
 

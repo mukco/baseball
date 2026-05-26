@@ -414,6 +414,7 @@ RSpec.describe "Api::SimulationsController", type: :request do
   describe "GET /api/simulations/:id/stats/:player_id" do
     it "returns 200 with season_line and game_log when player exists" do
       allow(ProjectionService).to receive(:project_player).and_return(component_stats: {})
+      allow(ProjectionDataService).to receive(:player_age).and_return(28)
 
       league = create(:simulation_league)
       create(:simulation_player_stat, simulation_league: league,

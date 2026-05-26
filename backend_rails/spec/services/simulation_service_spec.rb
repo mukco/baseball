@@ -639,6 +639,7 @@ RSpec.describe SimulationService do
 
     before do
       allow(ProjectionService).to receive(:project_player).and_return(component_stats: {})
+      allow(ProjectionDataService).to receive(:player_age).and_return(28)
     end
 
     context "with a batter stat record" do
