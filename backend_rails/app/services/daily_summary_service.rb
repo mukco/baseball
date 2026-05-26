@@ -29,15 +29,51 @@ class DailySummaryService
     def generate(date)
       context = assemble_context(date)
       client  = OpenAi::Client.new
-      result  = client.json_completion(
+
+      # Step 1: Generate trends — pure analysis, no SQL distraction
+      result = client.json_completion(
         system_prompt:    system_prompt(date),
         user_payload:     context,
         interaction_type: "daily_summary",
         metadata:         { date: date.to_s },
-        temperature:      0.75
+        temperature:      0.75,
+        timeout:          90
       )
 
-      enrich(result[:output]).merge(generated_at: Time.current.iso8601)
+      trends = Array(result[:output]["trends"])
+
+      # Step 2: Generate a targeted explore query for each trend
+      trends_with_sql = attach_explore_queries(trends, date.year, client)
+
+      enrich({ "trends" => trends_with_sql }).merge(generated_at: Time.current.iso8601)
+    end
+
+    def attach_explore_queries(trends, season, client)
+      return trends if trends.empty?
+
+      payload = trends.each_with_index.map do |t, i|
+        { index: i, headline: t["headline"], body: t["body"], stat_hook: t["stat_hook"] }
+      end
+
+      result = client.json_completion(
+        system_prompt:    sql_prompt(season),
+        user_payload:     { trends: payload },
+        interaction_type: "daily_summary_sql",
+        metadata:         { season: season },
+        temperature:      0,
+        timeout:          60
+      )
+
+      query_map = Array(result[:output]["queries"])
+        .each_with_object({}) { |q, h| h[q["index"].to_i] = q["sql"].to_s.strip }
+
+      trends.each_with_index.map do |trend, i|
+        sql = query_map[i]
+        sql.present? ? trend.merge("explore_sql" => sql) : trend
+      end
+    rescue StandardError => e
+      Rails.logger.warn "[DailySummaryService] SQL generation failed: #{e.message}"
+      trends
     end
 
     def enrich(output)
@@ -48,8 +84,7 @@ class DailySummaryService
 
       normalize_output(
         output.merge(
-          "stories" => Array(output["stories"]).map(&resolve),
-          "trends"  => Array(output["trends"]).map(&resolve)
+          "trends" => Array(output["trends"]).map(&resolve)
         )
       )
     end
@@ -173,7 +208,7 @@ class DailySummaryService
 
     def system_prompt(date)
       <<~PROMPT.strip
-        You are a sharp, opinionated baseball analyst writing a daily digest for serious fans.
+        You are a sharp, opinionated baseball analyst writing a daily statistical digest for serious fans.
         Today is #{date.strftime("%B %d, %Y")}.
 
         You will receive a JSON payload with:
@@ -183,42 +218,32 @@ class DailySummaryService
         - "pitching_leaders": FanGraphs season pitching leaderboard (top #{TOP_N} by ERA)
         - "news_headlines": recent headlines from MLB.com, FanGraphs, MLB Trade Rumors, and r/baseball
 
-        Your job is to produce two sections:
+        Your job is to produce 6 to 10 statistical "trends" — observations that would surprise a
+        knowledgeable fan. Do NOT default to "X player is hot" or "Y team is winning." Dig for
+        contradictions, anomalies, and hidden stories:
+        - A hitter leading the league in barrel% but batting .220 (contact problem, not power)
+        - A closer with elite K/9 but a swollen BB/9 that signals trouble ahead
+        - A team with a top-5 run differential but a .500 record
+        - A pitcher whose FIP is 1.5+ runs below their ERA (better than they look)
+        - A player quietly chasing a meaningful milestone
+        - A statistical contradiction that tells a hidden story
 
-        1. "stories" — 3 to 5 of today's most compelling narratives. These may come from game
-           results, news, transactions, or milestones. A story is compelling if it has stakes,
-           context, or consequence. Do not flatly summarize box scores.
-
-        2. "trends" — 4 to 6 statistical observations that would surprise a knowledgeable fan.
-           Do NOT default to "X player is hot" or "Y team is winning." Dig for contradictions,
-           anomalies, and hidden stories:
-           - A hitter leading the league in barrel% but batting .220 (contact problem, not power)
-           - A closer with elite K/9 but a swollen BB/9 that signals trouble ahead
-           - A team with a top-5 run differential but a .500 record
-           - A pitcher whose FIP is 1.5+ runs below their ERA (better than they look)
-           - A player quietly chasing a meaningful milestone
-           - A statistical contradiction that tells a hidden story
-
-           Every trend MUST include a "stat_hook" — the specific number, comparison, or anomaly
-           that makes it interesting. Vague observations are not acceptable.
+        Every trend MUST include a "stat_hook" — the specific number, comparison, or anomaly
+        that makes it interesting. Vague observations are not acceptable.
 
         Tone: confident, analytical, slightly irreverent. Write for fans who know what wRC+ means.
         Be concise — each body 2–3 sentences max.
 
-         Some trends lend themselves to a small chart. When a trend compares multiple players or
-         teams on a single stat (e.g. top HR leaders, ERA comparison, wRC+ leaderboard), include
-         an optional "chart" field using only data points already present in the provided context.
-         Never invent numbers. Limit chart data to 6–8 items. Use "horizontal_bar" for ranked
-         player lists, "bar" for team comparisons, "scatter" for two-stat correlations, "line"
-         for a trend over time. Omit "chart" entirely if no real data supports it.
-         For "bar" and "horizontal_bar" charts, xKey must be the label/category field and yKey
-         must be the numeric value field. Example: xKey="Name", yKey="HR".
+        Some trends lend themselves to a small chart. When a trend compares multiple players or
+        teams on a single stat, include an optional "chart" field using only data points already
+        present in the provided context. Never invent numbers. Limit chart data to 6–8 items.
+        Use "horizontal_bar" for ranked player lists, "bar" for team comparisons, "scatter" for
+        two-stat correlations, "line" for a trend over time. Omit "chart" entirely if no real data
+        supports it. For "bar" and "horizontal_bar", xKey must be the label field and yKey the
+        numeric field. Example: xKey="Name", yKey="HR".
 
-         Return ONLY valid JSON matching this exact schema — no extra keys, no markdown:
+        Return ONLY valid JSON matching this exact schema — no extra keys, no markdown:
         {
-          "stories": [
-            { "headline": string, "body": string, "category": "game|transaction|milestone|storyline", "player_names": [string] }
-          ],
           "trends": [
             {
               "headline": string,
@@ -233,6 +258,44 @@ class DailySummaryService
                 "data": [object]
               }
             }
+          ]
+        }
+      PROMPT
+    end
+
+    def sql_prompt(season)
+      <<~PROMPT.strip
+        You are a DuckDB SQL expert. You will receive a list of baseball statistical trends —
+        each has a headline, a body, and a stat_hook describing a specific anomaly or finding.
+
+        Write one SQL query per trend that lets the user explore the exact data behind that finding.
+        The query must:
+        - SELECT only the columns relevant to the trend's stat_hook (never SELECT *)
+        - Surface the specific players or teams that illustrate the phenomenon
+        - Apply WHERE conditions that target the phenomenon (e.g. minimum PA/IP, stat thresholds)
+        - ORDER BY the column that puts the most interesting rows first
+        - Filter to season = #{season}
+        - LIMIT 25
+        - Use ONLY the exact column names listed below — no invented or aliased source names
+
+        Available tables and columns (DuckDB, snake_case):
+
+        batters(name, team, season, pa, hr, r, rbi, sb, avg, obp, slg, ops, iso, wrc_plus, war,
+                woba, babip, k_pct, bb_pct, gb_pct, fb_pct, hr_fb_pct, o_swing_pct, z_swing_pct,
+                bat_speed, swing_length, hard_swing_rate, blast_per_swing)
+
+        pitchers(name, team, season, gs, ip, sv, era, fip, xfip, siera, war, whip,
+                 k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct, babip, gb_pct, fb_pct)
+
+        teams_batting(name, abbr, season, avg, obp, slg, ops, hr, r, rbi, sb, k_pct, bb_pct, woba)
+
+        teams_pitching(name, abbr, season, era, whip, fip, k_per_9, bb_per_9, k_minus_bb_pct)
+
+        Return ONLY valid JSON — no extra keys, no markdown:
+        {
+          "queries": [
+            { "index": 0, "sql": "SELECT ..." },
+            { "index": 1, "sql": "SELECT ..." }
           ]
         }
       PROMPT

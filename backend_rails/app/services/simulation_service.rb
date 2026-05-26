@@ -1,4 +1,9 @@
 class SimulationService
+  OUTS_PER_GAME        = 27    # used for ERA: (er * 27 / outs_pitched)
+  MIN_QUALIFYING_AB    = 50    # minimum at-bats to appear in rate-stat leaderboards
+  MIN_QUALIFYING_IP    = 10    # minimum innings pitched to appear in ERA/WHIP leaderboards
+  MONTE_CARLO_MAX_RUNS = 500   # upper bound on win-probability simulation count
+
   # Columns needed for standings — excludes the heavy box_score_json blob
   STANDINGS_COLS = %w[
     id home_team_id away_team_id home_score away_score is_real
@@ -97,7 +102,7 @@ class SimulationService
 
       teams.each do |team|
         tid    = team[:id]
-        roster = mlb.send(:team_roster, tid) rescue []
+        roster = mlb.team_roster(tid)
         next if roster.blank?
 
         pitchers = roster.select { |p| pitcher?(p[:position]) }
@@ -485,27 +490,27 @@ class SimulationService
       score_sum = { home: 0, away: 0 }
       run_log   = []
 
-      runs.clamp(10, 500).times do
-        r = GameSimulationEngine.simulate_game(
+      num_simulations = runs.clamp(10, MONTE_CARLO_MAX_RUNS)
+      num_simulations.times do
+        game_result = GameSimulationEngine.simulate_game(
           home_lineup:   home_lineup,
           away_lineup:   away_lineup,
           home_pitchers: home_pitchers,
           away_pitchers: away_pitchers,
           blend:         league.batter_pitcher_blend
         )
-        home_wins       += 1 if r[:home_score] > r[:away_score]
-        score_sum[:home] += r[:home_score]
-        score_sum[:away] += r[:away_score]
-        run_log          << { h: r[:home_score], a: r[:away_score] }
+        home_wins        += 1 if game_result[:home_score] > game_result[:away_score]
+        score_sum[:home] += game_result[:home_score]
+        score_sum[:away] += game_result[:away_score]
+        run_log          << { h: game_result[:home_score], a: game_result[:away_score] }
       end
 
-      n = runs.clamp(10, 500)
       {
-        runs:              n,
-        home_win_pct:      (home_wins.to_f / n * 100).round(1),
-        away_win_pct:      ((n - home_wins).to_f / n * 100).round(1),
-        avg_home_score:    (score_sum[:home].to_f / n).round(2),
-        avg_away_score:    (score_sum[:away].to_f / n).round(2),
+        runs:              num_simulations,
+        home_win_pct:      (home_wins.to_f / num_simulations * 100).round(1),
+        away_win_pct:      ((num_simulations - home_wins).to_f / num_simulations * 100).round(1),
+        avg_home_score:    (score_sum[:home].to_f / num_simulations).round(2),
+        avg_away_score:    (score_sum[:away].to_f / num_simulations).round(2),
         home_team_abbr:    sim_game.home_team_abbr,
         away_team_abbr:    sim_game.away_team_abbr,
         home_team_color:   sim_game.home_team_color,
@@ -554,14 +559,16 @@ class SimulationService
         }
       end
 
-      n       = compared.size
-      correct = compared.count { |r| r[:correct_winner] }
-      avg_err = n > 0 ? (compared.sum { |r| r[:run_error] }.to_f / n).round(2) : nil
+      total_compared = compared.size
+      correct        = compared.count { |game| game[:correct_winner] }
+      avg_err        = total_compared > 0 ?
+                         (compared.sum { |game| game[:run_error] }.to_f / total_compared).round(2) :
+                         nil
 
       {
-        total:           n,
+        total:           total_compared,
         correct_winners: correct,
-        win_accuracy:    n > 0 ? (correct.to_f / n * 100).round(1) : nil,
+        win_accuracy:    total_compared > 0 ? (correct.to_f / total_compared * 100).round(1) : nil,
         avg_run_error:   avg_err,
         games:           compared,
       }
@@ -700,7 +707,7 @@ class SimulationService
       pitchers = stats.select { |s| s.player_type == "pitcher" && s.outs_pitched > 0 }
 
       roster_map  = league.simulation_rosters.index_by(&:team_id)
-      ratings_map = live_mode?(league) ? {} : PlayerRatingService.ratings_for_league(league)
+      ratings_map = PlayerRatingService.ratings_for_league(league)
 
       batting_leaders = {
         hr:      top_batters(batters, roster_map, :hr, 20, ratings_map),
@@ -734,7 +741,7 @@ class SimulationService
           color:     r.team_color,
           rs:        rs,
           ops:       team_b.empty? ? nil : avg_ops(team_b).round(3),
-          era:       total_outs > 0 ? (total_er * 27.0 / total_outs).round(2) : nil,
+          era:       total_outs > 0 ? (total_er * OUTS_PER_GAME.to_f / total_outs).round(2) : nil,
         }
       end
 
@@ -748,7 +755,7 @@ class SimulationService
     def team_player_stats(league, team_id)
       stats       = league.simulation_player_stats.where(team_id: team_id).to_a
       roster_map  = league.simulation_rosters.index_by(&:team_id)
-      ratings_map = live_mode?(league) ? {} : PlayerRatingService.ratings_for_league(league)
+      ratings_map = PlayerRatingService.ratings_for_league(league)
 
       batters  = stats.select { |s| s.player_type == "batter"  && s.ab > 0 }
                       .sort_by { |s| -s.ab }
@@ -803,7 +810,7 @@ class SimulationService
                            &.find { |p| p[:id].to_i == player_id.to_i }
       position = roster_entry&.dig(:position)
 
-      ratings = live_mode?(league) ? {} : (PlayerRatingService.ratings_for_league(league)[player_id] || {})
+      ratings = PlayerRatingService.ratings_for_league(league)[player_id] || {}
 
       injury = league.simulation_injuries
                      .where(player_id: player_id)
@@ -833,12 +840,14 @@ class SimulationService
         team_abbr:    team_meta[:abbr],
         team_color:   team_meta[:color],
         position:     position,
+        age:          ProjectionDataService.player_age(player_id, season: league.season),
         ratings:      ratings,
         season_line:  serialize_player_stat(stat),
         mlb_season_line: mlb_line,
         game_log:     game_log,
         injury_status: injury_status,
-        spray:        spray,
+        spray:         spray,
+        franchise_id:  league.simulation_franchise_id,
       }
     rescue => e
       { error: e.message }
@@ -1227,32 +1236,32 @@ class SimulationService
     end
 
     def batting_lines(lineup, stats)
-      lineup.map do |p|
-        s = stats[p[:player_id]] || {}
+      lineup.map do |player|
+        stat_line = stats[player[:player_id]] || {}
         {
-          player_id: p[:player_id],
-          name:      p[:name],
-          ab: s[:ab].to_i, h: s[:h].to_i, hr: s[:hr].to_i,
-          rbi: s[:rbi].to_i, bb: s[:bb].to_i, k: s[:k].to_i, r: s[:r].to_i,
-          double: s[:double].to_i, triple: s[:triple].to_i,
-          hbp: s[:hbp].to_i, sf: s[:sf].to_i,
+          player_id: player[:player_id],
+          name:      player[:name],
+          ab: stat_line[:ab].to_i, h: stat_line[:h].to_i, hr: stat_line[:hr].to_i,
+          rbi: stat_line[:rbi].to_i, bb: stat_line[:bb].to_i, k: stat_line[:k].to_i, r: stat_line[:r].to_i,
+          double: stat_line[:double].to_i, triple: stat_line[:triple].to_i,
+          hbp: stat_line[:hbp].to_i, sf: stat_line[:sf].to_i,
         }
       end
     end
 
     def pitching_lines(pitchers, stats)
-      pitchers.filter_map do |p|
-        s = stats[p[:player_id]]
-        next unless s && s[:bf].to_i > 0
-        outs  = s[:outs].to_i
-        ip    = "#{outs / 3}.#{outs % 3}"
+      pitchers.filter_map do |player|
+        stat_line = stats[player[:player_id]]
+        next unless stat_line && stat_line[:bf].to_i > 0
+        outs = stat_line[:outs].to_i
+        ip   = "#{outs / 3}.#{outs % 3}"
         {
-          player_id: p[:player_id],
-          name:      p[:name],
-          ip: ip, h: s[:h].to_i, er: s[:er].to_i,
-          bb: s[:bb].to_i, k: s[:k].to_i,
-          bf: s[:bf].to_i, hr: s[:hr].to_i,
-          decision: s[:decision],
+          player_id: player[:player_id],
+          name:      player[:name],
+          ip: ip, h: stat_line[:h].to_i, er: stat_line[:er].to_i,
+          bb: stat_line[:bb].to_i, k: stat_line[:k].to_i,
+          bf: stat_line[:bf].to_i, hr: stat_line[:hr].to_i,
+          decision: stat_line[:decision],
         }
       end
     end
@@ -1294,10 +1303,10 @@ class SimulationService
 
     # Extract bullpen_roles hash from roster for passing to the engine's role-based decisions.
     def bullpen_roles_for(roster)
-      JSON.parse(roster.bullpen_roles_json || '{}').transform_keys(&:to_sym).tap do |r|
-        r[:closer_id] = r[:closer_id]&.to_i
-        r[:setup_ids] = Array(r[:setup_ids]).map(&:to_i)
-        r[:long_ids]  = Array(r[:long_ids]).map(&:to_i)
+      JSON.parse(roster.bullpen_roles_json || '{}').transform_keys(&:to_sym).tap do |roles|
+        roles[:closer_id] = roles[:closer_id]&.to_i
+        roles[:setup_ids] = Array(roles[:setup_ids]).map(&:to_i)
+        roles[:long_ids]  = Array(roles[:long_ids]).map(&:to_i)
       end
     end
 
@@ -1544,17 +1553,17 @@ class SimulationService
     end
 
     def stat_row(stat, roster_map, ratings_map = {})
-      r       = roster_map[stat.team_id]
+      roster  = roster_map[stat.team_id]
       ratings = ratings_map[stat.player_id]
       row = { player_id: stat.player_id, player_name: stat.player_name,
-              team_id: stat.team_id, team_abbr: r&.team_abbr, team_color: r&.team_color,
+              team_id: stat.team_id, team_abbr: roster&.team_abbr, team_color: roster&.team_color,
               **serialize_player_stat(stat) }
       row[:ratings] = ratings if ratings.present?
       row
     end
 
     def top_batters(batters, roster_map, sort_key, limit, ratings_map = {})
-      qualified = batters.select { |s| s.ab >= 50 }
+      qualified = batters.select { |s| s.ab >= MIN_QUALIFYING_AB }
       sorted = case sort_key
                when :avg_val  then qualified.sort_by { |s| -s.avg }
                when :ops_val  then qualified.sort_by { |s| -s.ops }
@@ -1567,8 +1576,7 @@ class SimulationService
     end
 
     def top_pitchers(pitchers, roster_map, sort_key, limit, ratings_map = {}, asc: false)
-      min_ip = 10
-      filtered = pitchers.select { |s| s.outs_pitched >= min_ip * 3 }
+      filtered = pitchers.select { |s| s.outs_pitched >= MIN_QUALIFYING_IP * 3 }
       sorted = case sort_key
                when :era_val  then filtered.sort_by { |s| asc ? s.era  : -s.era  }
                when :whip_val then filtered.sort_by { |s| asc ? s.whip : -s.whip }
@@ -1603,14 +1611,14 @@ class SimulationService
     # ── Injury / transaction serializers ─────────────────────────────────────
 
     def serialize_injury(inj, roster_map)
-      r = roster_map[inj.team_id]
+      roster = roster_map[inj.team_id]
       {
         id:             inj.id,
         player_id:      inj.player_id,
         player_name:    inj.player_name,
         team_id:        inj.team_id,
-        team_abbr:      r&.team_abbr,
-        team_color:     r&.team_color,
+        team_abbr:      roster&.team_abbr,
+        team_color:     roster&.team_color,
         severity:       inj.severity,
         il_start_date:  inj.il_start_date.to_s,
         il_end_date:    inj.il_end_date.to_s,
@@ -1620,7 +1628,7 @@ class SimulationService
     end
 
     def serialize_transaction(tx, roster_map)
-      r = roster_map[tx.team_id]
+      roster = roster_map[tx.team_id]
       {
         id:          tx.id,
         event_type:  tx.event_type,
@@ -1628,8 +1636,8 @@ class SimulationService
         player_id:   tx.player_id,
         player_name: tx.player_name,
         team_id:     tx.team_id,
-        team_abbr:   r&.team_abbr,
-        team_color:  r&.team_color,
+        team_abbr:   roster&.team_abbr,
+        team_color:  roster&.team_color,
         metadata:    tx.metadata,
       }
     end

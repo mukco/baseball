@@ -38,7 +38,7 @@ RSpec.describe SimulationService do
     mlb = instance_double(MlbApiService)
     allow(MlbApiService).to receive(:new).and_return(mlb)
     allow(mlb).to receive(:all_teams).and_return(fake_teams)
-    allow(mlb).to receive(:send).with(:team_roster, anything).and_return(fake_roster)
+    allow(mlb).to receive(:team_roster).with(anything).and_return(fake_roster)
     allow(mlb).to receive(:season_schedule).and_return(fake_schedule)
     mlb
   end

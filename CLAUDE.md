@@ -1,5 +1,11 @@
 # CLAUDE.md
 
+## Explanations
+
+When explaining how something works, always include relevant code snippets when they are available. Pull from the actual source files rather than writing illustrative pseudocode.
+
+---
+
 ## Project Guidance
 
 ### Use Global Claude Skills

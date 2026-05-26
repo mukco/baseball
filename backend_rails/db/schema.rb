@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_18_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_19_000001) do
   create_table "player_projections", force: :cascade do |t|
     t.text "accuracy_delta"
     t.text "actual_stats"
@@ -283,6 +283,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_18_000003) do
     t.integer "winner_team_id"
     t.index ["simulation_league_id", "round", "league", "series_index"], name: "index_sim_playoff_series_on_league_round", unique: true
     t.index ["simulation_league_id"], name: "index_sim_playoff_series_on_league_id"
+  end
+
+  create_table "simulation_presets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.text "params_json", default: "{}", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_simulation_presets_on_name", unique: true
   end
 
   create_table "simulation_rosters", force: :cascade do |t|

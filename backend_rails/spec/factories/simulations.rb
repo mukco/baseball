@@ -89,6 +89,11 @@ FactoryBot.define do
     params_json { SimulationConfig::DEFAULTS.to_json }
   end
 
+  factory :simulation_preset do
+    sequence(:name) { |n| "Preset #{n}" }
+    params_json { SimulationConfig::DEFAULTS.to_json }
+  end
+
   factory :simulation_injury do
     association :simulation_league
     sequence(:player_id) { |n| 700_000 + n }

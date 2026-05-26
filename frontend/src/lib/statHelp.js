@@ -504,7 +504,111 @@ const STAT_HELP = {
     formula: 'Blast contacts / total swings.',
     interpretation: 'Higher is better. Combines effort (Hard Swing%) and execution (Squared-Up%) — the gold standard for measuring swing quality.',
     intuition: 'Think of it as the share of swings where a batter brought max effort AND made pure contact. It predicts hard-hit rate and power output better than either component alone.'
-  }
+  },
+
+  // ── Pitch-by-pitch (Statcast) columns ──────────────────────────────────────
+  pitchType: {
+    label: 'Pitch Type',
+    definition: 'Abbreviated pitch classification: FF = 4-seam fastball, SI = sinker, SL = slider, CH = changeup, CU = curveball, FC = cutter, ST = sweeper, FS = splitter, KC = knuckle-curve.',
+    interpretation: 'Primary classification for pitch sequencing and model target labels.',
+    intuition: 'Think of it as the pitch\'s identity — the most widely used classification system in the game.',
+  },
+  pitchName: {
+    label: 'Pitch Name',
+    definition: 'Full English name of the pitch type: "4-Seam Fastball", "Slider", "Changeup", etc.',
+    interpretation: 'Human-readable version of pitch_type.',
+    intuition: 'Think of it as the spelled-out pitch type — same information as pitch_type but readable.',
+  },
+  releaseSpeed: {
+    label: 'Release Speed',
+    definition: 'Pitch velocity in mph measured at the point of release from the pitcher\'s hand.',
+    interpretation: 'Higher is generally better for fastballs; context-dependent for off-speed.',
+    intuition: 'Think of it as raw velocity — 95+ mph is top-tier for four-seamers.',
+  },
+  releaseSpinRate: {
+    label: 'Spin Rate',
+    definition: 'Revolutions per minute of the ball\'s rotation as it leaves the pitcher\'s hand.',
+    interpretation: 'Higher spin generally creates more movement; optimal rate varies by pitch type.',
+    intuition: 'Think of it as how much the ball rotates — high spin on a four-seam makes it appear to rise; on a curve, it creates sharper break.',
+  },
+  releaseExtension: {
+    label: 'Extension',
+    definition: 'Distance in feet in front of the pitching rubber where the ball is released.',
+    interpretation: 'More extension shortens the effective distance to the plate, increasing perceived velocity.',
+    intuition: 'Think of it as how close to the batter the pitcher releases — 7 ft of extension makes 95 mph feel closer to 97.',
+  },
+  pfxX: {
+    label: 'Horizontal Break (pfx_x)',
+    definition: 'Horizontal movement in inches relative to a theoretical spinless trajectory, from the catcher\'s perspective. Positive = arm side.',
+    interpretation: 'Descriptive movement stat; effectiveness depends on pitch type and sequencing.',
+    intuition: 'Think of it as side-to-side break — a right-hander\'s slider moves away from a left-handed batter.',
+  },
+  pfxZ: {
+    label: 'Induced Vertical Break (pfx_z)',
+    definition: 'Induced vertical movement in inches relative to a spinless trajectory. Positive = upward "rise"; negative = additional drop.',
+    interpretation: 'High pfx_z means spin fights gravity (rising fastball effect); low means extra sink.',
+    intuition: 'Think of it as how spin fights or aids gravity — a high-spin four-seam appears to rise; a sinker drops more than expected.',
+  },
+  plateX: {
+    label: 'Plate X (horizontal location)',
+    definition: 'Horizontal position of the pitch crossing home plate, in feet from the center of the plate. Negative = glove side.',
+    interpretation: 'Combine with plate_z to map pitch location within or outside the strike zone.',
+    intuition: 'Think of it as the left-right location at the plate — 0 is the middle, ±0.83 ft is roughly the edge of the zone.',
+  },
+  plateZ: {
+    label: 'Plate Z (vertical location)',
+    definition: 'Vertical position of the pitch crossing home plate, in feet above the ground.',
+    interpretation: 'Typical strike zone is roughly 1.5–3.5 ft depending on the batter\'s height.',
+    intuition: 'Think of it as pitch height at the plate — 2.5 ft is middle of the zone for most hitters.',
+  },
+  zone: {
+    label: 'Zone',
+    definition: 'MLB strike zone classification grid: zones 1–9 are inside the strike zone, zones 11–14 are shadow zones just outside.',
+    interpretation: 'Used to categorize pitch location for command and sequencing analysis.',
+    intuition: 'Think of it as a grid over the plate — 5 is the heart, 13 is low and away.',
+  },
+  ballCount: {
+    label: 'Balls',
+    definition: 'The ball count (0–3) at the time this pitch was thrown.',
+    interpretation: 'Context variable — pitchers pitch differently in hitter\'s counts (3-1) vs. pitcher\'s counts (0-2).',
+    intuition: 'Think of it as count pressure on the pitcher — 3-0 means they must throw a strike.',
+  },
+  strikeCount: {
+    label: 'Strikes',
+    definition: 'The strike count (0–2) at the time this pitch was thrown.',
+    interpretation: 'Context variable — 0-2 allows pitchers to expand the zone; 3-2 is maximum tension.',
+    intuition: 'Think of it as the batter\'s urgency — 0-2 means the pitcher can waste a pitch.',
+  },
+  outsWhenUp: {
+    label: 'Outs When Up',
+    definition: 'Number of outs recorded (0–2) when this pitch was thrown.',
+    interpretation: 'Context variable for situational pitching and hitting analysis.',
+    intuition: 'Think of it as inning context — 2 outs means the pitcher is one away from ending the inning.',
+  },
+  batterHand: {
+    label: 'Batter Hand',
+    definition: 'Handedness of the batter: L = left-handed, R = right-handed.',
+    interpretation: 'Critical for platoon splits and pitch-sequencing analysis.',
+    intuition: 'Think of it as matchup handedness — righties and lefties see the same breaking ball very differently.',
+  },
+  pitcherHand: {
+    label: 'Pitcher Hand',
+    definition: 'Throwing arm of the pitcher: L = left-handed, R = right-handed.',
+    interpretation: 'Key for platoon splits and pitch-type effectiveness.',
+    intuition: 'Think of it as the pitcher\'s arm — combined with batter hand it defines the platoon matchup.',
+  },
+  pitchDescription: {
+    label: 'Pitch Result',
+    definition: 'Outcome of this individual pitch: called_strike, swinging_strike, ball, foul, foul_tip, hit_into_play, blocked_ball, etc.',
+    interpretation: 'Categorical pitch-level outcome; useful as a target for pitch result classification.',
+    intuition: 'Think of it as what happened on the pitch — did the batter swing, take it, foul it, or put it in play?',
+  },
+  paOutcome: {
+    label: 'PA Outcome',
+    definition: 'Plate appearance result recorded on the final pitch of the at-bat: single, home_run, strikeout, walk, field_out, etc. Null on non-terminal pitches.',
+    interpretation: 'Only populated on the last pitch of each plate appearance.',
+    intuition: 'Think of it as what happened at the end of the at-bat — only the final pitch carries an event.',
+  },
 }
 
 const STAT_ALIASES = {
@@ -616,7 +720,27 @@ const STAT_ALIASES = {
   stolen_bases: 'stolenBases',
   home_runs: 'homeRuns',
   games_played: 'gamesPlayed',
-  tbf: 'plateAppearances'
+  tbf: 'plateAppearances',
+  // Pitch-by-pitch (Statcast) column aliases
+  pitch_type:                         'pitchType',
+  pitch_name:                         'pitchName',
+  release_speed:                      'releaseSpeed',
+  release_spin_rate:                  'releaseSpinRate',
+  release_extension:                  'releaseExtension',
+  pfx_x:                              'pfxX',
+  pfx_z:                              'pfxZ',
+  plate_x:                            'plateX',
+  plate_z:                            'plateZ',
+  zone:                               'zone',
+  balls:                              'ballCount',
+  strikes:                            'strikeCount',
+  outs_when_up:                       'outsWhenUp',
+  stand:                              'batterHand',
+  p_throws:                           'pitcherHand',
+  description:                        'pitchDescription',
+  events:                             'paOutcome',
+  launch_speed:                       'exitVelo',
+  estimated_woba_using_speedangle:    'xwoba',
 }
 
 function normalizeStatKey(value) {

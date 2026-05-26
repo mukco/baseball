@@ -36,11 +36,24 @@ def train_model(config: dict) -> dict:
 
     if task == "classification":
         y = y_raw.astype(str)
+        # Drop classes with only one sample — they can't appear in both splits.
+        unique, counts = np.unique(y, return_counts=True)
+        keep = set(unique[counts >= 2])
+        mask = np.array([label in keep for label in y])
+        X, y = X[mask], y[mask]
+        if len(X) < 20:
+            dropped = len(y_raw) - len(X)
+            raise ValueError(
+                f"Too few usable rows ({len(X)}) for classification after removing "
+                f"{dropped} singleton-class samples. Consider enabling 'Bin target' "
+                "to group continuous values into categories."
+            )
     else:
         y = y_raw.astype(np.float64)
 
+    stratify = y if task == "classification" else None
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42
+        X, y, test_size=test_size, random_state=42, stratify=stratify
     )
 
     if model_type in NN_TYPES:

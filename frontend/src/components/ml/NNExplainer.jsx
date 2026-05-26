@@ -46,6 +46,38 @@ Gradient Boosting trains trees sequentially, each one correcting the errors of t
 
 Both produce feature importances showing which stats mattered most.`,
   },
+  {
+    title: 'Features (X) and target (y)',
+    content: `Features (X) are the input columns the model uses to make its prediction — e.g. woba, fb_pct, slg. Target (y) is what you're predicting — e.g. hr.
+
+Hyperparameters are settings you choose before training: learning rate, epochs, layer sizes, dropout. These are not learned by the model — they require human judgment. Contrast with model parameters (weights and biases) which are learned automatically during training.
+
+StandardScaler normalizes each feature to mean 0, std 1 so that features on different scales (like ERA and strikeouts) contribute equally. LabelEncoder converts string class labels into integer indices so the model can work with them.`,
+  },
+  {
+    title: 'Why train and test data stay separate',
+    content: `The test set simulates the real world — future data the model has never seen. If anything (the scaler, the label encoder) is fit on test data too, you leak information about the test distribution into training and the evaluation is no longer honest.
+
+Training data teaches. Test data grades. If the grader shows you the answers first, the grade means nothing.
+
+The test split slider controls what fraction of rows is held back. 20% is a common default — the model trains on 80% and is evaluated on the remaining 20%.`,
+  },
+  {
+    title: 'How to read regression metrics',
+    content: `R² (R-squared) measures how much of the natural spread in the target your model explains. 1.0 is perfect; 0.0 means the model is no better than predicting the average every time; negative means it's actively worse.
+
+MAE (Mean Absolute Error) is the average prediction error in the same units as your target — easy to interpret. If predicting HR totals and MAE is 3.0, you're off by 3 HRs on average.
+
+RMSE (Root Mean Squared Error) squares the errors before averaging, then takes the square root. It amplifies large mistakes more than small ones, so it's always ≥ MAE. A large gap between RMSE and MAE signals a few bad outlier predictions.`,
+  },
+  {
+    title: 'How to read classification metrics',
+    content: `Accuracy alone is misleading — a model that predicts "low HR" for everyone can hit 70% accuracy just because most batters are low-HR guys.
+
+Precision: of all the players the model predicted as "31+ HR hitters", how many actually were? Recall: of all actual "31+ HR hitters", how many did the model catch? F1 is the harmonic mean of the two — useful when classes are imbalanced.
+
+The confusion matrix shows where errors are happening class by class. Bright blue diagonal = correct predictions. Red off-diagonal cells = where the model is confused. A model that's 70% accurate but has a blank row for rare classes has learned nothing about those classes.`,
+  },
 ]
 
 export default function NNExplainer({ onClose }) {

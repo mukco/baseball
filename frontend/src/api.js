@@ -63,7 +63,8 @@ export const api = {
     teams: (season = CURRENT_SEASON, group = 'batting') => fetchJSON(`/leaderboards/teams?season=${season}&group=${group}`),
   },
   news: {
-    list: (topic = 'all', limit = 50) => fetchJSON(`/news?topic=${encodeURIComponent(topic)}&limit=${limit}`),
+    list:      (topic = 'all', limit = 50) => fetchJSON(`/news?topic=${encodeURIComponent(topic)}&limit=${limit}`),
+    forPlayer: (name)                       => fetchJSON(`/news?player_name=${encodeURIComponent(name)}`),
   },
   mlb: {
     watch: (gamePk) => fetchJSON(`/mlb/watch/${gamePk}`),
@@ -205,7 +206,9 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
-    advance: (id) => fetchJSON(`/franchises/${id}/advance`, { method: 'POST' }),
+    advance:       (id)               => fetchJSON(`/franchises/${id}/advance`, { method: 'POST' }),
+    playerHistory: (id, playerId)     => fetchJSON(`/franchises/${id}/player_history/${playerId}`),
+    teamHistory:   (id, teamId)       => fetchJSON(`/franchises/${id}/team_history/${teamId}`),
   },
   simulations: {
     list: () => fetchJSON('/simulations'),
@@ -281,8 +284,25 @@ export const api = {
       body:    JSON.stringify({ preset }),
     }),
   },
+  simulationPresets: {
+    list:    ()             => fetchJSON('/simulation_presets'),
+    create:  (name, params) => fetchJSON('/simulation_presets', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name, params }),
+    }),
+    destroy: (id)           => fetchJSON(`/simulation_presets/${id}`, { method: 'DELETE' }),
+  },
   cache: {
     status: () => fetchJSON('/cache/status'),
     warm: (tier) => fetchJSON(`/cache/warm${tier ? `?tier=${tier}` : ''}`, { method: 'POST' }),
+  },
+  settings: {
+    get: () => fetchJSON('/settings'),
+    update: (attrs) => fetchJSON('/settings', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ settings: attrs }),
+    }),
   },
 }

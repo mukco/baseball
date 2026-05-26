@@ -4,8 +4,9 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import PlayerHoverCard from './PlayerHoverCard'
 
-// Matches 2+ capitalized words that look like player names (e.g. "Mike Trout", "J.D. Martinez")
-const NAME_RE = /\b([A-Z][a-zA-Z.'-]*(?:\s+[A-Z][a-zA-Z.'-]+)+)\b/g
+// Matches exactly 2 capitalized words separated by spaces (e.g. "Mike Trout", "J.D. Martinez")
+// Deliberately space-only (not \s) to prevent newline-spanning matches from verbose AI prose
+const NAME_RE = /\b([A-Z][a-zA-Z.'-]+ +[A-Z][a-zA-Z.'-]+)\b/g
 // Matches numbers / decimals / percentages for bolding
 const NUM_RE = /(\b\d+\.?\d*%?|\.\d+\b)/
 

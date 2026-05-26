@@ -15,7 +15,7 @@
     "risk": "High",
     "tldr": "Griffin is a freaky five-tool superstar with big power and enough contact ability to weaponize it. He's also incredibly fast and has quickly developed into a plus shortstop. He's about to be one of the best young players in the game.",
     "tools": {
-      "hit": "45 / 60",
+      "hit": "40 / 60",
       "power": "60 / 70",
       "run": "70 / 70",
       "field": "55 / 60",
@@ -99,7 +99,7 @@
     "team": "DET",
     "fgTeam": "DET",
     "level": "MLB",
-    "age": 21.7,
+    "age": 21.8,
     "bats": "L",
     "throws": "R",
     "fv": 60,
@@ -163,6 +163,29 @@
   {
     "rank": 8,
     "orgRank": 1,
+    "name": "Franklin Arias",
+    "position": "SS",
+    "team": "BOS",
+    "fgTeam": "BOS",
+    "level": "AA",
+    "age": 20.5,
+    "bats": "R",
+    "throws": "R",
+    "fv": 60,
+    "eta": 2028,
+    "risk": "Med",
+    "tldr": "Arias projects as a plus defender at short with a plus hit tool, making him one of the highest-floored prospects in the game.",
+    "tools": {
+      "hit": "50 / 60",
+      "power": "45 / 50",
+      "run": "50 / 50",
+      "field": "55 / 60",
+      "arm": "55 / 55"
+    }
+  },
+  {
+    "rank": 9,
+    "orgRank": 1,
     "name": "Trey Yesavage",
     "position": "SP",
     "team": "TOR",
@@ -182,7 +205,7 @@
     }
   },
   {
-    "rank": 9,
+    "rank": 10,
     "orgRank": 0,
     "name": "Thomas White",
     "position": "SP",
@@ -204,7 +227,7 @@
     }
   },
   {
-    "rank": 10,
+    "rank": 11,
     "orgRank": 0,
     "name": "Bubba Chandler",
     "position": "SP",
@@ -226,13 +249,13 @@
     }
   },
   {
-    "rank": 11,
+    "rank": 12,
     "orgRank": 1,
     "name": "Colt Emerson",
     "position": "SS",
     "team": "SEA",
     "fgTeam": "SEA",
-    "level": "AAA",
+    "level": "MLB",
     "age": 20.8,
     "bats": "L",
     "throws": "R",
@@ -249,7 +272,7 @@
     }
   },
   {
-    "rank": 12,
+    "rank": 13,
     "orgRank": 1,
     "name": "JJ Wetherholt",
     "position": "2B",
@@ -272,29 +295,6 @@
     }
   },
   {
-    "rank": 13,
-    "orgRank": 0,
-    "name": "Franklin Arias",
-    "position": "SS",
-    "team": "BOS",
-    "fgTeam": "BOS",
-    "level": "AA",
-    "age": 20.5,
-    "bats": "R",
-    "throws": "R",
-    "fv": 55,
-    "eta": 2028,
-    "risk": "Med",
-    "tldr": "Arias projects as a plus defender at short with a plus hit tool, making him one of the highest-floored prospects in the game.",
-    "tools": {
-      "hit": "50 / 60",
-      "power": "40 / 45",
-      "run": "40 / 50",
-      "field": "55 / 60",
-      "arm": "55 / 55"
-    }
-  },
-  {
     "rank": 14,
     "orgRank": 1,
     "name": "Eli Willits",
@@ -302,7 +302,7 @@
     "team": "WSH",
     "fgTeam": "WSN",
     "level": "A",
-    "age": 18.4,
+    "age": 18.5,
     "bats": "S",
     "throws": "R",
     "fv": 55,
@@ -342,13 +342,13 @@
   },
   {
     "rank": 16,
-    "orgRank": 0,
+    "orgRank": 2,
     "name": "Payton Tolle",
     "position": "SP",
     "team": "BOS",
     "fgTeam": "BOS",
     "level": "MLB",
-    "age": 23.5,
+    "age": 23.6,
     "bats": "L",
     "throws": "L",
     "fv": 55,
@@ -356,10 +356,10 @@
     "risk": "Med",
     "tldr": "Tolle's a huge, boxy guy with a monster fastball. The development of his secondaries will determine where he best fits in the rotation long-term.",
     "tools": {
-      "fb": "70 / 80",
-      "sl": "40 / 45",
-      "ch": "40 / 50",
-      "cmd": "45 / 50"
+      "fb": "80 / 80",
+      "cb": "45 / 45",
+      "ch": "50 / 55",
+      "cmd": "50 / 55"
     }
   },
   {
@@ -568,6 +568,29 @@
   },
   {
     "rank": 26,
+    "orgRank": 3,
+    "name": "Anthony Eyanson",
+    "position": "SP",
+    "team": "BOS",
+    "fgTeam": "BOS",
+    "level": "AA",
+    "age": 21.6,
+    "bats": "R",
+    "throws": "R",
+    "fv": 55,
+    "eta": 2027,
+    "risk": "Med",
+    "tldr": null,
+    "tools": {
+      "fb": "55 / 55",
+      "sl": "55 / 60",
+      "cb": "55 / 60",
+      "ch": "50 / 60",
+      "cmd": "40 / 55"
+    }
+  },
+  {
+    "rank": 27,
     "orgRank": 0,
     "name": "Carson Williams",
     "position": "SS",
@@ -590,7 +613,7 @@
     }
   },
   {
-    "rank": 27,
+    "rank": 28,
     "orgRank": 3,
     "name": "Bryce Rainer",
     "position": "SS",
@@ -613,14 +636,14 @@
     }
   },
   {
-    "rank": 28,
+    "rank": 29,
     "orgRank": 2,
     "name": "Aidan Miller",
     "position": "SS",
     "team": "PHI",
     "fgTeam": "PHI",
     "level": "AAA",
-    "age": 21.9,
+    "age": 22.0,
     "bats": "R",
     "throws": "R",
     "fv": 55,
@@ -636,14 +659,14 @@
     }
   },
   {
-    "rank": 29,
+    "rank": 30,
     "orgRank": 2,
     "name": "Jarlin Susana",
     "position": "SP",
     "team": "WSH",
     "fgTeam": "WSN",
     "level": "AA",
-    "age": 22.1,
+    "age": 22.2,
     "bats": "R",
     "throws": "R",
     "fv": 55,
@@ -658,7 +681,7 @@
     }
   },
   {
-    "rank": 30,
+    "rank": 31,
     "orgRank": 1,
     "name": "Sebastian Walcott",
     "position": "SS",
@@ -681,14 +704,14 @@
     }
   },
   {
-    "rank": 31,
+    "rank": 32,
     "orgRank": 0,
     "name": "Walker Jenkins",
     "position": "CF",
     "team": "MIN",
     "fgTeam": "MIN",
     "level": "AAA",
-    "age": 21.2,
+    "age": 21.3,
     "bats": "L",
     "throws": "R",
     "fv": 50,
@@ -704,7 +727,7 @@
     }
   },
   {
-    "rank": 32,
+    "rank": 33,
     "orgRank": 1,
     "name": "Carter Jensen",
     "position": "C",
@@ -727,7 +750,7 @@
     }
   },
   {
-    "rank": 33,
+    "rank": 34,
     "orgRank": 1,
     "name": "Caleb Bonemer",
     "position": "3B",
@@ -750,14 +773,14 @@
     }
   },
   {
-    "rank": 34,
+    "rank": 35,
     "orgRank": 2,
     "name": "Sal Stewart",
     "position": "3B",
     "team": "CIN",
     "fgTeam": "CIN",
     "level": "MLB",
-    "age": 22.4,
+    "age": 22.5,
     "bats": "R",
     "throws": "R",
     "fv": 50,
@@ -773,7 +796,7 @@
     }
   },
   {
-    "rank": 35,
+    "rank": 36,
     "orgRank": 1,
     "name": "Ryan Waldschmidt",
     "position": "LF",
@@ -796,7 +819,7 @@
     }
   },
   {
-    "rank": 36,
+    "rank": 37,
     "orgRank": 2,
     "name": "Noah Schultz",
     "position": "SP",
@@ -818,7 +841,7 @@
     }
   },
   {
-    "rank": 37,
+    "rank": 38,
     "orgRank": 3,
     "name": "Brandon Sproat",
     "position": "SP",
@@ -841,8 +864,8 @@
     }
   },
   {
-    "rank": 38,
-    "orgRank": 0,
+    "rank": 39,
+    "orgRank": 4,
     "name": "Connelly Early",
     "position": "SP",
     "team": "BOS",
@@ -864,7 +887,7 @@
     }
   },
   {
-    "rank": 39,
+    "rank": 40,
     "orgRank": 2,
     "name": "Dylan Beavers",
     "position": "LF",
@@ -887,7 +910,7 @@
     }
   },
   {
-    "rank": 40,
+    "rank": 41,
     "orgRank": 1,
     "name": "Moisés Ballesteros",
     "position": "C",
@@ -910,13 +933,13 @@
     }
   },
   {
-    "rank": 41,
+    "rank": 42,
     "orgRank": 2,
     "name": "Ralphy Velazquez",
     "position": "1B",
     "team": "CLE",
     "fgTeam": "CLE",
-    "level": "AA",
+    "level": "AAA",
     "age": 21.0,
     "bats": "L",
     "throws": "R",
@@ -933,7 +956,7 @@
     }
   },
   {
-    "rank": 42,
+    "rank": 43,
     "orgRank": 3,
     "name": "Angel Genao",
     "position": "SS",
@@ -956,7 +979,7 @@
     }
   },
   {
-    "rank": 43,
+    "rank": 44,
     "orgRank": 2,
     "name": "Eduardo Quintero",
     "position": "CF",
@@ -979,7 +1002,7 @@
     }
   },
   {
-    "rank": 44,
+    "rank": 45,
     "orgRank": 0,
     "name": "Josuar Gonzalez",
     "position": "SS",
@@ -1002,7 +1025,7 @@
     }
   },
   {
-    "rank": 45,
+    "rank": 46,
     "orgRank": 0,
     "name": "Seth Hernandez",
     "position": "SP",
@@ -1024,7 +1047,7 @@
     }
   },
   {
-    "rank": 46,
+    "rank": 47,
     "orgRank": 0,
     "name": "Eduardo Tait",
     "position": "C",
@@ -1047,7 +1070,7 @@
     }
   },
   {
-    "rank": 47,
+    "rank": 48,
     "orgRank": 1,
     "name": "Ethan Holliday",
     "position": "3B",
@@ -1070,7 +1093,7 @@
     }
   },
   {
-    "rank": 48,
+    "rank": 49,
     "orgRank": 2,
     "name": "Arjun Nimmala",
     "position": "SS",
@@ -1093,7 +1116,7 @@
     }
   },
   {
-    "rank": 49,
+    "rank": 50,
     "orgRank": 1,
     "name": "George Lombard Jr.",
     "position": "SS",
@@ -1116,7 +1139,7 @@
     }
   },
   {
-    "rank": 50,
+    "rank": 51,
     "orgRank": 4,
     "name": "Parker Messick",
     "position": "SP",
@@ -1139,7 +1162,7 @@
     }
   },
   {
-    "rank": 51,
+    "rank": 52,
     "orgRank": 3,
     "name": "Kade Anderson",
     "position": "SP",
@@ -1162,7 +1185,7 @@
     }
   },
   {
-    "rank": 52,
+    "rank": 53,
     "orgRank": 4,
     "name": "Jonny Farmelo",
     "position": "CF",
@@ -1185,7 +1208,7 @@
     }
   },
   {
-    "rank": 53,
+    "rank": 54,
     "orgRank": 1,
     "name": "Tyler Bremner",
     "position": "SP",
@@ -1207,14 +1230,14 @@
     }
   },
   {
-    "rank": 54,
+    "rank": 55,
     "orgRank": 2,
     "name": "Elmer Rodríguez",
     "position": "SP",
     "team": "NYY",
     "fgTeam": "NYY",
     "level": "MLB",
-    "age": 22.7,
+    "age": 22.8,
     "bats": "L",
     "throws": "R",
     "fv": 50,
@@ -1230,7 +1253,7 @@
     }
   },
   {
-    "rank": 55,
+    "rank": 56,
     "orgRank": 5,
     "name": "Travis Bazzana",
     "position": "2B",
@@ -1253,7 +1276,7 @@
     }
   },
   {
-    "rank": 56,
+    "rank": 57,
     "orgRank": 2,
     "name": "Jefferson Rojas",
     "position": "SS",
@@ -1276,7 +1299,7 @@
     }
   },
   {
-    "rank": 57,
+    "rank": 58,
     "orgRank": 0,
     "name": "Joe Mack",
     "position": "C",
@@ -1299,13 +1322,13 @@
     }
   },
   {
-    "rank": 58,
+    "rank": 59,
     "orgRank": 3,
     "name": "Emil Morales",
     "position": "SS",
     "team": "LAD",
     "fgTeam": "LAD",
-    "level": "A",
+    "level": "A+",
     "age": 19.7,
     "bats": "R",
     "throws": "R",
@@ -1322,7 +1345,7 @@
     }
   },
   {
-    "rank": 59,
+    "rank": 60,
     "orgRank": 3,
     "name": "Carlos Lagrange",
     "position": "SIRP",
@@ -1339,14 +1362,14 @@
     "tools": {}
   },
   {
-    "rank": 60,
+    "rank": 61,
     "orgRank": 3,
     "name": "Jonah Tong",
     "position": "SP",
     "team": "NYM",
     "fgTeam": "NYM",
     "level": "MLB",
-    "age": 22.9,
+    "age": 23.0,
     "bats": "R",
     "throws": "R",
     "fv": 50,
@@ -1362,7 +1385,7 @@
     }
   },
   {
-    "rank": 61,
+    "rank": 62,
     "orgRank": 0,
     "name": "Brody Hopkins",
     "position": "SP",
@@ -1384,7 +1407,7 @@
     }
   },
   {
-    "rank": 62,
+    "rank": 63,
     "orgRank": 3,
     "name": "Luis De León",
     "position": "SP",
@@ -1406,14 +1429,14 @@
     }
   },
   {
-    "rank": 63,
+    "rank": 64,
     "orgRank": 3,
     "name": "Hagen Smith",
     "position": "SP",
     "team": "CWS",
     "fgTeam": "CHW",
     "level": "AAA",
-    "age": 22.7,
+    "age": 22.8,
     "bats": "L",
     "throws": "L",
     "fv": 50,
@@ -1428,7 +1451,7 @@
     }
   },
   {
-    "rank": 64,
+    "rank": 65,
     "orgRank": 0,
     "name": "Owen Caissie",
     "position": "RF",
@@ -1451,7 +1474,7 @@
     }
   },
   {
-    "rank": 65,
+    "rank": 66,
     "orgRank": 2,
     "name": "Charlie Condon",
     "position": "LF",
@@ -1474,7 +1497,7 @@
     }
   },
   {
-    "rank": 66,
+    "rank": 67,
     "orgRank": 4,
     "name": "Zyhir Hope",
     "position": "RF",
@@ -1497,7 +1520,7 @@
     }
   },
   {
-    "rank": 67,
+    "rank": 68,
     "orgRank": 5,
     "name": "Lazaro Montes",
     "position": "RF",
@@ -1520,7 +1543,7 @@
     }
   },
   {
-    "rank": 68,
+    "rank": 69,
     "orgRank": 1,
     "name": "JR Ritchie",
     "position": "SP",
@@ -1543,7 +1566,7 @@
     }
   },
   {
-    "rank": 69,
+    "rank": 70,
     "orgRank": 4,
     "name": "Dax Kilby",
     "position": "SS",
@@ -1566,7 +1589,7 @@
     }
   },
   {
-    "rank": 70,
+    "rank": 71,
     "orgRank": 2,
     "name": "Yolfran Castillo",
     "position": "SS",
@@ -1589,7 +1612,7 @@
     }
   },
   {
-    "rank": 71,
+    "rank": 72,
     "orgRank": 3,
     "name": "Caden Scarborough",
     "position": "SP",
@@ -1611,7 +1634,7 @@
     }
   },
   {
-    "rank": 72,
+    "rank": 73,
     "orgRank": 2,
     "name": "Didier Fuentes",
     "position": "SP",
@@ -1634,894 +1657,7 @@
     }
   },
   {
-    "rank": 73,
-    "orgRank": 0,
-    "name": "Robby Snelling",
-    "position": "SP",
-    "team": "MIA",
-    "fgTeam": "MIA",
-    "level": "MLB",
-    "age": 22.4,
-    "bats": "R",
-    "throws": "L",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "Snelling went to a third party facility and changed his delivery, then had a proper breakout in 2025. He's now on track to be in Miami's rotation during the next year or so.",
-    "tools": {
-      "fb": "60 / 60",
-      "sl": "45 / 45",
-      "cb": "50 / 55",
-      "ch": "45 / 50",
-      "cmd": "50 / 50"
-    }
-  },
-  {
     "rank": 74,
-    "orgRank": 2,
-    "name": "Gage Jump",
-    "position": "SP",
-    "team": "OAK",
-    "fgTeam": "ATH",
-    "level": "AAA",
-    "age": 23.1,
-    "bats": "L",
-    "throws": "L",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "Jump made strike-throwing improvements and demonstrated 100-inning stamina in 2025, putting him on track to be a fastball-heavy mid-rotation starter.",
-    "tools": {
-      "fb": "60 / 60",
-      "sl": "60 / 60",
-      "cb": "50 / 50",
-      "cmd": "35 / 45"
-    }
-  },
-  {
-    "rank": 75,
-    "orgRank": 2,
-    "name": "George Klassen",
-    "position": "SP",
-    "team": "LAA",
-    "fgTeam": "LAA",
-    "level": "MLB",
-    "age": 24.3,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "High",
-    "tldr": "Klassen has always had big stuff, and now he's hitting the zone often enough to project him as a good five-and-dive type.",
-    "tools": {
-      "fb": "55 / 60",
-      "sl": "55 / 60",
-      "ch": "40 / 40",
-      "cmd": "35 / 40"
-    }
-  },
-  {
-    "rank": 76,
-    "orgRank": 3,
-    "name": "Harry Ford",
-    "position": "C",
-    "team": "WSH",
-    "fgTeam": "WSN",
-    "level": "MLB",
-    "age": 23.2,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "Ford is a laser-armed catcher who, brick-by-brick, has become a major league-quality receiver. Selectivity at the dish helps him do enough to be a primary catcher.",
-    "tools": {
-      "hit": "30 / 45",
-      "power": "50 / 50",
-      "run": "55 / 55",
-      "field": "45 / 50",
-      "arm": "50 / 50"
-    }
-  },
-  {
-    "rank": 77,
-    "orgRank": 4,
-    "name": "Jett Williams",
-    "position": "CF",
-    "team": "MIL",
-    "fgTeam": "MIL",
-    "level": "AAA",
-    "age": 22.5,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "High",
-    "tldr": "Williams is a compact little speedster with surprising power for his size. He is still searching the 2B/SS/CF triangle for a comfortable defensive home.",
-    "tools": {
-      "hit": "30 / 40",
-      "power": "50 / 50",
-      "run": "60 / 60",
-      "field": "40 / 50",
-      "arm": "45 / 45"
-    }
-  },
-  {
-    "rank": 78,
-    "orgRank": 5,
-    "name": "Jeferson Quero",
-    "position": "C",
-    "team": "MIL",
-    "fgTeam": "MIL",
-    "level": "MLB",
-    "age": 23.6,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "High",
-    "tldr": "Quero has plus bat speed and arm strength, but a volatile approach.",
-    "tools": {
-      "hit": "40 / 45",
-      "power": "55 / 55",
-      "run": "35 / 35",
-      "field": "45 / 50",
-      "arm": "55 / 55"
-    }
-  },
-  {
-    "rank": 79,
-    "orgRank": 3,
-    "name": "Pedro Ramírez",
-    "position": "2B",
-    "team": "CHC",
-    "fgTeam": "CHC",
-    "level": "AAA",
-    "age": 22.1,
-    "bats": "S",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Low",
-    "tldr": null,
-    "tools": {
-      "hit": "50 / 60",
-      "power": "45 / 45",
-      "run": "40 / 40",
-      "field": "40 / 45",
-      "arm": "50 / 50"
-    }
-  },
-  {
-    "rank": 80,
-    "orgRank": 0,
-    "name": "Jhonny Level",
-    "position": "SS",
-    "team": "SF",
-    "fgTeam": "SFG",
-    "level": "A",
-    "age": 19.1,
-    "bats": "S",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2030,
-    "risk": "Med",
-    "tldr": "Level was arguably the best prospect in the ACL last year. He isn't a big guy, but he can hit, has sneaky power, and projects to stay at short.",
-    "tools": {
-      "hit": "25 / 60",
-      "power": "45 / 50",
-      "run": "50 / 50",
-      "field": "30 / 50",
-      "arm": "40 / 40"
-    }
-  },
-  {
-    "rank": 81,
-    "orgRank": 6,
-    "name": "Michael Arroyo",
-    "position": "2B",
-    "team": "SEA",
-    "fgTeam": "SEA",
-    "level": "AA",
-    "age": 21.5,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "High",
-    "tldr": "Arroyo is a short-levered, power-hitting second baseman with a good approach and a shaky glove.",
-    "tools": {
-      "hit": "30 / 50",
-      "power": "50 / 55",
-      "run": "50 / 45",
-      "field": "30 / 40",
-      "arm": "45 / 45"
-    }
-  },
-  {
-    "rank": 82,
-    "orgRank": 4,
-    "name": "Jack Wenninger",
-    "position": "SP",
-    "team": "NYM",
-    "fgTeam": "NYM",
-    "level": "AAA",
-    "age": 24.2,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "Med",
-    "tldr": "Wenninger found more velocity last year; he now projects as a no. 4 starter.",
-    "tools": {
-      "fb": "50 / 55",
-      "sl": "40 / 45",
-      "cb": "45 / 55",
-      "ch": "60 / 60",
-      "cmd": "50 / 60"
-    }
-  },
-  {
-    "rank": 83,
-    "orgRank": 2,
-    "name": "Josh Hammond",
-    "position": "SS",
-    "team": "KC",
-    "fgTeam": "KCR",
-    "level": "A",
-    "age": 19.7,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2029,
-    "risk": "High",
-    "tldr": null,
-    "tools": {
-      "hit": "20 / 30",
-      "power": "45 / 60",
-      "run": "50 / 50",
-      "field": "45 / 60",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 84,
-    "orgRank": 0,
-    "name": "Aiva Arquette",
-    "position": "SS",
-    "team": "MIA",
-    "fgTeam": "MIA",
-    "level": "A+",
-    "age": 22.6,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2028,
-    "risk": "High",
-    "tldr": "Arquette is an ultra passive hitter with rare size and thump for a shortstop, though he didn't hit for power in his post-draft sample.",
-    "tools": {
-      "hit": "30 / 45",
-      "power": "55 / 60",
-      "run": "60 / 60",
-      "field": "40 / 45",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 85,
-    "orgRank": 4,
-    "name": "Ronny Cruz",
-    "position": "3B",
-    "team": "WSH",
-    "fgTeam": "WSN",
-    "level": "A+",
-    "age": 19.7,
-    "bats": "S",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2030,
-    "risk": "High",
-    "tldr": null,
-    "tools": {
-      "hit": "20 / 40",
-      "power": "50 / 60",
-      "run": "50 / 50",
-      "field": "35 / 60",
-      "arm": "55 / 55"
-    }
-  },
-  {
-    "rank": 86,
-    "orgRank": 6,
-    "name": "Logan Henderson",
-    "position": "SP",
-    "team": "MIL",
-    "fgTeam": "MIL",
-    "level": "MLB",
-    "age": 24.2,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Low",
-    "tldr": "Henderson is a ready-made no. 4 starter with a modern pitcher's arsenal, headlined by a carrying fastball.",
-    "tools": {
-      "fb": "55 / 55",
-      "cb": "40 / 40",
-      "ch": "70 / 70",
-      "cmd": "55 / 60"
-    }
-  },
-  {
-    "rank": 87,
-    "orgRank": 4,
-    "name": "David Davalillo",
-    "position": "SP",
-    "team": "TEX",
-    "fgTeam": "TEX",
-    "level": "AAA",
-    "age": 23.7,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "Davalillo is a crafty starter prospect with great secondary stuff, led by his plus-plus splitter.",
-    "tools": {
-      "fb": "45 / 45",
-      "sl": "45 / 55",
-      "cb": "55 / 60",
-      "cmd": "40 / 50"
-    }
-  },
-  {
-    "rank": 88,
-    "orgRank": 4,
-    "name": "Trey Gibson",
-    "position": "SP",
-    "team": "BAL",
-    "fgTeam": "BAL",
-    "level": "MLB",
-    "age": 24.0,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": null,
-    "tools": {
-      "fb": "40 / 40",
-      "sl": "55 / 60",
-      "cb": "55 / 55",
-      "cmd": "55 / 60"
-    }
-  },
-  {
-    "rank": 89,
-    "orgRank": 6,
-    "name": "Khal Stephen",
-    "position": "SP",
-    "team": "CLE",
-    "fgTeam": "CLE",
-    "level": "AA",
-    "age": 23.4,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Low",
-    "tldr": "Stephen throws a ton of strikes and has plus command of mostly average stuff.",
-    "tools": {
-      "fb": "50 / 50",
-      "sl": "50 / 55",
-      "cb": "55 / 55",
-      "ch": "45 / 55",
-      "cmd": "50 / 60"
-    }
-  },
-  {
-    "rank": 90,
-    "orgRank": 0,
-    "name": "Michael Forret",
-    "position": "SP",
-    "team": "TB",
-    "fgTeam": "TBR",
-    "level": "AA",
-    "age": 22.1,
-    "bats": "L",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Low",
-    "tldr": "Forret is a command-oriented starter whose pitch execution allows his modest stuff to play up. He's a pitchability no. 4 starter prospect.",
-    "tools": {
-      "fb": "45 / 45",
-      "sl": "50 / 55",
-      "cb": "50 / 50",
-      "ch": "50 / 55",
-      "cmd": "60 / 70"
-    }
-  },
-  {
-    "rank": 91,
-    "orgRank": 4,
-    "name": "Jimmy Crooks",
-    "position": "C",
-    "team": "STL",
-    "fgTeam": "STL",
-    "level": "MLB",
-    "age": 24.8,
-    "bats": "L",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "Crooks is a polished defensive catcher with a below-average bat, but he offers the brute strength to produce double-digit home run seasons.",
-    "tools": {
-      "hit": "35 / 40",
-      "power": "50 / 50",
-      "run": "20 / 20",
-      "field": "60 / 70",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 92,
-    "orgRank": 5,
-    "name": "Jurrangelo Cijntje",
-    "position": "SP",
-    "team": "STL",
-    "fgTeam": "STL",
-    "level": "AA",
-    "age": 23.0,
-    "bats": "S",
-    "throws": "S",
-    "fv": 50,
-    "eta": 2028,
-    "risk": "High",
-    "tldr": "Cijntje has a shot to be a switch-pitcher, but his righty stuff might be good enough on its own to make him a mid-rotation starter.",
-    "tools": {
-      "fb": "55 / 60",
-      "sl": "50 / 60",
-      "ch": "50 / 60",
-      "cmd": "30 / 40"
-    }
-  },
-  {
-    "rank": 93,
-    "orgRank": 4,
-    "name": "Christian Oppor",
-    "position": "SP",
-    "team": "CWS",
-    "fgTeam": "CHW",
-    "level": "AA",
-    "age": 21.8,
-    "bats": "L",
-    "throws": "L",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "High",
-    "tldr": "Oppor is an athletic JUCO lefty who has two bat-missing secondaries and has touched 100 mph, but he has a limited track record of strikes and performance.",
-    "tools": {
-      "fb": "50 / 60",
-      "sl": "45 / 55",
-      "ch": "60 / 60",
-      "cmd": "30 / 45"
-    }
-  },
-  {
-    "rank": 94,
-    "orgRank": 3,
-    "name": "Kendry Chourio",
-    "position": "SP",
-    "team": "KC",
-    "fgTeam": "KCR",
-    "level": "A",
-    "age": 18.6,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2029,
-    "risk": "High",
-    "tldr": null,
-    "tools": {
-      "fb": "45 / 50",
-      "cb": "50 / 60",
-      "ch": "50 / 60",
-      "cmd": "40 / 55"
-    }
-  },
-  {
-    "rank": 95,
-    "orgRank": 0,
-    "name": "Kyson Witherspoon",
-    "position": "SP",
-    "team": "BOS",
-    "fgTeam": "BOS",
-    "level": "A+",
-    "age": 21.8,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "Med",
-    "tldr": "Upper-90s arm strength and plus breaking stuff spearheads Witherspoon's mid-rotation projection.",
-    "tools": {
-      "fb": "55 / 60",
-      "sl": "45 / 50",
-      "cb": "60 / 60",
-      "ch": "45 / 55",
-      "cmd": "30 / 45"
-    }
-  },
-  {
-    "rank": 96,
-    "orgRank": 0,
-    "name": "Kaelen Culpepper",
-    "position": "SS",
-    "team": "MIN",
-    "fgTeam": "MIN",
-    "level": "AAA",
-    "age": 23.4,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "Med",
-    "tldr": "Culpepper is an acrobatic, if unrefined, defender at short who is already realizing his 20-homer power despite persistent chase issues.",
-    "tools": {
-      "hit": "30 / 40",
-      "power": "55 / 55",
-      "run": "55 / 55",
-      "field": "45 / 55",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 97,
-    "orgRank": 2,
-    "name": "Tommy Troy",
-    "position": "2B",
-    "team": "ARI",
-    "fgTeam": "ARI",
-    "level": "AAA",
-    "age": 24.3,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "A bounce-back year on both sides of the ball has Troy tracking like a regular at second base with a multi-positional utility fallback if the bat falls short.",
-    "tools": {
-      "hit": "40 / 45",
-      "power": "45 / 50",
-      "run": "60 / 60",
-      "field": "45 / 50",
-      "arm": "50 / 50"
-    }
-  },
-  {
-    "rank": 98,
-    "orgRank": 3,
-    "name": "Roldy Brito",
-    "position": "CF",
-    "team": "COL",
-    "fgTeam": "COL",
-    "level": "A",
-    "age": 19.1,
-    "bats": "S",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2028,
-    "risk": "High",
-    "tldr": "A young spark plug with speed and sneaky power, Brito is tooled up and has a chance to be very good at multiple spots around the diamond. To call him a super-utility prospect almost doesn't do him justice.",
-    "tools": {
-      "hit": "30 / 55",
-      "power": "45 / 55",
-      "run": "70 / 70",
-      "field": "45 / 60",
-      "arm": "50 / 50"
-    }
-  },
-  {
-    "rank": 99,
-    "orgRank": 7,
-    "name": "Felnin Celesten",
-    "position": "SS",
-    "team": "SEA",
-    "fgTeam": "SEA",
-    "level": "A+",
-    "age": 20.7,
-    "bats": "S",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2029,
-    "risk": "High",
-    "tldr": "Celesten is a physical, switch-hitting middle infield prospect. Brimming with potential, injuries have limited his chances to develop baseball skills alongside his enviable tools.",
-    "tools": {
-      "hit": "20 / 40",
-      "power": "45 / 55",
-      "run": "50 / 50",
-      "field": "40 / 50",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 100,
-    "orgRank": 5,
-    "name": "Braden Montgomery",
-    "position": "RF",
-    "team": "CWS",
-    "fgTeam": "CHW",
-    "level": "AAA",
-    "age": 23.1,
-    "bats": "S",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "High",
-    "tldr": "Montgomery is a yoked switch-hitting outfielder who mashed in college and touts huge bat speed, but he has enough swing-and-miss that there's bust potential.",
-    "tools": {
-      "hit": "30 / 40",
-      "power": "60 / 65",
-      "run": "50 / 50",
-      "field": "35 / 60",
-      "arm": "70 / 70"
-    }
-  },
-  {
-    "rank": 101,
-    "orgRank": 5,
-    "name": "Jacob Reimer",
-    "position": "3B",
-    "team": "NYM",
-    "fgTeam": "NYM",
-    "level": "AA",
-    "age": 22.2,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "Med",
-    "tldr": "Reimer is a well-rounded hitter who projects as an everyday third baseman.",
-    "tools": {
-      "hit": "40 / 55",
-      "power": "50 / 50",
-      "run": "30 / 30",
-      "field": "30 / 45",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 102,
-    "orgRank": 0,
-    "name": "Edward Florentino",
-    "position": "LF",
-    "team": "PIT",
-    "fgTeam": "PIT",
-    "level": "A+",
-    "age": 19.5,
-    "bats": "L",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2029,
-    "risk": "High",
-    "tldr": "Florentino is a young power-hitting prospect. Defensively, he's likely to wind up in a corner.",
-    "tools": {
-      "hit": "20 / 40",
-      "power": "45 / 60",
-      "run": "40 / 40",
-      "field": "30 / 50",
-      "arm": "45 / 45"
-    }
-  },
-  {
-    "rank": 103,
-    "orgRank": 3,
-    "name": "Rhett Lowder",
-    "position": "SP",
-    "team": "CIN",
-    "fgTeam": "CIN",
-    "level": "MLB",
-    "age": 24.2,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Low",
-    "tldr": "Lowder is a fourth starter prospect who attacks east/west with a sinker and slider.",
-    "tools": {
-      "fb": "50 / 50",
-      "sl": "60 / 60",
-      "ch": "45 / 50",
-      "cmd": "45 / 50"
-    }
-  },
-  {
-    "rank": 104,
-    "orgRank": 5,
-    "name": "Winston Santos",
-    "position": "SP",
-    "team": "TEX",
-    "fgTeam": "TEX",
-    "level": "AAA",
-    "age": 24.1,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "Santos is an athletic, strike-throwing starter with a mid-90s fastball, but pedestrian secondary stuff.",
-    "tools": {
-      "fb": "55 / 55",
-      "sl": "45 / 55",
-      "ch": "55 / 55",
-      "cmd": "40 / 50"
-    }
-  },
-  {
-    "rank": 105,
-    "orgRank": 4,
-    "name": "Jaxon Wiggins",
-    "position": "SP",
-    "team": "CHC",
-    "fgTeam": "CHC",
-    "level": "AAA",
-    "age": 24.6,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "High",
-    "tldr": "Wiggins has one of the more dominant fastballs in the minors, and his changeup has improved in pro ball. Can he stay healthy and throw enough strikes to start?",
-    "tools": {
-      "fb": "70 / 70",
-      "sl": "40 / 45",
-      "cb": "50 / 55",
-      "ch": "45 / 60",
-      "cmd": "30 / 40"
-    }
-  },
-  {
-    "rank": 106,
-    "orgRank": 6,
-    "name": "Tanner McDougal",
-    "position": "SP",
-    "team": "CWS",
-    "fgTeam": "CHW",
-    "level": "AAA",
-    "age": 23.1,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "High",
-    "tldr": "McDougal is a big-bodied right-hander with plus velocity and two bat-missing breaking balls. His lack of changeup feel and delivery effort pose substantial relief risk.",
-    "tools": {
-      "fb": "60 / 60",
-      "sl": "60 / 60",
-      "cb": "50 / 55",
-      "ch": "30 / 40",
-      "cmd": "30 / 40"
-    }
-  },
-  {
-    "rank": 107,
-    "orgRank": 4,
-    "name": "Blake Mitchell",
-    "position": "C",
-    "team": "KC",
-    "fgTeam": "KCR",
-    "level": "A+",
-    "age": 21.8,
-    "bats": "L",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "High",
-    "tldr": "Mitchell is an athletic catcher who has grown defensively since draft day. A broken hamate last year has clouded his projection at the plate, where he looks like a power-over-hit player.",
-    "tools": {
-      "hit": "20 / 30",
-      "power": "50 / 60",
-      "run": "45 / 35",
-      "field": "35 / 50",
-      "arm": "55 / 55"
-    }
-  },
-  {
-    "rank": 108,
-    "orgRank": 1,
-    "name": "Ethan Salas",
-    "position": "C",
-    "team": "SD",
-    "fgTeam": "SDP",
-    "level": "AA",
-    "age": 20.0,
-    "bats": "L",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2028,
-    "risk": "Med",
-    "tldr": "Salas had an early-career breakout, but has either struggled or been injured for the last couple of seasons.",
-    "tools": {
-      "hit": "30 / 40",
-      "power": "45 / 55",
-      "run": "50 / 40",
-      "field": "45 / 70",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 109,
-    "orgRank": 4,
-    "name": "Thayron Liranzo",
-    "position": "C",
-    "team": "DET",
-    "fgTeam": "DET",
-    "level": "AA",
-    "age": 22.9,
-    "bats": "S",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "High",
-    "tldr": "Liranzo has huge power and big questions to answer on both sides of the ball after a rough ride at Double-A in 2025.",
-    "tools": {
-      "hit": "20 / 35",
-      "power": "55 / 60",
-      "run": "30 / 30",
-      "field": "30 / 50",
-      "arm": "60 / 60"
-    }
-  },
-  {
-    "rank": 110,
-    "orgRank": 5,
-    "name": "Josue Briceño",
-    "position": "1B",
-    "team": "DET",
-    "fgTeam": "DET",
-    "level": "AA",
-    "age": 21.6,
-    "bats": "L",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2027,
-    "risk": "High",
-    "tldr": "Briceño is a well-rounded hitter who reached Double-A in 2025. He's still catching some, but he's probably going to be a first baseman or DH.",
-    "tools": {
-      "hit": "35 / 50",
-      "power": "60 / 60",
-      "run": "30 / 20",
-      "field": "30 / 40",
-      "arm": "50 / 50"
-    }
-  },
-  {
-    "rank": 111,
-    "orgRank": 5,
-    "name": "River Ryan",
-    "position": "SP",
-    "team": "LAD",
-    "fgTeam": "LAD",
-    "level": "MLB",
-    "age": 27.7,
-    "bats": "R",
-    "throws": "R",
-    "fv": 50,
-    "eta": 2026,
-    "risk": "Med",
-    "tldr": "Ryan looked like an impact starter before injuries ended his 2024 and wiped out his 2025.",
-    "tools": {
-      "fb": "60 / 60",
-      "sl": "55 / 60",
-      "cb": "55 / 60",
-      "ch": "40 / 50",
-      "cmd": "40 / 45"
-    }
-  },
-  {
-    "rank": 112,
     "orgRank": 3,
     "name": "Jake Bloss",
     "position": "SP",
@@ -2544,6 +1680,870 @@
     }
   },
   {
+    "rank": 75,
+    "orgRank": 2,
+    "name": "Gage Jump",
+    "position": "SP",
+    "team": "OAK",
+    "fgTeam": "ATH",
+    "level": "AAA",
+    "age": 23.1,
+    "bats": "L",
+    "throws": "L",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "Jump made strike-throwing improvements and demonstrated 100-inning stamina in 2025, putting him on track to be a fastball-heavy mid-rotation starter.",
+    "tools": {
+      "fb": "60 / 60",
+      "sl": "60 / 60",
+      "cb": "50 / 50",
+      "cmd": "35 / 45"
+    }
+  },
+  {
+    "rank": 76,
+    "orgRank": 2,
+    "name": "George Klassen",
+    "position": "SP",
+    "team": "LAA",
+    "fgTeam": "LAA",
+    "level": "MLB",
+    "age": 24.3,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "High",
+    "tldr": "Klassen has always had big stuff, and now he's hitting the zone often enough to project him as a good five-and-dive type.",
+    "tools": {
+      "fb": "55 / 60",
+      "sl": "55 / 60",
+      "ch": "40 / 40",
+      "cmd": "35 / 40"
+    }
+  },
+  {
+    "rank": 77,
+    "orgRank": 3,
+    "name": "Harry Ford",
+    "position": "C",
+    "team": "WSH",
+    "fgTeam": "WSN",
+    "level": "MLB",
+    "age": 23.3,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "Ford is a laser-armed catcher who, brick-by-brick, has become a major league-quality receiver. Selectivity at the dish helps him do enough to be a primary catcher.",
+    "tools": {
+      "hit": "30 / 45",
+      "power": "50 / 50",
+      "run": "55 / 55",
+      "field": "45 / 50",
+      "arm": "50 / 50"
+    }
+  },
+  {
+    "rank": 78,
+    "orgRank": 4,
+    "name": "Jett Williams",
+    "position": "CF",
+    "team": "MIL",
+    "fgTeam": "MIL",
+    "level": "AAA",
+    "age": 22.6,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "High",
+    "tldr": "Williams is a compact little speedster with surprising power for his size. He is still searching the 2B/SS/CF triangle for a comfortable defensive home.",
+    "tools": {
+      "hit": "30 / 40",
+      "power": "50 / 50",
+      "run": "60 / 60",
+      "field": "40 / 50",
+      "arm": "45 / 45"
+    }
+  },
+  {
+    "rank": 79,
+    "orgRank": 5,
+    "name": "Jeferson Quero",
+    "position": "C",
+    "team": "MIL",
+    "fgTeam": "MIL",
+    "level": "MLB",
+    "age": 23.6,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "High",
+    "tldr": "Quero has plus bat speed and arm strength, but a volatile approach.",
+    "tools": {
+      "hit": "40 / 45",
+      "power": "55 / 55",
+      "run": "35 / 35",
+      "field": "45 / 50",
+      "arm": "55 / 55"
+    }
+  },
+  {
+    "rank": 80,
+    "orgRank": 3,
+    "name": "Pedro Ramírez",
+    "position": "2B",
+    "team": "CHC",
+    "fgTeam": "CHC",
+    "level": "AAA",
+    "age": 22.1,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Low",
+    "tldr": null,
+    "tools": {
+      "hit": "50 / 60",
+      "power": "45 / 45",
+      "run": "40 / 40",
+      "field": "40 / 45",
+      "arm": "50 / 50"
+    }
+  },
+  {
+    "rank": 81,
+    "orgRank": 0,
+    "name": "Jhonny Level",
+    "position": "SS",
+    "team": "SF",
+    "fgTeam": "SFG",
+    "level": "A",
+    "age": 19.1,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2030,
+    "risk": "Med",
+    "tldr": "Level was arguably the best prospect in the ACL last year. He isn't a big guy, but he can hit, has sneaky power, and projects to stay at short.",
+    "tools": {
+      "hit": "25 / 60",
+      "power": "45 / 50",
+      "run": "50 / 50",
+      "field": "30 / 50",
+      "arm": "40 / 40"
+    }
+  },
+  {
+    "rank": 82,
+    "orgRank": 6,
+    "name": "Michael Arroyo",
+    "position": "2B",
+    "team": "SEA",
+    "fgTeam": "SEA",
+    "level": "AA",
+    "age": 21.6,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "High",
+    "tldr": "Arroyo is a short-levered, power-hitting second baseman with a good approach and a shaky glove.",
+    "tools": {
+      "hit": "30 / 50",
+      "power": "50 / 55",
+      "run": "50 / 45",
+      "field": "30 / 40",
+      "arm": "45 / 45"
+    }
+  },
+  {
+    "rank": 83,
+    "orgRank": 4,
+    "name": "Jack Wenninger",
+    "position": "SP",
+    "team": "NYM",
+    "fgTeam": "NYM",
+    "level": "AAA",
+    "age": 24.2,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "Med",
+    "tldr": "Wenninger found more velocity last year; he now projects as a no. 4 starter.",
+    "tools": {
+      "fb": "50 / 55",
+      "sl": "40 / 45",
+      "cb": "45 / 55",
+      "ch": "60 / 60",
+      "cmd": "50 / 60"
+    }
+  },
+  {
+    "rank": 84,
+    "orgRank": 2,
+    "name": "Josh Hammond",
+    "position": "SS",
+    "team": "KC",
+    "fgTeam": "KCR",
+    "level": "A",
+    "age": 19.7,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2029,
+    "risk": "High",
+    "tldr": null,
+    "tools": {
+      "hit": "20 / 30",
+      "power": "45 / 60",
+      "run": "50 / 50",
+      "field": "45 / 60",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 85,
+    "orgRank": 0,
+    "name": "Aiva Arquette",
+    "position": "SS",
+    "team": "MIA",
+    "fgTeam": "MIA",
+    "level": "A+",
+    "age": 22.6,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2028,
+    "risk": "High",
+    "tldr": "Arquette is an ultra passive hitter with rare size and thump for a shortstop, though he didn't hit for power in his post-draft sample.",
+    "tools": {
+      "hit": "30 / 45",
+      "power": "55 / 60",
+      "run": "60 / 60",
+      "field": "40 / 45",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 86,
+    "orgRank": 4,
+    "name": "Ronny Cruz",
+    "position": "3B",
+    "team": "WSH",
+    "fgTeam": "WSN",
+    "level": "A+",
+    "age": 19.7,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2030,
+    "risk": "High",
+    "tldr": null,
+    "tools": {
+      "hit": "20 / 40",
+      "power": "50 / 60",
+      "run": "50 / 50",
+      "field": "35 / 60",
+      "arm": "55 / 55"
+    }
+  },
+  {
+    "rank": 87,
+    "orgRank": 5,
+    "name": "Dorian Soto",
+    "position": "SS",
+    "team": "BOS",
+    "fgTeam": "BOS",
+    "level": "CPX",
+    "age": 18.3,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2031,
+    "risk": "High",
+    "tldr": null,
+    "tools": {
+      "hit": "20 / 45",
+      "power": "50 / 60",
+      "run": "55 / 50",
+      "field": "45 / 55",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 88,
+    "orgRank": 6,
+    "name": "Logan Henderson",
+    "position": "SP",
+    "team": "MIL",
+    "fgTeam": "MIL",
+    "level": "MLB",
+    "age": 24.2,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Low",
+    "tldr": "Henderson is a ready-made no. 4 starter with a modern pitcher's arsenal, headlined by a carrying fastball.",
+    "tools": {
+      "fb": "55 / 55",
+      "cb": "40 / 40",
+      "ch": "70 / 70",
+      "cmd": "55 / 60"
+    }
+  },
+  {
+    "rank": 89,
+    "orgRank": 4,
+    "name": "David Davalillo",
+    "position": "SP",
+    "team": "TEX",
+    "fgTeam": "TEX",
+    "level": "AAA",
+    "age": 23.8,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "Davalillo is a crafty starter prospect with great secondary stuff, led by his plus-plus splitter.",
+    "tools": {
+      "fb": "45 / 45",
+      "sl": "45 / 55",
+      "cb": "55 / 60",
+      "cmd": "40 / 50"
+    }
+  },
+  {
+    "rank": 90,
+    "orgRank": 4,
+    "name": "Trey Gibson",
+    "position": "SP",
+    "team": "BAL",
+    "fgTeam": "BAL",
+    "level": "MLB",
+    "age": 24.0,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": null,
+    "tools": {
+      "fb": "40 / 40",
+      "sl": "55 / 60",
+      "cb": "55 / 55",
+      "cmd": "55 / 60"
+    }
+  },
+  {
+    "rank": 91,
+    "orgRank": 6,
+    "name": "Khal Stephen",
+    "position": "SP",
+    "team": "CLE",
+    "fgTeam": "CLE",
+    "level": "AA",
+    "age": 23.4,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Low",
+    "tldr": "Stephen throws a ton of strikes and has plus command of mostly average stuff.",
+    "tools": {
+      "fb": "50 / 50",
+      "sl": "50 / 55",
+      "cb": "55 / 55",
+      "ch": "45 / 55",
+      "cmd": "50 / 60"
+    }
+  },
+  {
+    "rank": 92,
+    "orgRank": 0,
+    "name": "Michael Forret",
+    "position": "SP",
+    "team": "TB",
+    "fgTeam": "TBR",
+    "level": "AA",
+    "age": 22.1,
+    "bats": "L",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Low",
+    "tldr": "Forret is a command-oriented starter whose pitch execution allows his modest stuff to play up. He's a pitchability no. 4 starter prospect.",
+    "tools": {
+      "fb": "45 / 45",
+      "sl": "50 / 55",
+      "cb": "50 / 50",
+      "ch": "50 / 55",
+      "cmd": "60 / 70"
+    }
+  },
+  {
+    "rank": 93,
+    "orgRank": 4,
+    "name": "Jimmy Crooks",
+    "position": "C",
+    "team": "STL",
+    "fgTeam": "STL",
+    "level": "MLB",
+    "age": 24.8,
+    "bats": "L",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "Crooks is a polished defensive catcher with a below-average bat, but he offers the brute strength to produce double-digit home run seasons.",
+    "tools": {
+      "hit": "35 / 40",
+      "power": "50 / 50",
+      "run": "20 / 20",
+      "field": "60 / 70",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 94,
+    "orgRank": 5,
+    "name": "Jurrangelo Cijntje",
+    "position": "SP",
+    "team": "STL",
+    "fgTeam": "STL",
+    "level": "AA",
+    "age": 23.0,
+    "bats": "S",
+    "throws": "S",
+    "fv": 50,
+    "eta": 2028,
+    "risk": "High",
+    "tldr": "Cijntje has a shot to be a switch-pitcher, but his righty stuff might be good enough on its own to make him a mid-rotation starter.",
+    "tools": {
+      "fb": "55 / 60",
+      "sl": "50 / 60",
+      "ch": "50 / 60",
+      "cmd": "30 / 40"
+    }
+  },
+  {
+    "rank": 95,
+    "orgRank": 4,
+    "name": "Christian Oppor",
+    "position": "SP",
+    "team": "CWS",
+    "fgTeam": "CHW",
+    "level": "AA",
+    "age": 21.8,
+    "bats": "L",
+    "throws": "L",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "High",
+    "tldr": "Oppor is an athletic JUCO lefty who has two bat-missing secondaries and has touched 100 mph, but he has a limited track record of strikes and performance.",
+    "tools": {
+      "fb": "50 / 60",
+      "sl": "45 / 55",
+      "ch": "60 / 60",
+      "cmd": "30 / 45"
+    }
+  },
+  {
+    "rank": 96,
+    "orgRank": 3,
+    "name": "Kendry Chourio",
+    "position": "SP",
+    "team": "KC",
+    "fgTeam": "KCR",
+    "level": "A",
+    "age": 18.6,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2029,
+    "risk": "High",
+    "tldr": null,
+    "tools": {
+      "fb": "45 / 50",
+      "cb": "50 / 60",
+      "ch": "50 / 60",
+      "cmd": "40 / 55"
+    }
+  },
+  {
+    "rank": 97,
+    "orgRank": 0,
+    "name": "Kaelen Culpepper",
+    "position": "SS",
+    "team": "MIN",
+    "fgTeam": "MIN",
+    "level": "AAA",
+    "age": 23.4,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "Med",
+    "tldr": "Culpepper is an acrobatic, if unrefined, defender at short who is already realizing his 20-homer power despite persistent chase issues.",
+    "tools": {
+      "hit": "30 / 40",
+      "power": "55 / 55",
+      "run": "55 / 55",
+      "field": "45 / 55",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 98,
+    "orgRank": 2,
+    "name": "Tommy Troy",
+    "position": "2B",
+    "team": "ARI",
+    "fgTeam": "ARI",
+    "level": "AAA",
+    "age": 24.3,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "A bounce-back year on both sides of the ball has Troy tracking like a regular at second base with a multi-positional utility fallback if the bat falls short.",
+    "tools": {
+      "hit": "40 / 45",
+      "power": "45 / 50",
+      "run": "60 / 60",
+      "field": "45 / 50",
+      "arm": "50 / 50"
+    }
+  },
+  {
+    "rank": 99,
+    "orgRank": 3,
+    "name": "Roldy Brito",
+    "position": "CF",
+    "team": "COL",
+    "fgTeam": "COL",
+    "level": "A",
+    "age": 19.1,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2028,
+    "risk": "High",
+    "tldr": "A young spark plug with speed and sneaky power, Brito is tooled up and has a chance to be very good at multiple spots around the diamond. To call him a super-utility prospect almost doesn't do him justice.",
+    "tools": {
+      "hit": "30 / 55",
+      "power": "45 / 55",
+      "run": "70 / 70",
+      "field": "45 / 60",
+      "arm": "50 / 50"
+    }
+  },
+  {
+    "rank": 100,
+    "orgRank": 7,
+    "name": "Felnin Celesten",
+    "position": "SS",
+    "team": "SEA",
+    "fgTeam": "SEA",
+    "level": "A+",
+    "age": 20.7,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2029,
+    "risk": "High",
+    "tldr": "Celesten is a physical, switch-hitting middle infield prospect. Brimming with potential, injuries have limited his chances to develop baseball skills alongside his enviable tools.",
+    "tools": {
+      "hit": "20 / 40",
+      "power": "45 / 55",
+      "run": "50 / 50",
+      "field": "40 / 50",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 101,
+    "orgRank": 5,
+    "name": "Braden Montgomery",
+    "position": "RF",
+    "team": "CWS",
+    "fgTeam": "CHW",
+    "level": "AAA",
+    "age": 23.1,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "High",
+    "tldr": "Montgomery is a yoked switch-hitting outfielder who mashed in college and touts huge bat speed, but he has enough swing-and-miss that there's bust potential.",
+    "tools": {
+      "hit": "30 / 40",
+      "power": "60 / 65",
+      "run": "50 / 50",
+      "field": "35 / 60",
+      "arm": "70 / 70"
+    }
+  },
+  {
+    "rank": 102,
+    "orgRank": 5,
+    "name": "Jacob Reimer",
+    "position": "3B",
+    "team": "NYM",
+    "fgTeam": "NYM",
+    "level": "AA",
+    "age": 22.3,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "Med",
+    "tldr": "Reimer is a well-rounded hitter who projects as an everyday third baseman.",
+    "tools": {
+      "hit": "40 / 55",
+      "power": "50 / 50",
+      "run": "30 / 30",
+      "field": "30 / 45",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 103,
+    "orgRank": 0,
+    "name": "Edward Florentino",
+    "position": "LF",
+    "team": "PIT",
+    "fgTeam": "PIT",
+    "level": "A+",
+    "age": 19.5,
+    "bats": "L",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2029,
+    "risk": "High",
+    "tldr": "Florentino is a young power-hitting prospect. Defensively, he's likely to wind up in a corner.",
+    "tools": {
+      "hit": "20 / 40",
+      "power": "45 / 60",
+      "run": "40 / 40",
+      "field": "30 / 50",
+      "arm": "45 / 45"
+    }
+  },
+  {
+    "rank": 104,
+    "orgRank": 3,
+    "name": "Rhett Lowder",
+    "position": "SP",
+    "team": "CIN",
+    "fgTeam": "CIN",
+    "level": "MLB",
+    "age": 24.2,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Low",
+    "tldr": "Lowder is a fourth starter prospect who attacks east/west with a sinker and slider.",
+    "tools": {
+      "fb": "50 / 50",
+      "sl": "60 / 60",
+      "ch": "45 / 50",
+      "cmd": "45 / 50"
+    }
+  },
+  {
+    "rank": 105,
+    "orgRank": 5,
+    "name": "Winston Santos",
+    "position": "SP",
+    "team": "TEX",
+    "fgTeam": "TEX",
+    "level": "AAA",
+    "age": 24.1,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "Santos is an athletic, strike-throwing starter with a mid-90s fastball, but pedestrian secondary stuff.",
+    "tools": {
+      "fb": "55 / 55",
+      "sl": "45 / 55",
+      "ch": "55 / 55",
+      "cmd": "40 / 50"
+    }
+  },
+  {
+    "rank": 106,
+    "orgRank": 4,
+    "name": "Jaxon Wiggins",
+    "position": "SP",
+    "team": "CHC",
+    "fgTeam": "CHC",
+    "level": "AAA",
+    "age": 24.6,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "High",
+    "tldr": "Wiggins has one of the more dominant fastballs in the minors, and his changeup has improved in pro ball. Can he stay healthy and throw enough strikes to start?",
+    "tools": {
+      "fb": "70 / 70",
+      "sl": "40 / 45",
+      "cb": "50 / 55",
+      "ch": "45 / 60",
+      "cmd": "30 / 40"
+    }
+  },
+  {
+    "rank": 107,
+    "orgRank": 6,
+    "name": "Tanner McDougal",
+    "position": "SP",
+    "team": "CWS",
+    "fgTeam": "CHW",
+    "level": "AAA",
+    "age": 23.1,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "High",
+    "tldr": "McDougal is a big-bodied right-hander with plus velocity and two bat-missing breaking balls. His lack of changeup feel and delivery effort pose substantial relief risk.",
+    "tools": {
+      "fb": "60 / 60",
+      "sl": "60 / 60",
+      "cb": "50 / 55",
+      "ch": "30 / 40",
+      "cmd": "30 / 40"
+    }
+  },
+  {
+    "rank": 108,
+    "orgRank": 4,
+    "name": "Blake Mitchell",
+    "position": "C",
+    "team": "KC",
+    "fgTeam": "KCR",
+    "level": "A+",
+    "age": 21.8,
+    "bats": "L",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "High",
+    "tldr": "Mitchell is an athletic catcher who has grown defensively since draft day. A broken hamate last year has clouded his projection at the plate, where he looks like a power-over-hit player.",
+    "tools": {
+      "hit": "20 / 30",
+      "power": "50 / 60",
+      "run": "45 / 35",
+      "field": "35 / 50",
+      "arm": "55 / 55"
+    }
+  },
+  {
+    "rank": 109,
+    "orgRank": 1,
+    "name": "Ethan Salas",
+    "position": "C",
+    "team": "SD",
+    "fgTeam": "SDP",
+    "level": "AA",
+    "age": 20.0,
+    "bats": "L",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2028,
+    "risk": "Med",
+    "tldr": "Salas had an early-career breakout, but has either struggled or been injured for the last couple of seasons.",
+    "tools": {
+      "hit": "30 / 40",
+      "power": "45 / 55",
+      "run": "50 / 40",
+      "field": "45 / 70",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 110,
+    "orgRank": 4,
+    "name": "Thayron Liranzo",
+    "position": "C",
+    "team": "DET",
+    "fgTeam": "DET",
+    "level": "AA",
+    "age": 22.9,
+    "bats": "S",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "High",
+    "tldr": "Liranzo has huge power and big questions to answer on both sides of the ball after a rough ride at Double-A in 2025.",
+    "tools": {
+      "hit": "20 / 35",
+      "power": "55 / 60",
+      "run": "30 / 30",
+      "field": "30 / 50",
+      "arm": "60 / 60"
+    }
+  },
+  {
+    "rank": 111,
+    "orgRank": 5,
+    "name": "Josue Briceño",
+    "position": "1B",
+    "team": "DET",
+    "fgTeam": "DET",
+    "level": "AA",
+    "age": 21.7,
+    "bats": "L",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2027,
+    "risk": "High",
+    "tldr": "Briceño is a well-rounded hitter who reached Double-A in 2025. He's still catching some, but he's probably going to be a first baseman or DH.",
+    "tools": {
+      "hit": "35 / 50",
+      "power": "60 / 60",
+      "run": "30 / 20",
+      "field": "30 / 40",
+      "arm": "50 / 50"
+    }
+  },
+  {
+    "rank": 112,
+    "orgRank": 5,
+    "name": "River Ryan",
+    "position": "SP",
+    "team": "LAD",
+    "fgTeam": "LAD",
+    "level": "MLB",
+    "age": 27.8,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "Ryan looked like an impact starter before injuries ended his 2024 and wiped out his 2025.",
+    "tools": {
+      "fb": "60 / 60",
+      "sl": "55 / 60",
+      "cb": "55 / 60",
+      "ch": "40 / 50",
+      "cmd": "40 / 45"
+    }
+  },
+  {
     "rank": 113,
     "orgRank": 5,
     "name": "Travis Sykora",
@@ -2562,6 +2562,51 @@
       "fb": "60 / 60",
       "sl": "55 / 60",
       "cmd": "45 / 55"
+    }
+  },
+  {
+    "rank": 114,
+    "orgRank": 6,
+    "name": "Juan Valera",
+    "position": "SP",
+    "team": "BOS",
+    "fgTeam": "BOS",
+    "level": "A+",
+    "age": 20.0,
+    "bats": "R",
+    "throws": "R",
+    "fv": 50,
+    "eta": 2028,
+    "risk": "High",
+    "tldr": null,
+    "tools": {
+      "fb": "60 / 70",
+      "sl": "50 / 60",
+      "ch": "45 / 60",
+      "cmd": "30 / 50"
+    }
+  },
+  {
+    "rank": 115,
+    "orgRank": 0,
+    "name": "Robby Snelling",
+    "position": "SP",
+    "team": "MIA",
+    "fgTeam": "MIA",
+    "level": "MLB",
+    "age": 22.4,
+    "bats": "R",
+    "throws": "L",
+    "fv": 50,
+    "eta": 2026,
+    "risk": "Med",
+    "tldr": "Snelling went to a third party facility and changed his delivery, then had a proper breakout in 2025. He's now on track to be in Miami's rotation during the next year or so.",
+    "tools": {
+      "fb": "60 / 60",
+      "sl": "45 / 45",
+      "cb": "50 / 55",
+      "ch": "45 / 50",
+      "cmd": "50 / 50"
     }
   }
 ]

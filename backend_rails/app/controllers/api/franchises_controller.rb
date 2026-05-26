@@ -1,5 +1,5 @@
 class Api::FranchisesController < Api::BaseController
-  before_action :load_franchise, only: %i[show advance destroy]
+  before_action :load_franchise, only: %i[show advance player_history team_history destroy]
 
   def index
     franchises = SimulationFranchise.includes(:simulation_leagues).order(created_at: :desc)
@@ -22,6 +22,14 @@ class Api::FranchisesController < Api::BaseController
 
   def advance
     render json: FranchiseService.advance_season(@franchise)
+  end
+
+  def player_history
+    render json: FranchiseService.player_season_log(@franchise, params[:player_id].to_i)
+  end
+
+  def team_history
+    render json: FranchiseService.team_season_log(@franchise, params[:team_id].to_i)
   end
 
   def destroy

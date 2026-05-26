@@ -80,7 +80,10 @@ function loadWidth() {
   try {
     const raw = window.localStorage.getItem(WIDTH_STORAGE_KEY)
     const parsed = Number(raw)
-    if (Number.isFinite(parsed)) return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, parsed))
+    if (Number.isFinite(parsed)) {
+      const viewportCap = Math.floor(window.innerWidth * 0.55)
+      return Math.min(Math.min(MAX_WIDTH, viewportCap), Math.max(MIN_WIDTH, parsed))
+    }
   } catch {
     // ignore
   }
@@ -321,7 +324,36 @@ function extractSqlFromMessage(m) {
   return match ? match[1].trim() : null
 }
 
-function AssistantMessage({ m, onLoadSql }) {
+function SaveToObsidianButton({ text, onSave }) {
+  const [saved, setSaved] = useState(false)
+
+  function handleClick() {
+    if (saved) return
+    onSave(text)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      title="Save to Obsidian vault"
+      className={`inline-flex items-center gap-1 text-[11px] transition-colors border rounded px-2 py-0.5 ${
+        saved
+          ? 'text-purple-400 border-purple-400/40 bg-purple-400/10'
+          : 'text-content-muted hover:text-purple-400 border-bg-border hover:border-purple-400/40 hover:bg-purple-400/5'
+      }`}
+    >
+      <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0" aria-hidden="true">
+        <path d="M3 2a1 1 0 0 0-1 1v10a1 1 0 0 0 1.555.832L8 11.202l4.445 2.63A1 1 0 0 0 14 13V3a1 1 0 0 0-1-1H3z" />
+      </svg>
+      {saved ? 'Saved' : 'Save to Obsidian'}
+    </button>
+  )
+}
+
+function AssistantMessage({ m, onLoadSql, onSaveToVault }) {
   const candidates = useMemo(() => extractCandidates(m.text || ''), [m.text])
 
   const results = useQueries({
@@ -369,15 +401,20 @@ function AssistantMessage({ m, onLoadSql }) {
           Used {m.tools.length} tool{m.tools.length !== 1 ? 's' : ''}
         </div>
       )}
-      {extractedSql && onLoadSql && (
-        <div className="mt-1 text-left">
-          <button
-            type="button"
-            onClick={() => onLoadSql(extractedSql)}
-            className="text-[11px] text-brand-light hover:text-content-primary transition-colors border border-brand/30 hover:border-brand/60 rounded px-2 py-0.5 bg-brand/5 hover:bg-brand/10"
-          >
-            Load in Sandbox ↗
-          </button>
+      {(hasText || (extractedSql && onLoadSql)) && (
+        <div className="mt-1 flex items-center gap-2">
+          {extractedSql && onLoadSql && (
+            <button
+              type="button"
+              onClick={() => onLoadSql(extractedSql)}
+              className="text-[11px] text-brand-light hover:text-content-primary transition-colors border border-brand/30 hover:border-brand/60 rounded px-2 py-0.5 bg-brand/5 hover:bg-brand/10"
+            >
+              Load in Sandbox ↗
+            </button>
+          )}
+          {hasText && onSaveToVault && (
+            <SaveToObsidianButton text={m.text} onSave={onSaveToVault} />
+          )}
         </div>
       )}
       {hasCharts && (
@@ -405,7 +442,7 @@ function AssistantMessage({ m, onLoadSql }) {
   )
 }
 
-export default function AssistantSidebar({ open }) {
+export default function AssistantSidebar({ open, onClose, mlRunPayload, onMlRunPayloadConsumed }) {
   const { pathname } = useLocation()
   const navigate     = useNavigate()
   const context = useMemo(() => ({ ...deriveContext(pathname), pathname }), [pathname])
@@ -415,9 +452,16 @@ export default function AssistantSidebar({ open }) {
   const [sessionPanelOpen, setSessionPanel] = useState(false)
   const [width, setWidth]                   = useState(loadWidth)
   const [composerPrefill, setComposerPrefill] = useState(null)
+  const [isMobile, setIsMobile]             = useState(() => window.innerWidth < 768)
   const scrollRef = useRef(null)
   const bottomRef = useRef(null)
   const resizeStateRef = useRef(null)
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
 
   const activeSession = sessions.find(s => s.id === activeId) ?? sessions[0]
   const messages = activeSession?.messages ?? [WELCOME]
@@ -532,7 +576,7 @@ export default function AssistantSidebar({ open }) {
   }, [])
 
   const askMutation = useMutation({
-    mutationFn: async ({ text, mentions }) => {
+    mutationFn: async ({ text, mentions, contextOverride: ctxOverride }) => {
       const history = messages.filter((m) => m !== WELCOME && m.role !== 'welcome')
 
       const resolvedPlayers = []
@@ -553,7 +597,11 @@ export default function AssistantSidebar({ open }) {
           }
         : {}
 
-      return api.assistant.ask(text, { ...context, ...mentionContext, ...sandboxContext }, history)
+      const finalContext = ctxOverride
+        ? { ...ctxOverride, ...mentionContext }
+        : { ...context, ...mentionContext, ...sandboxContext }
+
+      return api.assistant.ask(text, finalContext, history)
     },
     onSuccess: (data, { text }) => {
       setMessages((prev) => [
@@ -571,6 +619,12 @@ export default function AssistantSidebar({ open }) {
     },
   })
 
+  useEffect(() => {
+    if (!mlRunPayload) return
+    askMutation.mutate({ text: mlRunPayload.initialMessage, mentions: [], contextOverride: mlRunPayload.context })
+    onMlRunPayloadConsumed?.()
+  }, [mlRunPayload]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function submitQuestion(payload) {
     askMutation.mutate(payload)
   }
@@ -586,16 +640,33 @@ export default function AssistantSidebar({ open }) {
   }
 
   return (
+    <>
+      {/* Backdrop — mobile overlay only */}
+      {open && isMobile && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          style={{ top: '4rem' }}
+          onClick={onClose}
+        />
+      )}
+
     <aside
-      className={`${open ? 'flex' : 'hidden'} relative flex-col shrink-0 border-l border-bg-border bg-bg-surface sticky top-16 h-[calc(100vh-4rem)]`}
-      style={{ borderRadius: 'var(--radius-lg)', width }}
+      className={`${open ? 'flex' : 'hidden'} flex-col border-l border-bg-border bg-bg-surface ${
+        isMobile
+          ? 'fixed inset-x-0 bottom-0 z-50 shadow-2xl'
+          : 'relative shrink-0 sticky'
+      } top-16 h-[calc(100vh-4rem)]`}
+      style={isMobile ? undefined : { borderRadius: 'var(--radius-lg)', width }}
     >
-      <button
-        type="button"
-        aria-label="Resize assistant"
-        onPointerDown={startResizing}
-        className="absolute left-0 top-0 h-full w-2 -translate-x-1/2 cursor-col-resize"
-      />
+      {/* Resize handle — desktop only */}
+      {!isMobile && (
+        <button
+          type="button"
+          aria-label="Resize assistant"
+          onPointerDown={startResizing}
+          className="absolute left-0 top-0 h-full w-2 -translate-x-1/2 cursor-col-resize"
+        />
+      )}
       <div className="border-b border-bg-border bg-bg-elevated shrink-0">
         <div className="px-3 py-2 flex items-center justify-between">
           <div className="min-w-0">
@@ -684,7 +755,14 @@ export default function AssistantSidebar({ open }) {
                 </ReactMarkdown>
               </div>
             ) : (
-              <AssistantMessage m={m} onLoadSql={handleLoadSql} />
+              <AssistantMessage
+                m={m}
+                onLoadSql={handleLoadSql}
+                onSaveToVault={(text) => askMutation.mutate({
+                  text: `Save this to my Obsidian vault:\n\n${text}`,
+                  mentions: [],
+                })}
+              />
             )}
           </div>
         ))}
@@ -701,5 +779,6 @@ export default function AssistantSidebar({ open }) {
         onPrefillConsumed={() => setComposerPrefill(null)}
       />
     </aside>
+    </>
   )
 }

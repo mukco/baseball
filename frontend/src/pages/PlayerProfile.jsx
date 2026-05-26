@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, formatDistanceToNow } from 'date-fns'
 import { api } from '../api'
 import FactoidsPanel from '../components/FactoidsPanel'
 import { StatCard } from '../components/StatCard'
@@ -506,6 +506,31 @@ function PlayerHeader({ info, season, onSeasonChange }) {
               </span>
             )}
           </div>
+
+          {info.awards?.length > 0 && (() => {
+            const grouped = {}
+            for (const award of info.awards) {
+              if (!grouped[award.name]) grouped[award.name] = { name: award.name, seasons: [] }
+              grouped[award.name].seasons.push(award.season)
+            }
+            return (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {Object.values(grouped).map(({ name, seasons }) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/25"
+                    title={seasons.join(', ')}
+                  >
+                    {name}
+                    {seasons.length > 1
+                      ? <span className="text-amber-500/60 font-normal">×{seasons.length}</span>
+                      : <span className="text-amber-500/60 font-normal">'{String(seasons[0]).slice(2)}</span>
+                    }
+                  </span>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       </div>
     </div>
@@ -751,10 +776,9 @@ function RecentGameLog({ group, rows = [] }) {
 }
 
 function PlayerMetaCards({ info }) {
-  const awards = info.awards || []
   const contract = info.contract
 
-  if (!contract && awards.length === 0) return null
+  if (!contract) return null
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -800,24 +824,6 @@ function PlayerMetaCards({ info }) {
         </section>
       )}
 
-      {awards.length > 0 && (
-        <section className="card p-5 space-y-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-content-muted">Awards</h2>
-          <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-            {awards.slice(0, 15).map((award, idx) => (
-              <div key={`${award.id || award.name}-${award.season}-${idx}`} className="rounded-lg bg-bg-elevated border border-bg-border px-3 py-2.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium text-content-primary">{award.name}</div>
-                    <div className="text-xs text-content-secondary">{award.league || award.team || 'MLB'}</div>
-                  </div>
-                  <div className="text-xs font-mono text-content-muted shrink-0">{award.season}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }
@@ -952,6 +958,9 @@ function BattingTab({ playerId, mlbStats, statcast, projection, gameLog, batSide
             <StatCard label="Blast%" value={sc.blastPerSwing != null ? `${sc.blastPerSwing}%` : null} subtitle="hard + pure contact" percentile={approxPercentile(sc.blastPerSwing, BATTING_THRESHOLDS.blastPerSwing)} />
             <StatCard label="O-Swing%" value={sc.oSwingPct != null ? `${sc.oSwingPct}%` : null} subtitle="chase rate" percentile={approxPercentile(sc.oSwingPct, BATTING_THRESHOLDS.oSwingPct)} />
             <StatCard label="Z-Swing%" value={sc.zSwingPct != null ? `${sc.zSwingPct}%` : null} subtitle="in-zone rate" percentile={approxPercentile(sc.zSwingPct, BATTING_THRESHOLDS.zSwingPct)} />
+            <StatCard label="Pull%" value={sc.pullPct != null ? `${sc.pullPct}%` : null} percentile={approxPercentile(sc.pullPct, BATTING_THRESHOLDS.pullPct)} />
+            <StatCard label="Cent%" value={sc.centPct != null ? `${sc.centPct}%` : null} percentile={approxPercentile(sc.centPct, BATTING_THRESHOLDS.centPct)} />
+            <StatCard label="Oppo%" value={sc.oppoPct != null ? `${sc.oppoPct}%` : null} percentile={approxPercentile(sc.oppoPct, BATTING_THRESHOLDS.oppoPct)} />
           </div>
         )}
       </section>
@@ -1245,6 +1254,72 @@ function PitchingTab({ playerId, mlbStats, statcast, projection, gameLog, pitchH
       <CareerStatsTable playerId={playerId} group="pitching" />
       <PlayerTransactions playerId={playerId} />
     </div>
+  )
+}
+
+function PlayerNewsPanel({ playerName }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['player-news', playerName],
+    queryFn: () => api.news.forPlayer(playerName),
+    enabled: !!playerName,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const items = data?.items || []
+  if (!isLoading && !items.length) return null
+
+  function relTime(ts) {
+    try { return formatDistanceToNow(parseISO(ts), { addSuffix: true }) } catch { return '' }
+  }
+
+  const SOURCE_COLOR = {
+    rotowire:  'text-purple-400',
+    mlbtr:     'text-orange-400',
+    mlb:       'text-blue-400',
+    fangraphs: 'text-green-500',
+    reddit:    'text-rose-400',
+  }
+
+  return (
+    <section>
+      <h3 className="text-[11px] font-semibold text-content-muted uppercase tracking-[0.08em] mb-3">News &amp; Updates</h3>
+      <div className="card divide-y divide-bg-border">
+        {isLoading ? (
+          <div className="p-4 space-y-3 animate-pulse">
+            {[...Array(3)].map((_, i) => <div key={i} className="h-4 bg-bg-elevated rounded" />)}
+          </div>
+        ) : (
+          items.slice(0, 8).map((item) => (
+            <div key={item.id} className="p-3.5 flex gap-3 items-start">
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${SOURCE_COLOR[item.sourceKey] ?? 'text-content-muted'}`}>
+                    {item.source}
+                  </span>
+                  {item.injury && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-red-400 bg-red-400/10 border border-red-400/20 px-1.5 py-0.5 rounded">
+                      {[item.injury.part, item.injury.list].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-content-muted">{relTime(item.publishedAt)}</span>
+                </div>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-sm font-medium text-content-primary hover:text-brand transition-colors leading-snug"
+                >
+                  {item.title}
+                </a>
+                {item.summary && (
+                  <p className="text-xs text-content-muted leading-relaxed line-clamp-2">{item.summary}</p>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -1705,6 +1780,8 @@ export default function PlayerProfile() {
       />
 
       <ProspectCard playerId={playerId} />
+
+      <PlayerNewsPanel playerName={info.name} />
 
       <FactoidsPanel
         queryKey={['player-factoids', playerId, season]}

@@ -95,6 +95,7 @@ class CacheWarmingService
       [
         ["statcast_batter",  -> { StatcastService.batter(player_id, season) }],
         ["statcast_pitcher", -> { StatcastService.pitcher(player_id, season) }],
+        ["hover_stats",      -> { HoverStatsService.call(player_id: player_id) }],
       ].each do |label, fn|
         key = "#{label}_#{player_id}"
         begin

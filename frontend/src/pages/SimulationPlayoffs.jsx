@@ -100,10 +100,11 @@ function PlayoffInsights({ leagueId }) {
   })
 
   const bullets = data?.bullets || {}
+  const isComplete = data?.phase === 'complete'
   const sections = [
     { key: 'series_storylines',   label: 'Series Storylines' },
     { key: 'standout_performers', label: 'Standout Performers' },
-    { key: 'champion_notes',      label: 'Champion' },
+    { key: 'champion_notes',      label: isComplete ? 'Champion' : 'Outlook' },
   ]
 
   return (
@@ -166,6 +167,13 @@ function PlayoffInsights({ leagueId }) {
   )
 }
 
+function ordinalSuffix(n) {
+  if (n == null) return ''
+  const v = n % 100
+  const s = ['th', 'st', 'nd', 'rd']
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+
 function SeriesCard({ series, leagueId }) {
   const [expanded, setExpanded] = useState(false)
   const homeWon    = series.winner_team_id === series.home_team_id
@@ -183,16 +191,49 @@ function SeriesCard({ series, leagueId }) {
       >
         {/* Team rows */}
         {[
-          { abbr: series.away_team_abbr, color: series.away_team_color, teamId: series.away_team_id, wins: series.away_wins, won: awayWon },
-          { abbr: series.home_team_abbr, color: series.home_team_color, teamId: series.home_team_id, wins: series.home_wins, won: homeWon },
-        ].map(({ abbr, color, teamId, wins, won }) => (
+          {
+            abbr: series.away_team_abbr, color: series.away_team_color, teamId: series.away_team_id,
+            wins: series.away_wins, won: awayWon,
+            seasonW: series.away_season_w, seasonL: series.away_season_l,
+            division: series.away_division, divRank: series.away_div_rank,
+            playoffW: series.away_playoff_w, playoffL: series.away_playoff_l,
+          },
+          {
+            abbr: series.home_team_abbr, color: series.home_team_color, teamId: series.home_team_id,
+            wins: series.home_wins, won: homeWon,
+            seasonW: series.home_season_w, seasonL: series.home_season_l,
+            division: series.home_division, divRank: series.home_div_rank,
+            playoffW: series.home_playoff_w, playoffL: series.home_playoff_l,
+          },
+        ].map(({ abbr, color, teamId, wins, won, seasonW, seasonL, division, divRank, playoffW, playoffL }) => (
           <div key={abbr} className={`flex items-center justify-between gap-2 ${isComplete && !won ? 'opacity-40' : ''}`}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <TeamLogo teamId={teamId} abbr={abbr} color={color} size={22} />
-              <span className={`font-mono font-bold text-sm ${won ? 'text-content-primary' : 'text-content-secondary'}`}>{abbr}</span>
-              {won && <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Win</span>}
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={`font-mono font-bold text-sm ${won ? 'text-content-primary' : 'text-content-secondary'}`}>{abbr}</span>
+                  {won && <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Win</span>}
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {seasonW != null && (
+                    <span className="text-[10px] font-mono text-content-muted tabular-nums">
+                      {seasonW}–{seasonL}
+                    </span>
+                  )}
+                  {divRank != null && division && (
+                    <span className="text-[10px] text-content-muted">
+                      · {ordinalSuffix(divRank)} {division}
+                    </span>
+                  )}
+                  {(playoffW > 0 || playoffL > 0) && (
+                    <span className="text-[10px] font-mono text-brand/70">
+                      · {playoffW}–{playoffL} PO
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <span className={`font-mono font-black text-lg tabular-nums ${won ? 'text-content-primary' : 'text-content-muted'}`}>
+            <span className={`font-mono font-black text-lg tabular-nums shrink-0 ${won ? 'text-content-primary' : 'text-content-muted'}`}>
               {wins}
             </span>
           </div>

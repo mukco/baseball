@@ -92,10 +92,11 @@ const BADGE_COLORS = {
   purple: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
 }
 
-function AwardBadge({ label, color }) {
+function AwardBadge({ label, color, count = 1 }) {
   return (
     <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${BADGE_COLORS[color] || BADGE_COLORS.amber}`}>
       {label}
+      {count > 1 && <span className="ml-1 font-normal opacity-70">×{count}</span>}
     </span>
   )
 }
@@ -643,6 +644,168 @@ const INSIGHT_SECTIONS = {
   notable_moments: 'Notable Moments',
 }
 
+// ─── Franchise season log ─────────────────────────────────────────────────────
+
+function FranchiseSeasonLog({ franchiseId, playerId, currentLeagueId, playerType }) {
+  const isBatter = playerType === 'batter'
+
+  const { data, isLoading } = useQuery({
+    queryKey:  ['franchise-player-history', franchiseId, playerId],
+    queryFn:   () => api.franchises.playerHistory(franchiseId, playerId),
+    staleTime: 5 * 60_000,
+    enabled:   !!franchiseId,
+  })
+
+  const { data: mlbCareer } = useQuery({
+    queryKey:  ['player-career', playerId, isBatter ? 'hitting' : 'pitching'],
+    queryFn:   () => api.stats.career(playerId, isBatter ? 'hitting' : 'pitching'),
+    staleTime: 60 * 60_000,
+    enabled:   !!playerId,
+  })
+
+  if (isLoading || !data?.seasons?.length) return null
+
+  const simSeasonYears = new Set(data.seasons.map(s => Number(s.season)))
+
+  const mlbSeasons = (mlbCareer || [])
+    .filter(r => !simSeasonYears.has(Number(r.season)))
+    .map(r => isBatter ? {
+      season:    Number(r.season),
+      type:      'MLB',
+      age:       r.age ?? null,
+      team_abbr: r.teamAbbrev ?? null,
+      g:         r.gamesPlayed,
+      avg:       r.avg,
+      obp:       r.obp,
+      slg:       r.slg,
+      ops:       r.ops,
+      hr:        r.homeRuns,
+      rbi:       r.rbi,
+      woba:      null,
+      awards:    [],
+    } : {
+      season:    Number(r.season),
+      type:      'MLB',
+      age:       r.age ?? null,
+      team_abbr: r.teamAbbrev ?? null,
+      g:         r.gamesPlayed,
+      w:         r.wins,
+      l:         r.losses,
+      era:       r.era,
+      whip:      r.whip,
+      ip:        r.inningsPitched,
+      k:         r.strikeOuts,
+      k9:        r.strikeoutsPer9Inn,
+      awards:    [],
+    })
+
+  const allSeasons = [
+    ...data.seasons.map(s => ({ ...s, season: Number(s.season), type: 'SIM' })),
+    ...mlbSeasons,
+  ].sort((a, b) => b.season - a.season)
+
+  const fmt3 = v => v != null ? Number(v).toFixed(3) : '—'
+  const fmt2 = v => v != null ? Number(v).toFixed(2) : '—'
+
+  return (
+    <section className="card overflow-hidden">
+      <div className="px-5 pt-4 pb-3 border-b border-bg-border flex items-center justify-between">
+        <h3 className="text-[11px] font-semibold text-content-muted uppercase tracking-[0.08em]">Season History</h3>
+        <span className="text-[10px] text-content-muted">{allSeasons.length} season{allSeasons.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-bg-border text-content-muted text-[10px] uppercase tracking-wider">
+              <th className="px-4 py-2 text-left font-medium">Season</th>
+              <th className="px-3 py-2 text-center font-medium">Age</th>
+              <th className="px-3 py-2 text-center font-medium">Team</th>
+              {isBatter ? (
+                <>
+                  <th className="px-3 py-2 text-right font-medium">G</th>
+                  <th className="px-3 py-2 text-right font-medium">AVG</th>
+                  <th className="px-3 py-2 text-right font-medium">OBP</th>
+                  <th className="px-3 py-2 text-right font-medium">SLG</th>
+                  <th className="px-3 py-2 text-right font-medium">OPS</th>
+                  <th className="px-3 py-2 text-right font-medium">HR</th>
+                  <th className="px-3 py-2 text-right font-medium">RBI</th>
+                  <th className="px-3 py-2 text-right font-medium">wOBA</th>
+                </>
+              ) : (
+                <>
+                  <th className="px-3 py-2 text-right font-medium">G</th>
+                  <th className="px-3 py-2 text-right font-medium">W</th>
+                  <th className="px-3 py-2 text-right font-medium">L</th>
+                  <th className="px-3 py-2 text-right font-medium">ERA</th>
+                  <th className="px-3 py-2 text-right font-medium">WHIP</th>
+                  <th className="px-3 py-2 text-right font-medium">IP</th>
+                  <th className="px-3 py-2 text-right font-medium">K</th>
+                  <th className="px-3 py-2 text-right font-medium">K/9</th>
+                </>
+              )}
+              <th className="px-4 py-2 text-left font-medium">Awards</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allSeasons.map((s, idx) => {
+              const isCurrent = s.league_id === Number(currentLeagueId)
+              const isSim = s.type === 'SIM'
+              return (
+                <tr
+                  key={`${s.season}-${s.type}-${idx}`}
+                  className={`border-b border-bg-border/60 last:border-b-0 transition-colors hover:bg-bg-elevated/40 ${isCurrent ? 'bg-brand/5' : ''}`}
+                >
+                  <td className="px-4 py-2.5 font-medium text-content-primary whitespace-nowrap">
+                    {s.season}
+                    {isSim
+                      ? <span className="ml-1.5 text-[9px] text-brand font-semibold uppercase">{isCurrent ? 'Current' : 'SIM'}</span>
+                      : <span className="ml-1.5 text-[9px] text-content-muted font-medium uppercase">MLB</span>
+                    }
+                  </td>
+                  <td className="px-3 py-2.5 text-center text-content-muted">{s.age ?? '—'}</td>
+                  <td className="px-3 py-2.5 text-center font-mono text-content-secondary">{s.team_abbr || '—'}</td>
+                  {isBatter ? (
+                    <>
+                      <td className="px-3 py-2.5 text-right text-content-secondary">{s.g ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-content-primary">{fmt3(s.avg)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-content-secondary">{fmt3(s.obp)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-content-secondary">{fmt3(s.slg)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-content-primary">{fmt3(s.ops)}</td>
+                      <td className="px-3 py-2.5 text-right text-content-primary">{s.hr ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right text-content-secondary">{s.rbi ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-content-secondary">{s.woba != null ? fmt3(s.woba) : '—'}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-3 py-2.5 text-right text-content-secondary">{s.g ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right text-content-primary">{s.w ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right text-content-secondary">{s.l ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-content-primary">{fmt2(s.era)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-content-secondary">{fmt2(s.whip)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-content-secondary">{s.ip ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right text-content-primary">{s.k ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-content-secondary">{s.k9 != null ? fmt2(s.k9) : '—'}</td>
+                    </>
+                  )}
+                  <td className="px-4 py-2.5">
+                    <div className="flex flex-wrap gap-1">
+                      {(s.awards || []).map((label) => (
+                        <span key={label} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 export default function SimulationPlayer() {
   const { id, playerId } = useParams()
   const qc = useQueryClient()
@@ -665,10 +828,43 @@ export default function SimulationPlayer() {
     staleTime: 5 * 60_000,
   })
 
-  const playerAwards = useMemo(
-    () => extractPlayerAwards(awardsData, playoffAwardsData, playerId),
-    [awardsData, playoffAwardsData, playerId]
-  )
+  // Franchise history is fetched here so we can aggregate award counts across all seasons.
+  // FranchiseSeasonLog uses the same query key, so this shares the cached result.
+  const franchiseIdForQuery = data?.franchise_id
+  const { data: franchiseHistory } = useQuery({
+    queryKey:  ['franchise-player-history', franchiseIdForQuery, playerId],
+    queryFn:   () => api.franchises.playerHistory(franchiseIdForQuery, playerId),
+    staleTime: 5 * 60_000,
+    enabled:   !!franchiseIdForQuery,
+  })
+
+  const playerAwards = useMemo(() => {
+    const simAwards = extractPlayerAwards(awardsData, playoffAwardsData, playerId)
+
+    // Build color map from AWARD_CONFIG and current-sim awards
+    const colorMap = {}
+    for (const { label, color } of simAwards) colorMap[label] = color
+
+    if (franchiseHistory?.seasons?.length) {
+      // Count awards across all franchise seasons (includes current, so no double-counting needed)
+      const tally = {}
+      for (const season of franchiseHistory.seasons) {
+        for (const label of (season.awards || [])) {
+          tally[label] = (tally[label] || 0) + 1
+          if (!colorMap[label]) {
+            const cfg = Object.values(AWARD_CONFIG).find(c => c.label === label)
+            colorMap[label] = cfg?.color || 'amber'
+          }
+        }
+      }
+      return Object.entries(tally).map(([label, count]) => ({
+        label, count, color: colorMap[label] || 'amber',
+      }))
+    }
+
+    // Fallback: current sim only, count = 1 each
+    return simAwards.map(a => ({ ...a, count: 1 }))
+  }, [awardsData, playoffAwardsData, playerId, franchiseHistory])
 
   if (isLoading) return <SimSpinner className="py-20" />
 
@@ -676,7 +872,7 @@ export default function SimulationPlayer() {
     return <div className="card p-8 text-center text-red-400">{data?.error || 'Player not found.'}</div>
   }
 
-  const { player_name, player_type, team_id, team_abbr, team_color, position, ratings, season_line, mlb_season_line, game_log, injury_status, spray = {} } = data
+  const { player_name, player_type, team_id, team_abbr, team_color, position, age, ratings, season_line, mlb_season_line, game_log, injury_status, spray = {}, franchise_id } = data
   const isBatter = player_type === 'batter'
   const sl       = season_line    || {}
   const games    = game_log       || []
@@ -717,6 +913,12 @@ export default function SimulationPlayer() {
                   {position && (
                     <span className="text-brand-light font-semibold text-sm">{position}</span>
                   )}
+                  {age != null && (
+                    <>
+                      {position && <span className="text-bg-border">·</span>}
+                      <span className="text-content-muted text-sm">Age {age}</span>
+                    </>
+                  )}
                   {team_id && (
                     <>
                       <span className="text-bg-border">·</span>
@@ -746,8 +948,8 @@ export default function SimulationPlayer() {
                       {injury_status.days_remaining > 0 && ` · ${injury_status.days_remaining}d`}
                     </span>
                   )}
-                  {playerAwards.map(({ label, color }) => (
-                    <AwardBadge key={label} label={label} color={color} />
+                  {playerAwards.map(({ label, color, count }) => (
+                    <AwardBadge key={label} label={label} color={color} count={count} />
                   ))}
                 </div>
               </div>
@@ -798,6 +1000,11 @@ export default function SimulationPlayer() {
 
       {/* ── Game log ── */}
       {games.length > 0 && <SimGameLog isBatter={isBatter} games={games} />}
+
+      {/* ── Franchise history ── */}
+      {franchise_id && (
+        <FranchiseSeasonLog franchiseId={franchise_id} playerId={playerId} currentLeagueId={id} playerType={player_type} />
+      )}
     </div>
   )
 }

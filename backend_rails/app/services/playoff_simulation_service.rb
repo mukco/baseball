@@ -62,14 +62,15 @@ class PlayoffSimulationService
     # Serialize full bracket state for the frontend.
     # -----------------------------------------------------------------------
     def bracket_state(league)
-      series = league.simulation_playoff_series.order(:round, :league, :series_index)
+      series  = league.simulation_playoff_series.order(:round, :league, :series_index)
       grouped = series.group_by(&:round)
+      meta    = build_team_meta(league, series.to_a)
       {
         rounds: ROUND_ORDER.map do |r|
           {
-            round: r,
-            label: ROUND_LABELS[r],
-            series: (grouped[r] || []).map { |s| serialize_series(s) },
+            round:  r,
+            label:  ROUND_LABELS[r],
+            series: (grouped[r] || []).map { |s| serialize_series(s, meta) },
           }
         end.select { |r| r[:series].any? },
       }
@@ -401,7 +402,40 @@ class PlayoffSimulationService
       end
     end
 
-    def serialize_series(series)
+    def build_team_meta(league, all_series)
+      meta = Hash.new { |h, k| h[k] = { w: nil, l: nil, division: nil, div_rank: nil, pw: 0, pl: 0 } }
+
+      SimulationService.compute_standings(league, filter: :all).each do |lg, divs|
+        divs.each do |division, teams|
+          teams.each_with_index do |t, idx|
+            meta[t[:team_id]].merge!(
+              w:        t[:w],
+              l:        t[:l],
+              division: "#{lg} #{division}",
+              div_rank: idx + 1,
+            )
+          end
+        end
+      end
+
+      all_series.select(&:complete?).each do |s|
+        s.games.each do |g|
+          if g[:home_score] > g[:away_score]
+            meta[s.home_team_id][:pw] += 1
+            meta[s.away_team_id][:pl] += 1
+          else
+            meta[s.away_team_id][:pw] += 1
+            meta[s.home_team_id][:pl] += 1
+          end
+        end
+      end
+
+      meta
+    end
+
+    def serialize_series(series, team_meta = {})
+      home_meta = team_meta[series.home_team_id] || {}
+      away_meta = team_meta[series.away_team_id] || {}
       {
         id:              series.id,
         round:           series.round,
@@ -419,6 +453,18 @@ class PlayoffSimulationService
         winner_team_id:  series.winner_team_id,
         status:          series.status,
         games:           series.games,
+        home_season_w:   home_meta[:w],
+        home_season_l:   home_meta[:l],
+        home_division:   home_meta[:division],
+        home_div_rank:   home_meta[:div_rank],
+        home_playoff_w:  home_meta[:pw],
+        home_playoff_l:  home_meta[:pl],
+        away_season_w:   away_meta[:w],
+        away_season_l:   away_meta[:l],
+        away_division:   away_meta[:division],
+        away_div_rank:   away_meta[:div_rank],
+        away_playoff_w:  away_meta[:pw],
+        away_playoff_l:  away_meta[:pl],
       }
     end
   end

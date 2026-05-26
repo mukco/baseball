@@ -1,7 +1,18 @@
 class PlayerRatingService
-  CACHE_TTL       = 12 * 3600
-  PITCHER_POS     = %w[SP RP P TWP].freeze
-  STAR_THRESHOLDS = [0.70, 0.35].freeze  # >= 70th pct → 3, >= 35th → 2, else 1
+  CACHE_TTL = 12 * 3600
+  PITCHER_POS = %w[SP RP P TWP].freeze
+
+  # Percentile cutoffs for star ratings (within this league's player pool)
+  THREE_STAR_PERCENTILE = 0.70  # top 30% → 3 stars
+  TWO_STAR_PERCENTILE   = 0.35  # top 65% → 2 stars
+
+  # Composite score weights — each formula blends two predictive components
+  CONTACT_BABIP_WEIGHT      = 0.6   # ball-in-play skill
+  CONTACT_KRATE_WEIGHT      = 0.4   # strikeout avoidance
+  POWER_ISO_WEIGHT          = 0.7   # isolated power
+  POWER_HR_FB_WEIGHT        = 0.3   # home-run rate on fly balls
+  HR_PREVENTION_GB_WEIGHT   = 0.5   # ground-ball tendency
+  HR_PREVENTION_HRFB_WEIGHT = 0.5   # fly-ball HR suppression
 
   @@cache            = {}
   @@cache_timestamps = {}
@@ -87,38 +98,41 @@ class PlayerRatingService
 
     def rate_batters(ids, comps)
       pool = ids.filter_map do |pid|
-        c = comps[pid]
-        next unless c&.any?
+        components = comps[pid]
+        next unless components&.any?
         { pid:        pid,
-          contact:    batter_contact(c),
-          power:      batter_power(c),
-          discipline: c[:bb_pct].to_f }
+          contact:    batter_contact(components),
+          power:      batter_power(components),
+          discipline: components[:bb_pct].to_f }
       end
       stars_map(pool, :contact, :power, :discipline)
     end
 
     def rate_pitchers(ids, comps)
       pool = ids.filter_map do |pid|
-        c = comps[pid]
-        next unless c&.any?
+        components = comps[pid]
+        next unless components&.any?
         { pid:           pid,
-          stuff:         c[:k_pct].to_f,
-          control:       1.0 - c[:bb_pct].to_f,
-          hr_prevention: pitcher_hr_prevention(c) }
+          stuff:         components[:k_pct].to_f,
+          control:       1.0 - components[:bb_pct].to_f,
+          hr_prevention: pitcher_hr_prevention(components) }
       end
       stars_map(pool, :stuff, :control, :hr_prevention)
     end
 
-    def batter_contact(c)
-      (c[:babip].to_f * 0.6) + ((1.0 - c[:k_pct].to_f) * 0.4)
+    def batter_contact(components)
+      (components[:babip].to_f    * CONTACT_BABIP_WEIGHT) +
+        ((1.0 - components[:k_pct].to_f) * CONTACT_KRATE_WEIGHT)
     end
 
-    def batter_power(c)
-      (c[:iso].to_f * 0.7) + (c[:hr_fb_pct].to_f * 0.3)
+    def batter_power(components)
+      (components[:iso].to_f      * POWER_ISO_WEIGHT) +
+        (components[:hr_fb_pct].to_f * POWER_HR_FB_WEIGHT)
     end
 
-    def pitcher_hr_prevention(c)
-      (c[:gb_pct].to_f * 0.5) + ((1.0 - c[:hr_fb_pct].to_f) * 0.5)
+    def pitcher_hr_prevention(components)
+      (components[:gb_pct].to_f           * HR_PREVENTION_GB_WEIGHT) +
+        ((1.0 - components[:hr_fb_pct].to_f) * HR_PREVENTION_HRFB_WEIGHT)
     end
 
     # -----------------------------------------------------------------------
@@ -144,9 +158,9 @@ class PlayerRatingService
     end
 
     def pct_to_stars(pct)
-      if pct >= STAR_THRESHOLDS[0] then 3
-      elsif pct >= STAR_THRESHOLDS[1] then 2
-      else 1
+      if    pct >= THREE_STAR_PERCENTILE then 3
+      elsif pct >= TWO_STAR_PERCENTILE   then 2
+      else                                    1
       end
     end
 

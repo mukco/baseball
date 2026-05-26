@@ -60,7 +60,7 @@ RSpec.describe "Api::SimulationsController", type: :request do
       allow(MlbApiService).to receive(:new).and_return(mlb)
       allow(mlb).to receive(:all_teams).and_return([])
       allow(mlb).to receive(:season_schedule).and_return([])
-      allow(mlb).to receive(:send).with(:team_roster, anything).and_return([])
+      allow(mlb).to receive(:team_roster).with(anything).and_return([])
     end
 
     it "returns 200 and creates a league" do

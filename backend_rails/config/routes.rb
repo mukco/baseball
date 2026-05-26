@@ -62,6 +62,10 @@ Rails.application.routes.draw do
     # Assistant
     post "assistant/ask",                  to: "assistant#ask"
 
+    # App settings
+    get   "settings", to: "settings#show"
+    patch "settings", to: "settings#update"
+
     # ML Builder
     get    "ml/health",          to: "ml#health"
     get    "ml/columns/:table",  to: "ml#columns"
@@ -107,11 +111,13 @@ Rails.application.routes.draw do
     delete "scenarios/:id", to: "scenarios#destroy"
 
     # Franchises (multi-season)
-    get    "franchises",          to: "franchises#index"
-    post   "franchises",          to: "franchises#create"
-    get    "franchises/:id",      to: "franchises#show"
-    post   "franchises/:id/advance", to: "franchises#advance"
-    delete "franchises/:id",      to: "franchises#destroy"
+    get    "franchises",                                        to: "franchises#index"
+    post   "franchises",                                        to: "franchises#create"
+    get    "franchises/:id",                                    to: "franchises#show"
+    post   "franchises/:id/advance",                            to: "franchises#advance"
+    get    "franchises/:id/player_history/:player_id",          to: "franchises#player_history"
+    get    "franchises/:id/team_history/:team_id",              to: "franchises#team_history"
+    delete "franchises/:id",                                    to: "franchises#destroy"
 
     # Simulation
     get    "simulations",                                    to: "simulations#index"
@@ -151,6 +157,11 @@ Rails.application.routes.draw do
     patch  "simulations/:id/rosters/:team_id",               to: "simulations#update_roster"
     get    "simulations/:simulation_id/config",              to: "simulation_configs#show"
     patch  "simulations/:simulation_id/config",              to: "simulation_configs#update"
+
+    # Custom config presets
+    get    "simulation_presets",     to: "simulation_presets#index"
+    post   "simulation_presets",     to: "simulation_presets#create"
+    delete "simulation_presets/:id", to: "simulation_presets#destroy"
 
     # Cache warming
     get  "cache/status",  to: "cache_warming#status"

@@ -6,6 +6,51 @@ RSpec.describe StatcastService do
     described_class.class_variable_set(:@@cache_timestamps, {})
   end
 
+  describe ".batter" do
+    let(:player_id) { 592450 }
+    let(:season)    { 2024 }
+
+    let(:csv_rows) do
+      [{ "launch_speed" => "105.2", "launch_angle" => "28.0", "hc_x" => nil, "hc_y" => nil,
+         "events" => "home_run", "estimated_ba_using_speedangle" => "0.810",
+         "estimated_woba_using_speedangle" => "0.990", "sprint_speed" => nil,
+         "bat_speed" => nil, "swing_length" => nil, "zone" => "5",
+         "description" => "hit_into_play_score" }]
+    end
+
+    let(:spray_rows) do
+      [{ player_id: player_id, pull_pct: 0.45, cent_pct: 0.32, oppo_pct: 0.23 }]
+    end
+
+    let(:sprint_rows) { [{ player_id: player_id, sprint_speed: 28.5 }] }
+
+    before do
+      allow(described_class).to receive(:fetch_csv).and_return(csv_rows)
+      allow(described_class).to receive(:fetch_fangraphs_batted_ball).and_return(spray_rows)
+      allow(described_class).to receive(:fetch_sprint_speed_leaderboard).and_return(sprint_rows)
+      allow(described_class).to receive(:bat_tracking_for).and_return({})
+    end
+
+    it "merges pull/cent/oppo as whole-number percentages into the summary" do
+      result = described_class.batter(player_id, season)
+      expect(result[:summary][:pullPct]).to eq(45.0)
+      expect(result[:summary][:centPct]).to eq(32.0)
+      expect(result[:summary][:oppoPct]).to eq(23.0)
+    end
+
+    it "merges sprint speed from the leaderboard" do
+      result = described_class.batter(player_id, season)
+      expect(result[:summary][:sprintSpeed]).to eq(28.5)
+    end
+
+    it "still returns summary stats when spray data is unavailable" do
+      allow(described_class).to receive(:fetch_fangraphs_batted_ball).and_return([])
+      result = described_class.batter(player_id, season)
+      expect(result[:summary]).not_to have_key(:pullPct)
+      expect(result[:error]).to be_nil
+    end
+  end
+
   describe ".spray_direction" do
     let(:season)    { 2024 }
     let(:player_id) { 592450 }

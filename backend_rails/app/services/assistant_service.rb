@@ -342,15 +342,35 @@ class AssistantService
       type: "function",
       function: {
         name: "get_news",
-        description: "Get recent baseball news from MLB.com, FanGraphs, MLB Trade Rumors, and r/baseball. Optionally filter by player name to find stories about a specific player.",
+        description: "Get recent baseball news from MLB.com, FanGraphs, MLB Trade Rumors, r/baseball, and Rotowire (player injuries and transactions). Optionally filter by player name to find stories about a specific player.",
         parameters: {
           type: "object",
           properties: {
-            topic: { type: "string", description: "Filter by source: 'mlb', 'fangraphs', 'mlbtr', 'reddit', or 'all'. Defaults to 'all'." },
+            topic: { type: "string", description: "Filter by source: 'mlb', 'fangraphs', 'mlbtr', 'reddit', 'rotowire', or 'all'. Use 'rotowire' for injury reports and player transaction news. Defaults to 'all'." },
             limit: { type: "integer", description: "Number of articles to return. Defaults to 15." },
             player_name: { type: "string", description: "Search for stories mentioning a specific player by name. Returns articles where the player is mentioned." }
           },
           required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "save_obsidian_note",
+        description: "Save a note or analysis to the user's Obsidian vault as a Markdown file. Use when the user explicitly asks to save, note down, or record something to their vault or notes. Only works if the Obsidian vault path is configured in Settings.",
+        parameters: {
+          type: "object",
+          properties: {
+            title:     { type: "string", description: "Note title used as the filename (no .md extension)." },
+            content:   { type: "string", description: "Full Markdown content of the note body (everything after the frontmatter)." },
+            subfolder: { type: "string", description: "Subfolder within the vault, e.g. 'Baseball/Players' or 'Baseball/Trades'. Defaults to 'Baseball'." },
+            tags:      { type: "array", items: { type: "string" }, description: "Frontmatter tags. Always include 'baseball'. Add topic tags like 'simulation', 'trade', 'analysis', 'scouting', 'fantasy', 'log', etc. as relevant." },
+            type:      { type: "string", enum: %w[reference how-to concept log scratch], description: "Note type. Use 'reference' for facts/stats/analysis, 'log' for session or event notes, 'concept' for explanations of ideas, 'how-to' for step-by-step, 'scratch' for quick informal saves." },
+            status:    { type: "string", enum: %w[draft active stable], description: "Note status. Use 'draft' for a one-off snapshot, 'active' for a note you expect to update over time, 'stable' for complete settled reference material." },
+            source:    { type: "string", description: "Optional URL or source title if the note is based on an external resource." }
+          },
+          required: %w[title content type status tags]
         }
       }
     },
@@ -610,6 +630,17 @@ class AssistantService
         }
         MlService.train(config)
 
+      when "save_obsidian_note"
+        ObsidianService.save_note(
+          title:     args["title"].to_s,
+          content:   args["content"].to_s,
+          subfolder: args["subfolder"].presence,
+          tags:      args["tags"],
+          type:      args["type"].presence,
+          status:    args["status"].presence,
+          source:    args["source"].presence
+        )
+
       when "create_chart"
         { type: args["type"], title: args["title"], xKey: args["xKey"], yKey: args["yKey"], data: args["data"] }
 
@@ -664,7 +695,7 @@ class AssistantService
         - get_game_details — full box score and advanced metrics for any game
         - get_game_picks — AI betting picks (moneyline, O/U, player props) for a specific game
         - get_game_odds — real betting lines from ESPN (moneyline, spread, total odds) for a game; pass home_team, away_team, game_date for best results
-        - get_news — recent headlines from MLB.com, FanGraphs, MLBTR, r/baseball; pass player_name to find stories about a specific player
+        - get_news — recent headlines from MLB.com, FanGraphs, MLBTR, r/baseball, and Rotowire (injury reports, IL moves, transactions); pass player_name to find stories about a specific player; pass topic='rotowire' to filter to injury/transaction news only
 
         **Player data:**
         - search_teams — find a team ID from a team name, city, or abbreviation
@@ -694,6 +725,25 @@ class AssistantService
           - `fg_projections_pitching` — current-season Steamer pitching projections. Same key pitching columns as `pitchers`.
           - Join example: `SELECT b.name, b.war AS actual, p.war AS projected FROM batters b JOIN fg_projections_batting p ON b.player_id = p.player_id AND b.season = p.season`
         - get_leaderboards — FanGraphs batting or pitching leaderboard for quick top-N queries
+
+        **Notes (Obsidian):**
+        - save_obsidian_note — Write a note to the user's Obsidian vault. Trigger when the user says "save this", "note that down", "add to my vault", "keep this", etc.
+
+          **Required frontmatter fields — always set all four:**
+          - `tags`: always include `"baseball"` plus topic tags relevant to the content (e.g. `"simulation"`, `"trade"`, `"fantasy"`, `"analysis"`, `"scouting"`, `"log"`)
+          - `type`: pick one — `reference` (stats/facts/lookup), `log` (session or event note), `concept` (explanation of an idea), `how-to` (step-by-step), `scratch` (quick informal save)
+          - `status`: `draft` for a one-off snapshot; `active` for a living note the user will return to; `stable` for complete reference material
+          - `tags`, `type`, `status` are all required fields in the tool call — never omit them
+
+          **Content formatting rules:**
+          - Use a single `# Title` H1 at the top of the content (matches the note title)
+          - Use `## Section` H2 headers to organise longer notes
+          - Use `[[Note Name]]` wikilink syntax for cross-references to other notes (e.g. `[[baseball]]`, `[[Simulation]]`)
+          - Bullet lists with `-` for enumerations; tables for structured comparisons or stat rows
+          - Inline code with backticks for stat names, column names, file paths, or code symbols
+          - Fenced ` ```sql ``` ` blocks for any SQL; ` ``` ` blocks for any other code
+          - No inline `#tags` — tags belong in frontmatter only
+          - Keep the content dense and informative, not a transcript of the chat — write it as a reference the user will read again later
 
         **Visualisation (mandatory):**
         - create_chart — **Call this every time you return ranked lists, comparisons, or time-series data.** Never reply with a table or bullet list of stats when a chart would communicate it better. Call it in the same tool-call batch as your last data fetch whenever possible.
@@ -732,6 +782,37 @@ class AssistantService
           - `fg_projections_batting` — current-season Steamer batting projections. Columns: player_id, fg_id, name, team, season, projection_system, g, pa, hr, r, rbi, sb, bb, k, avg, obp, slg, ops, iso, woba, wrc_plus, babip, war, k_pct, bb_pct.
           - `fg_projections_pitching` — current-season Steamer pitching projections. Columns: player_id, fg_id, name, team, season, projection_system, g, gs, w, l, sv, ip, tbf, k, bb, hr, era, fip, xfip, siera, war, whip, k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct, babip, gb_pct.
           - Join on `player_id` (preferred) or `fg_id`. Always alias tables when joining. Example cross-table query: `SELECT b.name, b.war AS actual_war, p.war AS proj_war FROM batters b JOIN fg_projections_batting p ON b.player_id = p.player_id AND b.season = p.season WHERE b.season = #{Date.today.year - 1} AND b.pa >= 300 ORDER BY actual_war - proj_war DESC`.
+
+        ## ML Builder page
+
+        When `page_context.pageType` is `"ml_run"`, the user has opened the assistant from the ML Model Builder after training a model. The run details are in `page_context.mlRun`:
+        - `model_type` — e.g. "random_forest", "neural_network", "gradient_boosting"
+        - `task` — "regression" or "classification"
+        - `target` — the column being predicted (e.g. "hr", "era")
+        - `table` — the warehouse table used (e.g. "batters", "pitchers")
+        - `features` — array of input column names
+        - `metrics` — evaluation metrics: r2, rmse, mae for regression; accuracy, f1, precision, recall for classification
+        - `train_samples` / `test_samples` — number of training and test rows
+        - `feature_importance` — array of { name, importance } for the top-5 features (if available)
+
+        When responding to this context, write a thorough, educational interpretation — aim for 4–6 substantive paragraphs. Do not be terse. Repeat and explain every metric by name; never assume the user already knows what R², RMSE, F1, or precision/recall mean.
+
+        **Always define every metric you mention, inline, in plain English:**
+        - **R²** (coefficient of determination): the fraction of variance in the target the model explains. "R² of 0.71 means 71% of the differences in {target} values across players are captured by this model." Characterize: ≥ 0.85 excellent, 0.70–0.84 good, 0.50–0.69 moderate, < 0.50 weak.
+        - **RMSE** (root mean squared error): the typical size of the model's prediction error, in the same units as the target. "RMSE of 3.9 means the model's predictions are off by roughly ±4 {target} units on average."
+        - **MAE** (mean absolute error): the average absolute error, less sensitive to large outliers than RMSE. Compare to RMSE — if they are close, errors are evenly distributed; if RMSE is much larger, a few big mispredictions are pulling it up.
+        - **Accuracy** (classification): the percentage of test samples the model correctly classified. Explain that high accuracy can be misleading if classes are imbalanced.
+        - **F1 score**: the harmonic mean of precision and recall. Explain precision ("of all the times the model predicted class X, what fraction were actually X") and recall ("of all actual class X samples, what fraction did the model catch"). F1 below 0.50 suggests the model is struggling to distinguish between classes.
+        - **Precision** and **Recall**: define each separately even if you have already described them as part of F1.
+
+        **Structure each response as:**
+        1. A brief summary sentence (model type, target, features, outcome in one line).
+        2. A paragraph walking through every reported metric with inline definitions and judgment on what each number means for this specific prediction task.
+        3. A paragraph discussing *why* the result makes statistical or baseball sense — relate the features to the target, note any mathematical relationships (e.g. SLG is a component of OPS; ISO = SLG − AVG), and flag if good performance is likely due to data leakage rather than real predictive power.
+        4. A paragraph covering weaknesses or caveats — sample size, class imbalance, overfitting risk, features that may be collinear.
+        5. A concrete next-experiment paragraph: suggest a specific change (different model type, add/remove a named feature, bin the target, adjust a hyperparameter) and explain what you would expect to learn from that change.
+
+        Always use the actual numbers from `metrics` and actual feature/model names — never use placeholders.
       PROMPT
     end
   end

@@ -1,25 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { api } from '../api'
 import PlayerLink from '../components/PlayerLink'
 import DynamicChart from '../components/charts/DynamicChart'
-
-const CATEGORY_META = {
-  game:        { label: 'Game',        color: 'text-blue-500',   bg: 'bg-blue-500/10'   },
-  transaction: { label: 'Transaction', color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  milestone:   { label: 'Milestone',   color: 'text-amber-500',  bg: 'bg-amber-500/10'  },
-  storyline:   { label: 'Storyline',   color: 'text-violet-500', bg: 'bg-violet-500/10' },
-}
-
-function CategoryBadge({ category }) {
-  const meta = CATEGORY_META[category] || { label: category, color: 'text-content-muted', bg: 'bg-bg-elevated' }
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-widest ${meta.color} ${meta.bg}`}>
-      {meta.label}
-    </span>
-  )
-}
 
 function PlayerChips({ players = [], names = [] }) {
   const resolved = players.filter((p) => p.id)
@@ -48,34 +33,6 @@ function PlayerChips({ players = [], names = [] }) {
   )
 }
 
-function StoryCard({ story }) {
-  const [expanded, setExpanded] = useState(false)
-  const [clamped, setClamped] = useState(false)
-  const bodyRef = useRef(null)
-
-  useEffect(() => {
-    const el = bodyRef.current
-    if (el) setClamped(el.scrollHeight > el.clientHeight)
-  }, [])
-
-  return (
-    <article className="card p-5 flex flex-col gap-3">
-      <CategoryBadge category={story.category} />
-      <h3 className="news-headline line-clamp-3">{story.headline}</h3>
-      <p ref={bodyRef} className={`news-summary flex-1 ${expanded ? '' : 'line-clamp-4'}`}>{story.body}</p>
-      {(clamped || expanded) && (
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="self-start text-xs text-brand-light hover:text-brand transition-colors -mt-1"
-        >
-          {expanded ? 'Show less' : 'Read more'}
-        </button>
-      )}
-      <PlayerChips players={story.players} names={story.player_names} />
-    </article>
-  )
-}
-
 function TrendCard({ trend }) {
   const chart = trend.chart
   return (
@@ -100,29 +57,22 @@ function TrendCard({ trend }) {
           />
         </div>
       )}
-      <PlayerChips players={trend.players} names={trend.player_names} />
+      <div className="flex items-center justify-between flex-wrap gap-2 mt-auto pt-2">
+        <PlayerChips players={trend.players} names={trend.player_names} />
+        {trend.explore_sql && (
+          <Link
+            to="/sandbox"
+            state={{ sql: trend.explore_sql }}
+            className="shrink-0 inline-flex items-center gap-1 text-xs text-brand-light hover:text-brand transition-colors"
+          >
+            Explore in Sandbox
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        )}
+      </div>
     </article>
-  )
-}
-
-function StoriesSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="card p-5 animate-pulse space-y-3">
-          <div className="h-4 w-20 bg-bg-elevated rounded" />
-          <div className="space-y-2">
-            <div className="h-5 bg-bg-elevated rounded w-full" />
-            <div className="h-5 bg-bg-elevated rounded w-3/4" />
-          </div>
-          <div className="space-y-1.5">
-            <div className="h-3 bg-bg-elevated rounded w-full" />
-            <div className="h-3 bg-bg-elevated rounded w-5/6" />
-            <div className="h-3 bg-bg-elevated rounded w-4/6" />
-          </div>
-        </div>
-      ))}
-    </div>
   )
 }
 
@@ -184,8 +134,7 @@ export default function DailySummary() {
     refetch({ meta: { refresh: true } })
   }
 
-  const stories = data?.stories ?? []
-  const trends  = data?.trends  ?? []
+  const trends = data?.trends ?? []
 
   return (
     <div className="space-y-10 py-10">
@@ -229,29 +178,13 @@ export default function DailySummary() {
         </div>
       )}
 
-      {/* Stories */}
-      <section className="space-y-4">
-        <SectionHeader label="Today's Stories" count={stories.length} />
-        {isLoading ? (
-          <StoriesSkeleton />
-        ) : stories.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {stories.map((s, i) => (
-              <StoryCard key={i} story={s} />
-            ))}
-          </div>
-        ) : !error ? (
-          <div className="card p-8 text-center text-content-muted text-sm">No stories available yet.</div>
-        ) : null}
-      </section>
-
       {/* Trends */}
       <section className="space-y-4">
         <SectionHeader label="Statistical Trends" count={trends.length} />
         {isLoading ? (
           <TrendsSkeleton />
         ) : trends.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {trends.map((t, i) => (
               <TrendCard key={i} trend={t} />
             ))}

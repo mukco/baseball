@@ -1,14 +1,19 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import PredActualChart from './PredActualChart'
 import ClassBreakdownChart from './ClassBreakdownChart'
+import MLHint from './MLHint'
+import { ML_HELP } from '../../lib/mlHelp'
 
 const MUTED  = 'rgb(var(--color-content-muted))'
 const BORDER = 'rgb(var(--color-bg-border))'
 
-function MetricCard({ label, value, help }) {
+function MetricCard({ label, value, hintKey }) {
   return (
-    <div className="bg-bg-elevated rounded p-3 text-center" title={help}>
-      <p className="text-xs text-content-muted mb-0.5">{label}</p>
+    <div className="bg-bg-elevated rounded p-3 text-center">
+      <div className="flex items-center justify-center gap-1 mb-0.5">
+        <p className="text-xs text-content-muted">{label}</p>
+        {hintKey && <MLHint hint={ML_HELP[hintKey]} />}
+      </div>
       <p className="text-xl font-mono font-bold text-content-primary">{value}</p>
     </div>
   )
@@ -39,7 +44,7 @@ export default function ModelResults({ results }) {
   const importanceData = topFeatures.map(f => ({ name: f.feature, value: f.importance }))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       {/* Summary chips */}
       <div className="flex flex-wrap gap-2">
         <SummaryChip label="Model" value={model_type.replace(/_/g, ' ')} />
@@ -65,23 +70,16 @@ export default function ModelResults({ results }) {
         <p className="text-xs font-semibold text-content-muted uppercase tracking-wider">Metrics</p>
         {isClassification ? (
           <div className="grid grid-cols-2 gap-2">
-            <MetricCard label="Accuracy" value={`${(metrics.accuracy * 100).toFixed(1)}%`}
-              help="Fraction of test rows predicted correctly." />
-            <MetricCard label="F1 Score" value={metrics.f1?.toFixed(3)}
-              help="Harmonic mean of precision and recall. Good for imbalanced classes." />
-            <MetricCard label="Precision" value={metrics.precision?.toFixed(3)}
-              help="Of all positive predictions, how many were actually positive?" />
-            <MetricCard label="Recall" value={metrics.recall?.toFixed(3)}
-              help="Of all actual positives, how many did the model catch?" />
+            <MetricCard label="Accuracy" value={`${(metrics.accuracy * 100).toFixed(1)}%`} hintKey="accuracy" />
+            <MetricCard label="F1 Score" value={metrics.f1?.toFixed(3)} hintKey="f1" />
+            <MetricCard label="Precision" value={metrics.precision?.toFixed(3)} hintKey="precision" />
+            <MetricCard label="Recall" value={metrics.recall?.toFixed(3)} hintKey="recall" />
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
-            <MetricCard label="R²" value={metrics.r2?.toFixed(3)}
-              help="Fraction of variance explained. 1.0 is perfect; 0 = no better than predicting the mean." />
-            <MetricCard label="RMSE" value={metrics.rmse?.toFixed(2)}
-              help="Root mean squared error — in the same units as the target." />
-            <MetricCard label="MAE" value={metrics.mae?.toFixed(2)}
-              help="Mean absolute error — average magnitude of prediction errors." />
+            <MetricCard label="R²" value={metrics.r2?.toFixed(3)} hintKey="r2" />
+            <MetricCard label="RMSE" value={metrics.rmse?.toFixed(2)} hintKey="rmse" />
+            <MetricCard label="MAE" value={metrics.mae?.toFixed(2)} hintKey="mae" />
           </div>
         )}
       </div>
@@ -89,7 +87,10 @@ export default function ModelResults({ results }) {
       {/* Loss curve — NN only */}
       {lossData.length > 0 && (
         <div className="card p-4">
-          <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-3">Training loss</p>
+          <div className="flex items-center gap-1.5 mb-3">
+            <p className="text-xs font-semibold text-content-muted uppercase tracking-wider">Training loss</p>
+            <MLHint hint={ML_HELP.training_loss} />
+          </div>
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={lossData}>
               <XAxis dataKey="epoch" tick={{ fill: MUTED, fontSize: 11 }} label={{ value: 'Epoch', position: 'insideBottom', offset: -2, fill: MUTED, fontSize: 11 }} />
@@ -108,8 +109,11 @@ export default function ModelResults({ results }) {
       {/* Feature importance */}
       {importanceData.length > 0 && (
         <div className="card p-4">
-          <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-3">Feature importance</p>
-          <ResponsiveContainer width="100%" height={Math.max(140, importanceData.length * 22)}>
+          <div className="flex items-center gap-1.5 mb-3">
+            <p className="text-xs font-semibold text-content-muted uppercase tracking-wider">Feature importance</p>
+            <MLHint hint={ML_HELP.feature_importance} />
+          </div>
+          <ResponsiveContainer width="100%" height={Math.min(280, Math.max(120, importanceData.length * 22))}>
             <BarChart data={importanceData} layout="vertical" margin={{ left: 8, right: 16 }}>
               <XAxis type="number" tick={{ fill: MUTED, fontSize: 10 }} />
               <YAxis type="category" dataKey="name" tick={{ fill: 'rgb(var(--color-content-secondary))', fontSize: 11 }} width={110} />

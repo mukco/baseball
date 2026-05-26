@@ -38,6 +38,7 @@ import SimulationAwards from './pages/SimulationAwards'
 import SimulationInjuries from './pages/SimulationInjuries'
 import SimulationNews from './pages/SimulationNews'
 import SimulationFranchise from './pages/SimulationFranchise'
+import Settings from './pages/Settings'
 
 const THEME_STORAGE_KEY = 'statline-theme'
 
@@ -50,12 +51,22 @@ function AppContent() {
   })
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [calcOpen, setCalcOpen] = useState(false)
+  const [mlRunPayload, setMlRunPayload] = useState(null)
   const { openAssistantRef } = useSandbox()
 
   // Let sandbox context open the assistant sidebar programmatically
   useEffect(() => {
     openAssistantRef.current = setAssistantOpen
   }, [openAssistantRef])
+
+  useEffect(() => {
+    const handler = (e) => {
+      setAssistantOpen(true)
+      setMlRunPayload(e.detail)
+    }
+    window.addEventListener('statline:open-assistant', handler)
+    return () => window.removeEventListener('statline:open-assistant', handler)
+  }, [])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -80,7 +91,7 @@ function AppContent() {
       />
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 min-w-0">
-          <main className={`${mainWidthClass} mx-auto px-4 sm:px-6 lg:px-8 py-8`}>
+          <main className={`${mainWidthClass} mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8`}>
             <Routes>
               <Route path="/" element={<Today />} />
               <Route path="/game/:gamePk" element={<GameDetails />} />
@@ -116,16 +127,23 @@ function AppContent() {
               <Route path="/simulation/:id/awards" element={<SimulationAwards />} />
               <Route path="/simulation/:id/injuries" element={<SimulationInjuries />} />
               <Route path="/simulation/:id/news" element={<SimulationNews />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
         </div>
-        <AssistantSidebar open={assistantOpen} />
+        <AssistantSidebar
+          open={assistantOpen}
+          onClose={() => setAssistantOpen(false)}
+          mlRunPayload={mlRunPayload}
+          onMlRunPayloadConsumed={() => setMlRunPayload(null)}
+        />
       </div>
 
       {/* Floating calculator toggle */}
       <button
         onClick={() => setCalcOpen(o => !o)}
-        className={`fixed bottom-4 left-4 z-50 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
+        style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        className={`fixed left-4 z-50 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
           calcOpen
             ? 'bg-brand text-white scale-95'
             : 'bg-bg-elevated border border-bg-border text-content-secondary hover:text-content-primary hover:border-brand/30 hover:shadow-brand/10'

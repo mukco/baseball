@@ -189,17 +189,31 @@ class ProjectionDataService
 
     # -----------------------------------------------------------------------
     # Player age at the start of the given season.
+    # Birth dates are cached in-memory after the first API lookup so
+    # batch simulation calls don't make N round-trips.
     # -----------------------------------------------------------------------
-    def player_age(player_id, season: Date.today.year)
-      mlb  = MlbApiService.new
-      info = mlb.player_info(player_id)
-      return NEUTRAL_AGE_DEFAULT if info[:error]
+    @@birth_date_cache = {}
 
-      dob = Date.parse(info.dig(:person, :birthDate).to_s)
-      season_start = Date.new(season, 7, 1)  # age at midseason
+    def player_age(player_id, season: Date.today.year)
+      dob = birth_date_for(player_id)
+      return NEUTRAL_AGE_DEFAULT unless dob
+      season_start = Date.new(season.to_i, 7, 1)  # age at midseason
       ((season_start - dob) / DAYS_PER_YEAR).floor
-    rescue ArgumentError
+    rescue
       NEUTRAL_AGE_DEFAULT
+    end
+
+    # Birth date as a Date object, nil if unavailable.
+    def birth_date_for(player_id)
+      pid = player_id.to_i
+      return @@birth_date_cache[pid] if @@birth_date_cache.key?(pid)
+      mlb  = MlbApiService.new
+      info = mlb.player_info(pid)
+      dob  = (info && !info[:error]) ? Date.parse(info.dig(:person, :birthDate).to_s) : nil
+      @@birth_date_cache[pid] = dob
+      dob
+    rescue
+      @@birth_date_cache[pid] = nil
     end
 
     # -----------------------------------------------------------------------

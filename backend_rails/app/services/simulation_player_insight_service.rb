@@ -25,24 +25,26 @@ class SimulationPlayerInsightService
     private
 
     def generate(league, stat)
+      ctx          = SimulationSeasonContext.for_league(league)
       sim_line     = serialize_stat(stat)
       projection   = fetch_projection(league, stat.player_id, stat.player_type)
       has_proj     = projection.present?
       roster       = league.simulation_rosters.find_by(team_id: stat.team_id)
-      games_played = league.simulation_games.where("simulated_at IS NOT NULL").count
+      games_played = ctx[:games_played]
 
       payload = {
-        player_name: stat.player_name,
-        player_type: stat.player_type,
-        team:        roster&.team_abbr || "UNK",
-        season:      { year: league.season, games: games_played },
-        stats:       sim_line,
+        player_name:    stat.player_name,
+        player_type:    stat.player_type,
+        team:           roster&.team_abbr || "UNK",
+        season_context: ctx,
+        season:         { year: league.season, games: games_played },
+        stats:          sim_line,
       }
       payload[:projection] = projection if has_proj
 
       client    = OpenAi::Client.new
       ai_result = client.json_completion(
-        system_prompt:    system_prompt(stat.player_type, has_proj: has_proj),
+        system_prompt:    system_prompt(stat.player_type, ctx, has_proj: has_proj),
         user_payload:     payload,
         interaction_type: "sim_player_insight",
         metadata:         { league_id: league.id, player_id: stat.player_id },
@@ -62,7 +64,10 @@ class SimulationPlayerInsightService
       }
     end
 
-    def system_prompt(player_type, has_proj: false)
+    def system_prompt(player_type, ctx, has_proj: false)
+      phase = ctx[:phase]
+      notes = ctx[:milestone_notes]
+
       type_line = player_type == "batter" ?
         "The player is a hitter. Focus on AVG, OBP, SLG, OPS, HR, RBI, BB, K." :
         "The player is a pitcher. Focus on ERA, WHIP, W-L, IP, K, BB."
@@ -70,16 +75,49 @@ class SimulationPlayerInsightService
       proj_shape = has_proj ? %(\n  "vs_projection": ["bullet comparing actual stats to the projection"],) : ""
       proj_rule  = has_proj ? "\n- Compare to the projection with specific numbers showing over/under performance." : ""
 
+      action = case phase
+               when :complete      then "writing a full season review for a player"
+               when :final_weeks   then "covering a player in the season's final weeks"
+               when :stretch_run   then "reporting on a player during the stretch run"
+               when :second_half   then "analyzing a player's second-half performance"
+               when :midseason     then "writing a midseason player report"
+               when :first_half    then "analyzing a player's first-half performance"
+               when :early         then "covering a player's early-season numbers"
+               else                     "analyzing a player's season performance"
+               end
+
+      tone = case phase
+             when :complete
+               "Deliver a definitive accounting of the player's season. What was their defining performance? How do they compare to expectations?"
+             when :final_weeks
+               "Focus on late-season relevance — are they helping their team's playoff push? Any milestones or award cases still in play?"
+             when :stretch_run
+               "Evaluate the player's postseason push relevance and whether their numbers support any award consideration."
+             when :second_half
+               "Assess whether the player has maintained first-half form or shown a trend — up or down — entering the second half."
+             when :midseason
+               "Give an honest midseason grade. Are they ahead of pace for career benchmarks? Is an All-Star nod deserved?"
+             when :first_half
+               "What has this player established in the early sample? Is the performance sustainable or a red flag?"
+             when :early
+               "Read the early numbers carefully and project the trajectory — promising start, slow start, or business as usual?"
+             else
+               "Analyze this player's season performance honestly."
+             end
+
+      milestone_str = notes.any? ? "\n\nContext: #{notes.join(' ')}" : ""
+
       <<~PROMPT
-        You are a baseball analytics assistant writing a season review for a player.
+        You are a baseball analytics assistant #{action}.#{milestone_str}
         #{type_line}
+        #{tone}
         Analyze the stats as you would any real season. Write in a direct, analytical tone.
         Return only valid JSON matching this exact shape:
 
         {
-          "narrative": "Two or three sentences summarizing the player's season performance.",
+          "narrative": "Two to three sentences summarizing the player's season performance at this point.",
           "season_summary": ["bullet about overall production", "bullet about key counting stats"],#{proj_shape}
-          "notable_moments": ["interesting stat or outlier result from the season"]
+          "notable_moments": ["interesting stat, trend, or outlier from the season so far"]
         }
 
         Rules:
@@ -123,7 +161,7 @@ class SimulationPlayerInsightService
 
     def normalize(val)
       Array(val).map { |v| v.to_s.strip }.reject(&:blank?).first(3)
-        .presence || ["Not enough simulation data."]
+        .presence || ["Not enough data yet."]
     end
   end
 end

@@ -645,7 +645,12 @@ class MlbApiService
     result = (data["stats"] || []).flat_map do |sg|
       (sg["splits"] || []).filter_map do |split|
         next unless split.dig("sport", "id") == 1
-        { season: split["season"] }.merge(split.fetch("stat", {}))
+        {
+          season:     split["season"],
+          age:        split["player"]&.dig("currentAge") || split["age"],
+          teamAbbrev: split.dig("team", "abbreviation"),
+          teamName:   split.dig("team", "name"),
+        }.merge(split.fetch("stat", {}))
       end
     end
     self.class.cache_set(cache_key, result, CACHE_TTLS[:player_career_stats])
@@ -1640,6 +1645,7 @@ class MlbApiService
   rescue StandardError
     []
   end
+  public :team_roster
 
   def normalize_transaction(t)
     type_code   = (t[:typeCode]   || t["typeCode"]).to_s
@@ -1695,10 +1701,11 @@ class MlbApiService
     pitching = nil
 
     (person["stats"] || []).each do |stat_group|
+      group_name = stat_group.dig("group", "displayName")&.downcase
       row = stat_group.dig("splits", 0, "stat") || {}
       next if row.empty?
 
-      if row["inningsPitched"].present? || row["era"].present?
+      if group_name == "pitching" || (group_name.nil? && (row["inningsPitched"].present? || row["era"].present?))
         pitching = {
           group:          "pitching",
           games:          to_i(row["gamesPitched"] || row["gamesPlayed"]),
@@ -1707,7 +1714,7 @@ class MlbApiService
           whip:           to_f(row["whip"]),
           strikeOuts:     to_i(row["strikeOuts"])
         }
-      else
+      elsif group_name == "hitting" || group_name.nil?
         hitting = {
           group:            "hitting",
           games:            to_i(row["gamesPlayed"]),
