@@ -169,7 +169,12 @@ class OttoneuPlayerAnalysisService
         IL context: if on_mlb_il is true, always note the injury. For your player: stash if projection is strong; cut if it isn't.
         cap_space is only provided when the player is on Dingers — use it to frame cut/add decisions ("with $X cap space, you can...").
 
-        Write 2-3 direct, opinionated sentences. Reference specific stats. Keep it under 90 words. No fluff. No hedging.
+        Structure: lead with the Ottoneu verdict (FG pts, PPD, surplus), then use traditional stats to explain why — they are the supporting argument, not the conclusion. Examples of the right connection:
+        - "His 2 HR in 187 PA cap his FG ceiling — HR is worth +9.4 each, and his 96 wRC+ doesn't compensate."
+        - "His 28% K rate drives FG pts despite a modest ERA — K's are +2.0 each."
+        - "Elite BB% (+3.0 per walk) and SB (1.9 each) explain the surplus despite a pedestrian AVG."
+
+        Write 2-3 direct, opinionated sentences. Lead with FG pts / PPD / surplus, support with traditional stats. Under 90 words. No fluff. No hedging.
       PROMPT
     end
   end
