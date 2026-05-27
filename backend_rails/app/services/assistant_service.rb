@@ -40,6 +40,20 @@ class AssistantService
               era, fip, xfip, siera, war, whip,
               k_per_9, bb_per_9, k_pct, bb_pct, k_minus_bb_pct, babip, gb_pct.
 
+          TABLE: ottoneu_salaries
+            Current season only. Every rostered player across all teams in the Ottoneu league.
+            Key columns: season, ottoneu_league_id, ottoneu_team_id, team_name,
+              ottoneu_id, fg_id (TEXT — join to batters/pitchers on CAST(fg_id AS VARCHAR)),
+              player_name, mlb_team, positions, salary (integer, dollars).
+            Use cases: salary efficiency (wOBA per dollar), overpaid/underpaid players,
+              cross-team salary comparisons, total league cap usage.
+            Join example:
+              SELECT s.player_name, s.salary, b.woba, ROUND(s.salary / b.woba, 1) AS dollars_per_woba
+              FROM ottoneu_salaries s
+              JOIN batters b ON CAST(b.fg_id AS VARCHAR) = s.fg_id AND b.season = s.season
+              WHERE b.woba IS NOT NULL AND s.salary > 0
+              ORDER BY dollars_per_woba ASC
+
           JOIN PATTERN (projection vs. actual):
             SELECT b.name, b.season, b.war AS actual_war, p.war AS proj_war
             FROM batters b
@@ -47,7 +61,7 @@ class AssistantService
             WHERE b.season = 2024 AND b.pa >= 300
             ORDER BY actual_war - proj_war DESC
 
-          Always alias tables when joining. Use player_id for joins when possible (most reliable); fall back to name only as a last resort.
+          Always alias tables when joining. Use player_id for joins when possible (most reliable); fall back to fg_id (cast to VARCHAR) when joining with ottoneu_salaries.
         DESC
         parameters: {
           type: "object",
@@ -203,6 +217,66 @@ class AssistantService
           properties: {
             refresh: { type: "boolean", description: "Force refresh to bypass cache." }
           },
+          required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_ottoneu_roster",
+        description: "Get the Dingers and Dugouts Ottoneu roster: all rostered players with salary, positions, MLB team, season FG points (where available), approximate FG pts from warehouse stats, and MLB IL status. Use for questions about your Ottoneu team, cap situation, overpaid/underpaid players, or who's on the injured list.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_ottoneu_standings",
+        description: "Get the current Ottoneu league standings including record, total points, average points scored, and average points against for each team.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_ottoneu_transactions",
+        description: "Get active Ottoneu auctions and waiver claims in progress. Returns player name, current bid or salary, MLB team, and deadline. Use for questions about who's being bid on, what waivers are available, or what's happening in the transaction wire.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_ottoneu_free_agents",
+        description: "Get Ottoneu free agent candidates — players not rostered by any team in the league — with season stats, approximate FanGraphs points, projection comparison, fair value salary, and AI-generated pickup recommendations. Use for questions about who to pick up, best available free agents, or waiver wire targets.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_ottoneu_cap_overview",
+        description: "Get every team's cap situation in the Ottoneu league: team name, base salary, penalties, and remaining cap space. Use for trade analysis (which teams are buyers/sellers), identifying cap-constrained teams, or comparing cap flexibility across the league.",
+        parameters: {
+          type: "object",
+          properties: {},
           required: []
         }
       }
@@ -569,6 +643,45 @@ class AssistantService
       when "get_fantasy_free_agents"
         YahooFantasyFreeAgentsService.call(refresh: args["refresh"] == true)
 
+      when "get_ottoneu_roster"
+        roster    = OttoneuService.my_roster
+        il_status = OttoneuService.my_il_status
+        prod      = OttoneuService.my_production
+        cap       = OttoneuService.cap_overview
+        my_cap    = Array(cap).find { |t| t[:team_name].to_s.include?("Dingers") }
+        prod_ok   = prod.is_a?(Hash) && !prod[:error]
+        players   = Array(roster[:players]).map do |p|
+          production = prod_ok ? prod[p[:name]] : nil
+          il         = il_status[p[:name]] || {}
+          p.merge(
+            season_points: production&.dig(:season_points),
+            pts_per_game:  production&.dig(:pts_per_game),
+            mlb_il:        il[:mlb_il] || false,
+            mlb_il_desc:   il[:mlb_il_desc]
+          ).compact
+        end
+        {
+          team_name:  roster[:team_name],
+          cap_space:  my_cap&.dig(:cap_space),
+          base_salary: my_cap&.dig(:base_salary),
+          players:    players
+        }
+
+      when "get_ottoneu_standings"
+        OttoneuService.standings
+
+      when "get_ottoneu_transactions"
+        {
+          auctions: OttoneuService.auctions,
+          waivers:  OttoneuService.waivers
+        }
+
+      when "get_ottoneu_free_agents"
+        OttoneuFreeAgentsService.call
+
+      when "get_ottoneu_cap_overview"
+        OttoneuService.cap_overview
+
       when "get_team_financials"
         TeamFinanceService.fetch(team_id: args["team_id"].to_i, season: season)
 
@@ -709,6 +822,18 @@ class AssistantService
         - get_fantasy_roster — your roster with daily scores, weekly totals, matchup context, and player status. Only works if Yahoo is connected.
         - get_fantasy_free_agents — league-aware free-agent candidates with AI recommendations. Only works if Yahoo is connected.
 
+        **Fantasy (Ottoneu — always available):**
+        - get_ottoneu_roster — full Dingers and Dugouts roster with salary, positions, MLB team, season FG pts, and MLB IL status. Use for cap questions, overpaid/underpaid analysis, IL stashes, and trade targets.
+        - get_ottoneu_standings — league standings with record, total points, avg pts scored/against.
+        - get_ottoneu_transactions — active auctions (current bid, deadline) and waiver claims in progress.
+        - get_ottoneu_free_agents — players not rostered by any team in the league, with stats, projected FG pts, fair value salary, and AI pickup recommendations. Use for "who should I pick up", "best available", or "is X a free agent in Ottoneu".
+        - get_ottoneu_cap_overview — cap situation for every team: base salary, penalties, and cap space remaining. Use for trade analysis ("which teams are buyers?"), identifying cap-constrained teams, or any cross-league cap comparison.
+        - query_players_sql with the `ottoneu_salaries` table — join salary data against stats for cross-league value analysis (see SQL section).
+
+        **Checking if a specific player is rostered in Ottoneu:**
+        Use query_players_sql: `SELECT team_name, salary, positions FROM ottoneu_salaries WHERE player_name ILIKE '%<player name>%'`
+        If the query returns rows, the player is rostered (shows which team owns them and at what salary). If no rows return, they are a free agent in your Ottoneu league and available to bid on.
+
         **Team data:**
         - get_team_profile — standing, recent results, full roster, and available leadership/finance data
         - get_team_financials — payroll, CBT payroll, CBT threshold, and CBT space remaining
@@ -765,6 +890,33 @@ class AssistantService
         - **Answer general baseball questions directly** (history, rules, records) without needing tools.
         - **Always default to season #{current_season}** unless the user specifies otherwise.
         - Be concise, specific, and cite actual numbers. If a question is ambiguous, pick a sensible interpretation and say so.
+
+        ## Fantasy page
+
+        When `page_context.pageType` is `"fantasy"`, the user is on the fantasy baseball page with both Yahoo Fantasy and Ottoneu tabs. **All player and roster questions default to Ottoneu unless the user explicitly says "Yahoo."**
+
+        ### Ottoneu vs Yahoo — how to tell apart
+        - Mentions of "salary", "cap", "auction", "bid", "PPD", "surplus", "Ottoneu", "FanGraphs points", or "Dingers" → Ottoneu.
+        - Mentions of "waiver priority", "FAAB", "weekly lineup", "Yahoo", or "matchup" → Yahoo.
+        - Ambiguous questions ("can I use X?", "should I pick up X?", "is X available?") → **treat as Ottoneu**.
+
+        ### Required behavior for every player question on this page
+        Every response about a specific player MUST include Ottoneu context. Do not return a plain MLB stats analysis. Always do ALL of the following:
+
+        1. **Check Ottoneu roster status first.** Run `query_players_sql`: `SELECT team_name, salary, positions FROM ottoneu_salaries WHERE player_name ILIKE '%<name>%'`. Determine if they're rostered (by whom, at what salary) or a free agent.
+        2. **Get your cap situation.** Call `get_ottoneu_roster` to know the current cap space before making any add/drop recommendation.
+        3. **Frame the answer around Ottoneu value.** Salary cost, PPD (FanGraphs pts ÷ salary), surplus (pts − salary × 10), whether D&D can afford them, whether they're worth the auction price relative to current roster.
+        4. **Only then layer in MLB stats** (IL status, recent performance, projection) as supporting evidence for the Ottoneu decision.
+
+        ### Example framing
+        "Can Clay Holmes help me at SP?" →
+        - Check `ottoneu_salaries`: is he rostered? By whom? At what salary?
+        - Check IL status / injury news.
+        - Check D&D's cap space.
+        - Answer: "Holmes is a free agent in your Ottoneu league. He's on the 60-day IL so he can't help right now, but at his likely auction price of $X he'd project for Y FG pts (~Z PPD). With $W in cap space you can stash him — here's whether that makes sense relative to your current SP depth."
+
+        ### When the question is about Yahoo
+        Use `get_fantasy_roster` and `get_fantasy_free_agents` instead. Do not mix Ottoneu salary/cap data into Yahoo responses.
 
         ## SQL Sandbox page
 

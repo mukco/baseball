@@ -8,7 +8,7 @@ module Warehouse
 
     NAMED_COLUMNS = %w[
       player_id fg_id name team league season
-      g gs w l sv ip tbf h er hr bb k
+      g gs w l sv hld ip tbf h er hr bb hbp k
       era fip xfip siera war whip k_per_9 bb_per_9
       k_pct bb_pct k_minus_bb_pct babip gb_pct ld_pct fb_pct
     ].freeze
@@ -55,12 +55,14 @@ module Warehouse
             w:              integer_or_nil(row["W"]),
             l:              integer_or_nil(row["L"]),
             sv:             integer_or_nil(row["SV"]),
+            hld:            integer_or_nil(row["HLD"]),
             ip:             float_or_nil(row["IP"]),
             tbf:            integer_or_nil(row["TBF"]),
             h:              integer_or_nil(row["H"]),
             er:             integer_or_nil(row["ER"]),
             hr:             integer_or_nil(row["HR"]),
             bb:             integer_or_nil(row["BB"]),
+            hbp:            integer_or_nil(row["HBP"]),
             k:              integer_or_nil(row["SO"] || row["K"]),
             era:            float_or_nil(row["ERA"]),
             fip:            float_or_nil(row["FIP"]),

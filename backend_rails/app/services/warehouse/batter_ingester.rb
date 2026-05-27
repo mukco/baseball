@@ -8,7 +8,7 @@ module Warehouse
 
     NAMED_COLUMNS = %w[
       player_id fg_id name team league position season
-      g pa ab h hr r rbi sb bb k
+      g pa ab h doubles triples hr r rbi sb cs bb hbp k
       avg obp slg ops iso
       wrc_plus war woba babip k_pct bb_pct ld_pct gb_pct fb_pct hr_fb_pct
       o_swing_pct z_swing_pct bat_speed
@@ -76,11 +76,15 @@ module Warehouse
             pa:        integer_or_nil(row["PA"]),
             ab:        integer_or_nil(row["AB"]),
             h:         integer_or_nil(row["H"]),
+            doubles:   integer_or_nil(row["2B"]),
+            triples:   integer_or_nil(row["3B"]),
             hr:        integer_or_nil(row["HR"]),
             r:         integer_or_nil(row["R"]),
             rbi:       integer_or_nil(row["RBI"]),
             sb:        integer_or_nil(row["SB"]),
+            cs:        integer_or_nil(row["CS"]),
             bb:        integer_or_nil(row["BB"]),
+            hbp:       integer_or_nil(row["HBP"]),
             k:         integer_or_nil(row["SO"]),
             avg:       float_or_nil(row["AVG"]),
             obp:       float_or_nil(row["OBP"]),

@@ -73,6 +73,7 @@ function deriveContext(pathname) {
   if (parts[0] === 'news') return { pageType: 'news' }
   if (parts[0] === 'digest') return { pageType: 'digest' }
   if (parts[0] === 'sandbox') return { pageType: 'sandbox' }
+  if (parts[0] === 'fantasy') return { pageType: 'fantasy' }
   return { pageType: 'schedule' }
 }
 

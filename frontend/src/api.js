@@ -122,6 +122,45 @@ export const api = {
     dashboard: () => fetchJSON('/yahoo/dashboard'),
     insights: ({ refresh = false } = {}) => fetchJSON(`/yahoo/insights${refresh ? '?refresh=true' : ''}`),
     freeAgents: ({ refresh = false } = {}) => fetchJSON(`/yahoo/free_agents${refresh ? '?refresh=true' : ''}`),
+    searchFreeAgents: ({ position = null, search = null, limit = 25 } = {}) => {
+      const params = new URLSearchParams()
+      if (position) params.set('position', position)
+      if (search)   params.set('search', search)
+      if (limit !== 25) params.set('limit', String(limit))
+      const qs = params.toString()
+      return fetchJSON(`/yahoo/free_agent_search${qs ? `?${qs}` : ''}`)
+    },
+  },
+  ottoneu: {
+    roster:       () => fetchJSON('/ottoneu/roster'),
+    standings:    () => fetchJSON('/ottoneu/standings'),
+    auctions:     () => fetchJSON('/ottoneu/auctions'),
+    waivers:      () => fetchJSON('/ottoneu/waivers'),
+    capOverview:  () => fetchJSON('/ottoneu/cap_overview'),
+    playerStatus: (fgId) => fetchJSON(`/ottoneu/player_status?fg_id=${fgId}`),
+    insights:     ({ refresh = false } = {}) => fetchJSON(`/ottoneu/insights${refresh ? '?refresh=true' : ''}`),
+    freeAgents:   ({ refresh = false, minors = false } = {}) => {
+      const params = new URLSearchParams()
+      if (refresh) params.set('refresh', 'true')
+      if (minors)  params.set('minors', 'true')
+      const qs = params.toString()
+      return fetchJSON(`/ottoneu/free_agents${qs ? `?${qs}` : ''}`)
+    },
+    allRosters:   () => fetchJSON('/ottoneu/all_rosters'),
+    playerStats:  ({ fgIds = [], names = [] } = {}) => {
+      const p = new URLSearchParams()
+      fgIds.forEach(id => p.append('fg_ids[]', id))
+      names.forEach(n  => p.append('names[]', n))
+      return fetchJSON(`/ottoneu/player_stats?${p}`)
+    },
+    playerAnalysis: ({ fgId, name } = {}) => {
+      const p = new URLSearchParams()
+      if (fgId) p.set('fg_id', fgId)
+      if (name) p.set('name', name)
+      return fetchJSON(`/ottoneu/player_analysis?${p}`)
+    },
+    loans: () => fetchJSON('/ottoneu/loans'),
+    leagueStats: () => fetchJSON('/ottoneu/league_stats'),
   },
   prospects: {
     top100: () => fetchJSON('/prospects/top100'),

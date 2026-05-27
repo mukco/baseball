@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import AssistantSidebar from './components/FloatingAssistant'
 import { SandboxProvider, useSandbox } from './contexts/SandboxContext'
+import { PlayerListsProvider } from './hooks/usePlayerLists'
 import Calculator from './components/Calculator'
 import Today from './pages/Today'
 import GameDetails from './pages/GameDetails'
@@ -172,8 +173,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SandboxProvider>
-      <AppContent />
-    </SandboxProvider>
+    <PlayerListsProvider>
+      <SandboxProvider>
+        <AppContent />
+      </SandboxProvider>
+    </PlayerListsProvider>
   )
 }

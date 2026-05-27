@@ -80,7 +80,23 @@ Rails.application.routes.draw do
     get  'yahoo/roster',      to: 'yahoo_fantasy#roster'
     get  'yahoo/dashboard',   to: 'yahoo_fantasy#dashboard'
     get  'yahoo/insights',    to: 'yahoo_fantasy#insights'
-    get  'yahoo/free_agents', to: 'yahoo_fantasy#free_agents'
+    get  'yahoo/free_agents',       to: 'yahoo_fantasy#free_agents'
+    get  'yahoo/free_agent_search', to: 'yahoo_fantasy#free_agent_search'
+
+    # Ottoneu Fantasy
+    get 'ottoneu/roster',        to: 'ottoneu#roster'
+    get 'ottoneu/all_rosters',   to: 'ottoneu#all_rosters'
+    get 'ottoneu/standings',     to: 'ottoneu#standings'
+    get 'ottoneu/auctions',      to: 'ottoneu#auctions'
+    get 'ottoneu/waivers',       to: 'ottoneu#waivers'
+    get 'ottoneu/cap_overview',  to: 'ottoneu#cap_overview'
+    get 'ottoneu/player_status', to: 'ottoneu#player_status'
+    get 'ottoneu/insights',      to: 'ottoneu#insights'
+    get 'ottoneu/free_agents',   to: 'ottoneu#free_agents'
+    get 'ottoneu/player_stats',    to: 'ottoneu#player_stats'
+    get 'ottoneu/player_analysis', to: 'ottoneu#player_analysis'
+    get 'ottoneu/loans',           to: 'ottoneu#loans'
+    get 'ottoneu/league_stats',    to: 'ottoneu#league_stats'
 
     # Prospects
     get "prospects/player/:id",    to: "prospects#player"

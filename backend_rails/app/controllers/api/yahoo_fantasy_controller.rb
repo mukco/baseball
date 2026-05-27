@@ -38,5 +38,12 @@ module Api
       refresh = ActiveModel::Type::Boolean.new.cast(params[:refresh])
       render json: YahooFantasyFreeAgentsService.call(refresh: refresh)
     end
+
+    def free_agent_search
+      position = params[:position].presence
+      search   = params[:search].presence
+      limit    = params[:limit].to_i.positive? ? [params[:limit].to_i, 50].min : 25
+      render json: YahooFantasyService.free_agents(position: position, search: search, limit: limit)
+    end
   end
 end

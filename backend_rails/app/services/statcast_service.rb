@@ -96,12 +96,23 @@ class StatcastService
     # ---------------------------------------------------------------- #
 
     def cache_fresh?(key)
-      @@cache.key?(key) && @@cache_timestamps[key].to_i > Time.now.to_i - CACHE_TTL
+      # L1: in-process hash (fastest)
+      return true if @@cache.key?(key) && @@cache_timestamps[key].to_i > Time.now.to_i - CACHE_TTL
+
+      # L2: file/memory store — survives restarts; rehydrates L1 on hit
+      if (val = Rails.cache.read("statcast:#{key}"))
+        @@cache[key] = val
+        @@cache_timestamps[key] = Time.now.to_i
+        return true
+      end
+
+      false
     end
 
     def cache_set(key, value)
       @@cache[key] = value
       @@cache_timestamps[key] = Time.now.to_i
+      Rails.cache.write("statcast:#{key}", value, expires_in: CACHE_TTL)
     end
 
     def fetch_pitcher(player_id, season)

@@ -142,6 +142,58 @@ RSpec.describe CacheWarmingService do
   end
 
   # -----------------------------------------------------------------------
+  # .warm_ottoneu!
+  # -----------------------------------------------------------------------
+  describe ".warm_ottoneu!" do
+    before do
+      allow(OttoneuService).to receive(:all_rosters).and_return([{ team_name: "Dingers", players: [] }])
+      allow(OttoneuLeagueStatsService).to receive(:call).and_return([{ name: "Aaron Judge" }])
+      allow(OttoneuInsightsService).to receive(:call).and_return({ factoids: ["buy low on X"] })
+      allow(OttoneuFreeAgentsService).to receive(:call).and_return({ players: [], factoids: [] })
+    end
+
+    it "calls all four Ottoneu services in order" do
+      expect(OttoneuService).to receive(:all_rosters).ordered
+      expect(OttoneuLeagueStatsService).to receive(:call).with(refresh: true).ordered
+      expect(OttoneuInsightsService).to receive(:call).with(refresh: true).ordered
+      expect(OttoneuFreeAgentsService).to receive(:call).with(refresh: true).ordered
+      described_class.warm_ottoneu!
+    end
+
+    it "returns four warmed entries" do
+      result = described_class.warm_ottoneu!
+      expect(result[:warmed].size).to eq(4)
+      expect(result[:errors]).to be_empty
+    end
+
+    it "writes the log with an ottoneu tier entry" do
+      described_class.warm_ottoneu!
+      logged = JSON.parse(File.read(log_path))
+      expect(logged["ottoneu"]).to include("warmed" => 4, "total" => 4)
+    end
+
+    context "when all_rosters returns an error" do
+      before { allow(OttoneuService).to receive(:all_rosters).and_return({ error: "scrape failed" }) }
+
+      it "records the error and continues to other services" do
+        result = described_class.warm_ottoneu!
+        expect(result[:errors].map { |e| e[:key] }).to include("ottoneu_all_rosters")
+        expect(result[:warmed].size).to eq(3)
+      end
+    end
+
+    context "when a service raises" do
+      before { allow(OttoneuInsightsService).to receive(:call).and_raise("OpenAI timeout") }
+
+      it "records the error and continues" do
+        result = described_class.warm_ottoneu!
+        expect(result[:errors].size).to eq(1)
+        expect(result[:warmed]).to include("ottoneu_all_rosters", "ottoneu_league_stats", "ottoneu_free_agents")
+      end
+    end
+  end
+
+  # -----------------------------------------------------------------------
   # .status
   # -----------------------------------------------------------------------
   describe ".status" do

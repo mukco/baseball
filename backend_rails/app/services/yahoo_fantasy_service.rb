@@ -142,12 +142,18 @@ class YahooFantasyService
       { error: e.message }
     end
 
-    def free_agents(limit: 12)
+    def free_agents(limit: 12, position: nil, search: nil)
       context = team_context
       return context if context[:error]
 
+      filters = [";status=FA"]
+      filters << ";position=#{CGI.escape(position.to_s)}" if position.present?
+      filters << ";search=#{CGI.escape(search.to_s)}" if search.present?
+      filters << ";sort=AR;sdir=1" unless search.present?
+      filters << ";count=#{limit.to_i};start=0;out=stats,ownership"
+
       resp = api_conn(context[:access_token]).get(
-        "#{BASE_URL}/league/#{context[:league_key]}/players;status=FA;sort=AR;sdir=1;count=#{limit.to_i};start=0;out=stats,ownership",
+        "#{BASE_URL}/league/#{context[:league_key]}/players#{filters.join}",
         format: 'json'
       )
 

@@ -23,3 +23,8 @@ production:
     class: WarmLeaderboardCacheJob
     queue: cache_warming
     schedule: every 6 hours at minute 5
+
+  warm_ottoneu_cache:
+    class: WarmOttoneuCacheJob
+    queue: cache_warming
+    schedule: every 50 minutes
