@@ -2,10 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQueries } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
-import 'katex/dist/katex.min.css'
 import 'highlight.js/styles/github-dark.css'
 import { api } from '../api'
 import DynamicChart from './charts/DynamicChart'
@@ -392,7 +389,7 @@ function AssistantMessage({ m, onLoadSql, onSaveToVault }) {
     <>
       {hasText && (
         <div className="inline-block rounded-lg px-3 py-2 text-sm bg-bg-elevated text-content-primary border border-bg-border max-w-[92%]">
-          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeHighlight]} components={MD_COMPONENTS}>
+          <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={MD_COMPONENTS}>
             {linkedText}
           </ReactMarkdown>
         </div>
@@ -751,7 +748,7 @@ export default function AssistantSidebar({ open, onClose, mlRunPayload, onMlRunP
           <div key={idx} className={m.role === 'user' ? 'text-right' : 'text-left'}>
             {m.role === 'user' ? (
               <div className="inline-block rounded-lg px-3 py-2 text-sm bg-brand text-white max-w-[92%]">
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex, rehypeHighlight]} components={MD_COMPONENTS}>
+                <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={MD_COMPONENTS}>
                   {m.text}
                 </ReactMarkdown>
               </div>
