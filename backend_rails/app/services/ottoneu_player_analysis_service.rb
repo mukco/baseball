@@ -141,22 +141,35 @@ class OttoneuPlayerAnalysisService
         Value metrics — apply these when data is available:
         - PPD (Points Per Dollar) = approx_fg_pts ÷ salary. Fair value baseline is 10.0 PPD. Elite: >20. Good: >15. Fair: ~10. Poor: <5.
         - Surplus = approx_fg_pts − (salary × 10). Positive = underpriced, negative = overpaid. Cite the dollar figure.
+        - Fair value salary = approx_fg_pts ÷ 10. The max you should pay and break even.
 
-        Projection context — when projection is present, compare season-to-date stats to the full-season projection:
-        - For batters: is wOBA/OPS/wRC+ on track? Are actual PA far below projected PA (signals injury time lost)?
-        - For pitchers: is ERA/FIP on track? Is IP pace far below projection (IL stint, bullpen move, or workload cap)?
-        - Flag meaningful divergence: wOBA off by .030+, ERA off by 0.80+, or PA/IP at less than 60% of projected pace.
-        - Distinguish between "playing as projected" (market value as expected) vs "underperforming projection" (may improve) vs "injury-limited" (projection still valid, just missed time).
+        Ownership context — roster_team tells you who owns this player. Use it to frame the entire analysis:
 
-        Write 2-3 sentences analyzing this specific player's Ottoneu value. Be direct and opinionated:
-        - If salary is present: is their salary justified? Cite PPD and surplus.
-        - If salary is null: frame as acquisition advice (bid target, waiver priority, or pass).
-        - Incorporate projection comparison when available — is the player on track or diverging?
-        - One clear actionable take: strong hold, trade candidate, cut/pass, or buy-low/add opportunity.
-        - If on_mlb_il is true: always note the IL status. Stash if projection is strong; cut if it isn't.
+        1. roster_team includes "Dingers" → THIS IS THE USER'S OWN PLAYER.
+           The user already knows they own them. DO NOT say "you own X" or "X is on your roster."
+           Analysis = keep / cut / trade decision. Open immediately with the value verdict:
+           "At $[salary], [name] is producing [pts] pts (~[PPD] PPD) — [above/below] the $[fair_value] fair-value threshold."
+           Then: should they hold, trade, or cut? Why?
 
-        Reference specific stats (wOBA, FIP, OPS) and mention salary or bid context.
-        Keep it under 90 words. No fluff. No hedging. Write for a serious Ottoneu manager.
+        2. roster_team is a different team name → OWNED BY AN OPPONENT.
+           This is a trade target or a player to monitor. Tell the user: "[Name] is owned by [team] at $[salary]."
+           Assess trade value: is that team likely a buyer or seller? What would a fair return look like?
+           Frame as: could you acquire them, and would their salary be worth it at that cap cost?
+
+        3. roster_team is null → FREE AGENT.
+           The user is scouting an unrostered player. Frame as acquisition advice: bid target, likely auction price range, or waiver priority.
+           Estimate realistic bid cost and projected PPD/surplus at that price.
+
+        Projection context — when projection data is present, compare season-to-date to the full-season Steamer projection:
+        - For batters: is wOBA/OPS/wRC+ on track vs projection? Are actual PA far below projected PA (missed time)?
+        - For pitchers: is ERA/FIP on track? Is IP pace below projection (IL stint, bullpen move, workload limit)?
+        - Flag meaningful divergence: wOBA off by .030+, ERA off by 0.80+, or PA/IP under 60% of projected pace.
+        - Distinguish: "playing as projected" vs "underperforming projection" (buy-low signal) vs "injury-limited" (projection still valid, just missed time).
+
+        IL context: if on_mlb_il is true, always note the injury. For your player: stash if projection is strong; cut if it isn't.
+        cap_space is only provided when the player is on Dingers — use it to frame cut/add decisions ("with $X cap space, you can...").
+
+        Write 2-3 direct, opinionated sentences. Reference specific stats. Keep it under 90 words. No fluff. No hedging.
       PROMPT
     end
   end

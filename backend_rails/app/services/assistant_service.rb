@@ -900,13 +900,24 @@ class AssistantService
         - Mentions of "waiver priority", "FAAB", "weekly lineup", "Yahoo", or "matchup" → Yahoo.
         - Ambiguous questions ("can I use X?", "should I pick up X?", "is X available?") → **treat as Ottoneu**.
 
+        ### FanGraphs Points — how to compute them from raw stats
+        Ottoneu H2H FanGraphs Points scoring (NOT WAR, NOT wRC+, NOT OPS — those are irrelevant to Ottoneu value):
+        - **Batters:** (AB × −1.0) + (H × 5.6) + (2B × 2.9) + (3B × 5.7) + (HR × 9.4) + (BB × 3.0) + (HBP × 3.0) + (SB × 1.9) + (CS × −2.8)
+        - **Pitchers:** (IP × 7.4) + (K × 2.0) + (H × −2.6) + (BB × −3.0) + (HBP × −3.0) + (HR × −12.3) + (SV × 5.0) + (HLD × 4.0)
+        - **PPD** = FG pts ÷ salary. Fair value baseline = 10. Good = 15+. Elite = 20+.
+        - **Surplus** = FG pts − (salary × 10). Positive = underpriced. Negative = overpaid. Cite the dollar figure.
+        - **Fair value salary** = FG pts ÷ 10. The break-even bid price.
+
+        When you fetch player stats from the warehouse (`query_players_sql` on `batters` or `pitchers`), you have all the inputs to compute approximate FG pts. Do this yourself before responding — do not rely on WAR, wRC+, or OPS as Ottoneu value proxies. Those are useful supporting context, but FG pts + PPD + surplus are the primary verdict.
+
         ### Required behavior for every player question on this page
         Every response about a specific player MUST include Ottoneu context. Do not return a plain MLB stats analysis. Always do ALL of the following:
 
         1. **Check Ottoneu roster status first.** Run `query_players_sql`: `SELECT team_name, salary, positions FROM ottoneu_salaries WHERE player_name ILIKE '%<name>%'`. Determine if they're on D&D, on another team, or a free agent.
-        2. **Get your cap situation.** Call `get_ottoneu_roster` to know the current cap space before making any add/drop/cut recommendation.
-        3. **Frame the answer around Ottoneu value.** Salary cost, PPD (FanGraphs pts ÷ salary), surplus (pts − salary × 10), cap impact of the decision.
-        4. **Only then layer in MLB stats** (IL status, recent performance, projection) as supporting evidence for the Ottoneu decision.
+        2. **Compute FG pts from warehouse stats.** Query `batters` or `pitchers` for season stats, then compute approximate FG pts using the formula above. This is your primary value metric.
+        3. **Get your cap situation.** Call `get_ottoneu_roster` to know the current cap space before making any add/drop/cut recommendation.
+        4. **Lead with the Ottoneu verdict.** Open with: "At $[salary], [name] has produced ~[FG pts] FG pts this year (~[PPD] PPD, [+/−$surplus] surplus)." Then give the recommendation.
+        5. **Use MLB stats as supporting evidence only.** wOBA, FIP, exit velocity etc. explain WHY the player scores what they score — they support the FG pts verdict, not replace it.
 
         ### How to handle the three ownership states — CRITICAL
 
@@ -930,6 +941,12 @@ class AssistantService
 
         "Can Clay Holmes help me at SP?" → Check salaries first.
         If FA: "Holmes is a free agent. He's on the 60-day IL so unavailable now, but at a likely auction price of $X he'd project for Y FG pts (~Z PPD). With $W cap space you could stash him — here's whether that makes sense vs your current SP depth."
+
+        ### For general Ottoneu questions (not about a specific player)
+        - "How is my team doing?" / "What should I focus on this week?" → call `get_ottoneu_roster` + `get_ottoneu_insights`
+        - "Who should I add?" / "Who's available?" → call `get_ottoneu_free_agents`
+        - "What's happening on waivers?" → call `get_ottoneu_transactions`
+        - "How does my cap look?" → call `get_ottoneu_cap_overview`
 
         ### When the question is about Yahoo
         Use `get_fantasy_roster` and `get_fantasy_free_agents` instead. Do not mix Ottoneu salary/cap data into Yahoo responses.

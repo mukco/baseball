@@ -193,16 +193,19 @@ class OttoneuInsightsService
 
         Generate 4 to 6 concise roster insights.
 
+        Prioritization order:
+        1. Pitchers with an upcoming_start — always call these out first. State the date, opponent, and whether the matchup is favorable. This is the most actionable near-term information.
+        2. Hot/cold streaks — use recent fg_pts (approximate) to flag who is carrying or killing the team right now.
+        3. Salary efficiency extremes — biggest surplus (hidden gems punching above salary) and biggest liabilities (overpaid players underperforming their contract). These drive championship decisions.
+        4. Cap situation — if cap_space is under $30, note it as a hard constraint that limits add options.
+        5. Matchup context — if a player has high leverage against this week's opponent (e.g. pitcher facing a weak lineup), call it out.
+
         Rules:
         - Every factoid must mention the player by name.
-        - Reference salary when a player's value story is about their contract (e.g. "at $4, X is returning elite value" or "$27 Y is a liability at current production").
-        - Cite PPD or surplus when the data supports it — these are the clearest signals of value or overpay.
-        - Reference fg_pts from recent games when relevant (note these are approximate).
-        - Call out pitchers with an upcoming_start — note the date and opponent.
-        - Note both matchup opponents when a player has outsized leverage for the week.
-        - Prioritize: value/salary efficiency (PPD/surplus), hot/cold streaks, high-leverage starts, injury/rest risk.
-        - Keep each factoid to one sentence.
-        - Write for a serious Ottoneu manager who lives and dies by salary efficiency.
+        - Always cite salary and PPD or surplus when discussing value ("at $4, X is generating +$60 surplus" or "$27 Y is a $30 liability at current pace").
+        - upcoming_start pitchers: always include date and opponent (e.g. "starts Thursday vs. BAL").
+        - recent_games fg_pts are approximate (exclude 2B/3B for batters, SV/HLD/HBP for pitchers) — note this only if the number is being cited as precise.
+        - Keep each factoid to one sentence. No hedging. Write for a manager who needs 6 actionable bullets, not a summary.
       PROMPT
     end
   end
