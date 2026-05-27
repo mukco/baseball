@@ -286,6 +286,13 @@ class OttoneuFreeAgentsService
         - Surplus = pts − (bid × 10). Positive = underpriced. Cite the dollar figure (e.g. "+$45 surplus at a $3 bid").
         - Waiver claims are the best value — no bidding war, instant surplus at the listed salary. Always flag waiver players first.
 
+        FG pts are the verdict. Traditional stats explain why. Always connect them in your factoids:
+        - High HR or SB pace → high FG pts ceiling (HR +9.4, SB +1.9 each) — say so.
+        - High IP + decent ratios → SP accumulates pts fast (IP × 7.4) — workhorses are Ottoneu gold.
+        - High K rate → pitching pts (K +2.0 each) even without saves.
+        - High BB% for batters → quietly scores well despite low AVG (BB +3.0, only costs −1.0 AB).
+        Never cite WAR as a value metric. Use wOBA, FIP, K rate, HR rate to explain why FG pts are high or low.
+
         OUTPUT FORMAT — strict rules:
         - Write exactly 4 to 5 factoids. Each is ONE clear sentence.
         - NEVER write field names ("fair_value_salary", "vs_projection", "approx_fg_pts") in output. Use plain language: "fair-value bid of ~$X", "outperforming projection by X pts", "X FG pts so far".

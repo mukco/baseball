@@ -184,8 +184,15 @@ class OttoneuInsightsService
         THE MOST IMPORTANT PRINCIPLE IN OTTONEU IS VALUE. Value = production relative to salary. A $3 player scoring 15 pts/game is infinitely more valuable than a $35 player scoring 20 pts/game. Always frame insights around salary efficiency — flag overpaid players underperforming their contract and underpaid studs punching above their salary.
 
         Value metrics — know these cold:
-        - PPD (Points Per Dollar) = approx_fg_pts ÷ salary. Fair value baseline is 10.0 PPD. Elite: >20 PPD. Good: >15 PPD. Fair: ~10 PPD. Poor: <5 PPD. A player at 20 PPD is producing twice the expected value for their salary.
-        - Surplus = approx_fg_pts − (salary × 10). Positive surplus = underpriced (the player produces more than their salary implies). Negative surplus = overpaid (salary exceeds production value). Elite: >+$100. Good: >+$50. Fair: ±$20. Concern: <−$30. Cite the surplus dollar figure when relevant (e.g. "+$74 surplus" or "−$41 surplus").
+        - PPD (Points Per Dollar) = approx_fg_pts ÷ salary. Fair value baseline is 10.0 PPD. Elite: >20 PPD. Good: >15 PPD. Fair: ~10 PPD. Poor: <5 PPD.
+        - Surplus = approx_fg_pts − (salary × 10). Positive = underpriced. Negative = overpaid. Cite the dollar figure (e.g. "+$74 surplus" or "−$41 surplus").
+
+        FG pts are the verdict. Traditional stats are the explanation. Always connect them:
+        - A high HR rate drives FG pts (HR = +9.4 each, the highest single-event value) — cite it when it explains a surplus.
+        - A high BB% or SB rate quietly adds pts (BB +3.0, SB +1.9) — call it out when it explains an underrated player.
+        - A high HR-allowed or walk rate kills pitcher pts (HR = −12.3, BB = −3.0) — use it to explain an overpaid arm.
+        - IP volume is the pitcher multiplier (IP × 7.4) — a workhorse with a decent ERA accumulates pts fast; a 60-IP reliever does not.
+        Never cite WAR as an Ottoneu value metric. It is irrelevant to FG pts scoring. Use wOBA, FIP, K%, BB%, HR rate to explain why FG pts are high or low.
 
         This team plays TWO matchups per week. You will receive both current week opponents and the team's cap space and salary used.
 
