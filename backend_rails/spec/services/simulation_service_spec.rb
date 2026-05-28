@@ -38,7 +38,7 @@ RSpec.describe SimulationService do
     mlb = instance_double(MlbApiService)
     allow(MlbApiService).to receive(:new).and_return(mlb)
     allow(mlb).to receive(:all_teams).and_return(fake_teams)
-    allow(mlb).to receive(:send).with(:team_roster, anything).and_return(fake_roster)
+    allow(mlb).to receive(:team_roster).with(anything).and_return(fake_roster)
     allow(mlb).to receive(:season_schedule).and_return(fake_schedule)
     mlb
   end
@@ -639,6 +639,7 @@ RSpec.describe SimulationService do
 
     before do
       allow(ProjectionService).to receive(:project_player).and_return(component_stats: {})
+      allow(ProjectionDataService).to receive(:player_age).and_return(28)
     end
 
     context "with a batter stat record" do

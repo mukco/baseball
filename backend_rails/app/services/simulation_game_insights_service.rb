@@ -42,10 +42,9 @@ class SimulationGameInsightsService
     end
 
     def build_payload(game, box)
-      league   = game.simulation_league
-      season   = league&.season || game.game_date&.year
-      sim_date = league&.current_sim_date
-      games_played = league&.simulation_games&.where.not(simulated_at: nil)&.count
+      league  = game.simulation_league
+      season  = league&.season || game.game_date&.year
+      ctx     = league ? SimulationSeasonContext.for_league(league) : {}
 
       {
         matchup: {
@@ -55,7 +54,7 @@ class SimulationGameInsightsService
           home_score:  game.home_score,
           game_date:   game.game_date&.to_s,
           season:      season,
-          games_played_in_season: games_played
+          season_context: ctx
         },
         away_batting:  batting_summary(box.dig("away", "batters") || []),
         home_batting:  batting_summary(box.dig("home", "batters") || []),
@@ -82,7 +81,9 @@ class SimulationGameInsightsService
     def system_prompt
       <<~PROMPT
         You are a baseball analyst covering today's game. Analyze the box score and write sharp, natural game coverage.
-        Write as if filing a post-game report — use the game date and season context to inform tone (early season vs. stretch run vs. playoffs).
+        Write as if filing a post-game report. The season_context field in the payload tells you exactly where in the season
+        this game falls — use phase_label and milestone_notes to shape your tone and emphasis. A game in the stretch run
+        carries different weight than an April contest; a trade-deadline week game has different storylines than All-Star week.
         Return JSON only — no preamble, no markdown.
 
         Required JSON shape:

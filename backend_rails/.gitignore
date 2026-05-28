@@ -1,3 +1,6 @@
+# Local app settings (machine-specific paths, vault config)
+/config/app_settings.json
+
 # Rails credentials — never commit these
 /config/master.key
 /config/credentials.yml.enc

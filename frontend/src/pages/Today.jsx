@@ -75,9 +75,17 @@ export default function Today() {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [insightsHidden, setInsightsHidden] = useState(false)
 
+  const isToday = date === format(new Date(), 'yyyy-MM-dd')
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['schedule', date],
     queryFn: () => api.schedule.byDate(date),
+    staleTime: isToday ? 0 : Infinity,
+    refetchInterval: (query) => {
+      if (!isToday) return false
+      const games = query.state.data?.games ?? []
+      return games.some(g => g.abstractState === 'Live') ? 30_000 : false
+    },
   })
 
   const games = data?.games ?? []

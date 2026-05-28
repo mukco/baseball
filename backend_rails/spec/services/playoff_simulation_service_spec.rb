@@ -136,8 +136,73 @@ RSpec.describe PlayoffSimulationService do
       series = result[:rounds].first[:series].first
       expect(series.keys).to include(
         :id, :round, :league, :home_team_abbr, :away_team_abbr,
-        :home_wins, :away_wins, :status, :series_length
+        :home_wins, :away_wins, :status, :series_length,
+        :home_season_w, :home_season_l, :home_division, :home_div_rank,
+        :home_playoff_w, :home_playoff_l,
+        :away_season_w, :away_season_l, :away_division, :away_div_rank,
+        :away_playoff_w, :away_playoff_l
       )
+    end
+
+    context "with standings data" do
+      let(:league) { create_seeded_league }
+
+      before { described_class.seed_playoffs(league) }
+
+      it "populates season record on each team in bracket" do
+        result = described_class.bracket_state(league)
+        series = result[:rounds].first[:series].first
+        expect(series[:home_season_w]).to be_a(Integer)
+        expect(series[:home_season_l]).to be_a(Integer)
+        expect(series[:away_season_w]).to be_a(Integer)
+        expect(series[:away_season_l]).to be_a(Integer)
+      end
+
+      it "populates division and rank on each team in bracket" do
+        result = described_class.bracket_state(league)
+        series = result[:rounds].first[:series].first
+        expect(series[:home_division]).to match(/\A(AL|NL) (East|Central|West)\z/)
+        expect(series[:home_div_rank]).to be_a(Integer)
+        expect(series[:away_division]).to match(/\A(AL|NL) (East|Central|West)\z/)
+        expect(series[:away_div_rank]).to be_a(Integer)
+      end
+
+      it "initializes playoff record to 0-0 before any series complete" do
+        result = described_class.bracket_state(league)
+        result[:rounds].first[:series].each do |s|
+          expect(s[:home_playoff_w]).to eq(0)
+          expect(s[:home_playoff_l]).to eq(0)
+          expect(s[:away_playoff_w]).to eq(0)
+          expect(s[:away_playoff_l]).to eq(0)
+        end
+      end
+
+      it "tallies individual game wins/losses (not series wins) in playoff record" do
+        # Inject a completed series with a known 3-game result: home wins 2, away wins 1
+        home_id = 147
+        away_id = 139
+        games   = [
+          { home_score: 5, away_score: 2 },
+          { home_score: 1, away_score: 4 },
+          { home_score: 6, away_score: 3 },
+        ]
+        create(:simulation_playoff_series, simulation_league: league,
+               round: "ds", league: "AL", series_index: 0,
+               home_team_id: home_id, away_team_id: away_id,
+               home_team_abbr: "NYY", away_team_abbr: "TBR",
+               home_team_color: "#003087", away_team_color: "#092C5C",
+               winner_team_id: home_id, status: "complete",
+               games_json: games.to_json, series_length: 5)
+
+        result    = described_class.bracket_state(league)
+        all_series = result[:rounds].flat_map { |r| r[:series] }
+        home_entry = all_series.find { |s| s[:home_team_id] == home_id }
+
+        expect(home_entry[:home_playoff_w]).to eq(2)
+        expect(home_entry[:home_playoff_l]).to eq(1)
+        expect(home_entry[:away_playoff_w]).to eq(1)
+        expect(home_entry[:away_playoff_l]).to eq(2)
+      end
     end
   end
 

@@ -98,6 +98,114 @@ class FranchiseService
     end
 
     # -----------------------------------------------------------------------
+    # Cross-season player stat log for a franchise
+    # -----------------------------------------------------------------------
+    def player_season_log(franchise, player_id)
+      player_type = nil
+
+      seasons = franchise.simulation_leagues.map do |league|
+        stat = league.simulation_player_stats.find_by(player_id: player_id)
+        next unless stat
+
+        player_type ||= stat.player_type
+        roster = league.simulation_rosters.find_by(team_id: stat.team_id)
+        awards = (compact_awards(league) || [])
+                   .select { |r| r[:player_id] == player_id }
+                   .map    { |r| r[:label] }
+
+        row = {
+          season:    league.season,
+          league_id: league.id,
+          team_id:   stat.team_id,
+          team_abbr: roster&.team_abbr,
+          age:       ProjectionDataService.player_age(player_id, season: league.season),
+          awards:    awards,
+        }
+
+        if stat.player_type == "batter"
+          row.merge!(
+            g: stat.g, ab: stat.ab, h: stat.h, hr: stat.hr, rbi: stat.rbi,
+            bb: stat.bb, k: stat.k, r: stat.r, doubles: stat.doubles,
+            avg: stat.avg, obp: stat.obp, slg: stat.slg, ops: stat.ops,
+            woba: stat.woba
+          )
+        else
+          row.merge!(
+            g: stat.g_pitched, gs: stat.gs, w: stat.w, l: stat.l, sv: stat.sv,
+            ip: stat.ip_display, k: stat.k_pitched, bb: stat.bb_allowed,
+            era: stat.era, whip: stat.whip, k9: stat.k9
+          )
+        end
+
+        row
+      end.compact
+
+      {
+        franchise_id:   franchise.id,
+        franchise_name: franchise.name,
+        player_id:      player_id,
+        player_name:    seasons.first&.dig(:player_name),
+        player_type:    player_type,
+        seasons:        seasons,
+      }
+    end
+
+    # -----------------------------------------------------------------------
+    # Cross-season team record log for a franchise
+    # -----------------------------------------------------------------------
+    def team_season_log(franchise, team_id)
+      team_abbr = nil
+
+      seasons = franchise.simulation_leagues.map do |league|
+        roster    = league.simulation_rosters.find_by(team_id: team_id)
+        team_abbr ||= roster&.team_abbr
+
+        games  = league.simulation_games.where.not(simulated_at: nil)
+        wins   = games.where(
+          "(home_team_id = ? AND home_score > away_score) OR (away_team_id = ? AND away_score > home_score)",
+          team_id, team_id
+        ).count
+        losses = games.where(
+          "(home_team_id = ? AND home_score < away_score) OR (away_team_id = ? AND away_score < home_score)",
+          team_id, team_id
+        ).count
+
+        champion_data = playoff_champion(league)
+
+        stats      = league.simulation_player_stats.where(team_id: team_id).to_a
+        batters    = stats.select { |s| s.player_type == "batter" && s.ab > 0 }
+        pitchers   = stats.select { |s| s.player_type == "pitcher" && s.outs_pitched > 0 }
+        total_outs = pitchers.sum(&:outs_pitched)
+        total_er   = pitchers.sum(&:er)
+
+        total_ab = batters.sum(&:ab).to_f
+        team_avg = total_ab > 0 ? (batters.sum(&:h) / total_ab).round(3) : nil
+
+        {
+          season:    league.season,
+          league_id: league.id,
+          team_abbr: roster&.team_abbr,
+          w:         wins,
+          l:         losses,
+          pct:       (wins + losses) > 0 ? (wins.to_f / (wins + losses)).round(3) : 0.0,
+          champion:  champion_data&.dig(:team_id) == team_id,
+          era:       total_outs > 0 ? (total_er * 27.0 / total_outs).round(2) : nil,
+          hr:        batters.sum(&:hr),
+          avg:       team_avg,
+          awards:    compact_awards(league) || [],
+        }
+      end.compact
+
+      {
+        franchise_id:   franchise.id,
+        franchise_name: franchise.name,
+        team_id:        team_id,
+        team_abbr:      team_abbr,
+        seasons:        seasons,
+      }
+    end
+
+    # -----------------------------------------------------------------------
     # Index serialization (lightweight — no per-season game counts)
     # -----------------------------------------------------------------------
     def serialize_index(franchise)

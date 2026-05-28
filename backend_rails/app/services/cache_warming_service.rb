@@ -12,6 +12,38 @@ class CacheWarmingService
   LOG_PATH = Rails.root.join("tmp", "warehouse", "cache_warming_log.json")
 
   class << self
+    # Warm all Ottoneu Rails.cache keys before they expire.
+    # Order matters: all_rosters is a dependency for insights and free_agents.
+    # Runs every 50 min — just under the 60 min TTL on most keys.
+    def warm_ottoneu!
+      runs    = { warmed: [], skipped: [], errors: [] }
+      started = Time.now
+
+      [
+        ["ottoneu_all_rosters",   -> { OttoneuService.all_rosters }],
+        ["ottoneu_league_stats",  -> { OttoneuLeagueStatsService.call(refresh: true) }],
+        ["ottoneu_insights",      -> { OttoneuInsightsService.call(refresh: true) }],
+        ["ottoneu_free_agents",   -> { OttoneuFreeAgentsService.call(refresh: true) }],
+      ].each do |label, fn|
+        begin
+          result = fn.call
+          if result.is_a?(Hash) && result[:error]
+            runs[:errors] << { key: label, error: result[:error] }
+            Rails.logger.warn("[CacheWarmingService] #{label} error: #{result[:error]}")
+          else
+            runs[:warmed] << label
+            Rails.logger.info("[CacheWarmingService] warmed #{label}")
+          end
+        rescue => e
+          runs[:errors] << { key: label, error: e.message }
+          Rails.logger.error("[CacheWarmingService] #{label} raised: #{e.message}")
+        end
+      end
+
+      write_log(:ottoneu, 4, runs, started)
+      runs
+    end
+
     # Warm caches for all players on active simulation league rosters.
     # Runs frequently (~every 30 min) — keeps simulation hot paths fast.
     def warm_simulation_players!
@@ -95,6 +127,7 @@ class CacheWarmingService
       [
         ["statcast_batter",  -> { StatcastService.batter(player_id, season) }],
         ["statcast_pitcher", -> { StatcastService.pitcher(player_id, season) }],
+        ["hover_stats",      -> { HoverStatsService.call(player_id: player_id) }],
       ].each do |label, fn|
         key = "#{label}_#{player_id}"
         begin

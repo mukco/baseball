@@ -134,20 +134,23 @@ class FactoidsService
     end
 
     def game_context(game_pk)
-      mlb    = MlbApiService.new
-      game   = mlb.game_details(game_pk)
-      status = game[:status].to_s
+      mlb           = MlbApiService.new
+      game          = mlb.game_details(game_pk)
+      abstract_state = game[:abstractState].to_s
+      live_status    = game[:status].to_s
+
+      probable = game.dig(:gameContext, :probablePitchers) || {}
 
       ctx = {
-        status:      status,
-        venue:       game[:venue],
-        away:        game.dig(:teams, :away),
-        home:        game.dig(:teams, :home),
-        away_pitcher: game[:awayProbable],
-        home_pitcher: game[:homeProbable]
+        status:       abstract_state.presence || live_status,
+        venue:        game[:venue],
+        away:         game.dig(:teams, :away),
+        home:         game.dig(:teams, :home),
+        away_pitcher: probable[:away],
+        home_pitcher: probable[:home]
       }
 
-      if status.include?("Final") || status.include?("Progress")
+      if abstract_state.include?("Final") || live_status.include?("Progress")
         ctx[:boxscore] = {
           team_totals: game.dig(:boxscore, :teamTotals),
           batting:     game.dig(:boxscore, :batting)&.first(6),

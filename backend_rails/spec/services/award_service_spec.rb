@@ -67,6 +67,9 @@ RSpec.describe AwardService do
 
     before do
       allow_any_instance_of(OpenAi::Client).to receive(:json_completion).and_return(ai_response)
+      allow(SimulationSeasonContext).to receive(:for_league).and_return(
+        { phase: :midseason, games_played: 81, total_games: 162, pct_complete: 0.5, phase_label: "midseason", milestone_notes: [] }
+      )
     end
 
     context "with eligible players" do
@@ -126,6 +129,10 @@ RSpec.describe AwardService do
   end
 
   describe "eligibility thresholds" do
+    let(:midseason_ctx) do
+      { phase: :midseason, games_played: 81, total_games: 162, pct_complete: 0.5, phase_label: "midseason", milestone_notes: [] }
+    end
+
     it "excludes batters with insufficient AB relative to season length" do
       # max_g = 0 → 1, so min_ab = max(2, 25) = 25; player with 10 AB excluded
       create(:simulation_player_stat, simulation_league: league, player_type: "batter",
@@ -138,6 +145,7 @@ RSpec.describe AwardService do
       client_dbl = instance_double(OpenAi::Client)
       allow(OpenAi::Client).to receive(:new).and_return(client_dbl)
       allow(client_dbl).to receive(:json_completion).and_return(ai_resp)
+      allow(SimulationSeasonContext).to receive(:for_league).and_return(midseason_ctx)
 
       expect(client_dbl).to receive(:json_completion) do |args|
         payload = JSON.parse(args[:user_payload])
@@ -162,6 +170,7 @@ RSpec.describe AwardService do
       client_dbl = instance_double(OpenAi::Client)
       allow(OpenAi::Client).to receive(:new).and_return(client_dbl)
       allow(client_dbl).to receive(:json_completion).and_return(ai_resp)
+      allow(SimulationSeasonContext).to receive(:for_league).and_return(midseason_ctx)
 
       expect(client_dbl).to receive(:json_completion) do |args|
         payload = JSON.parse(args[:user_payload])

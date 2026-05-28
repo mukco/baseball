@@ -31,7 +31,15 @@ class MlService
       end
       JSON.parse(resp.body, symbolize_names: true)
     rescue Faraday::Error => e
-      { error: "ML service unavailable: #{e.message}" }
+      { error: faraday_error_detail(e) }
+    end
+
+    def faraday_error_detail(err)
+      raw = err.response.is_a?(Hash) ? err.response[:body] : nil
+      detail = JSON.parse(raw.to_s, symbolize_names: true)[:detail]
+      detail.is_a?(String) ? detail : "ML service unavailable: #{err.message}"
+    rescue
+      "ML service unavailable: #{err.message}"
     end
 
     def conn

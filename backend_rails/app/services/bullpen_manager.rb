@@ -62,12 +62,12 @@ class BullpenManager
     pitchers_hash = {}
     slot = 0
 
-    sorted.each do |p|
-      id   = p[:id].to_i
+    sorted.each do |pitcher|
+      id   = pitcher[:id].to_i
       role = if starter_ids.include?(id)
-               s = slot
+               current_slot = slot
                slot += 1
-               { "role" => "sp", "slot" => s }
+               { "role" => "sp", "slot" => current_slot }
              elsif id == closer_id
                { "role" => "cl" }
              elsif setup_ids.include?(id)
@@ -98,14 +98,14 @@ class BullpenManager
     setup_ids = Array(roles[:setup_ids]).map(&:to_i).to_set
     long_ids  = Array(roles[:long_ids]).map(&:to_i).to_set
 
-    pitchers.each do |id_str, p|
+    pitchers.each do |id_str, pitcher_entry|
       id = id_str.to_i
-      next if p["role"] == "sp"
-      p["role"] = if id == closer_id          then "cl"
-                  elsif setup_ids.include?(id) then "su"
-                  elsif long_ids.include?(id)  then "lr"
-                  else                              "mr"
-                  end
+      next if pitcher_entry["role"] == "sp"
+      pitcher_entry["role"] = if id == closer_id          then "cl"
+                               elsif setup_ids.include?(id) then "su"
+                               elsif long_ids.include?(id)  then "lr"
+                               else                              "mr"
+                               end
     end
 
     state["pitchers"] = pitchers
@@ -117,25 +117,25 @@ class BullpenManager
   def next_starter(skip_ids: Set.new)
     slot = @state["rotation_slot"].to_i
     5.times do |offset|
-      target = (slot + offset) % 5
-      id, p  = find_by_slot(target)
-      next unless id
-      next if skip_ids.include?(id.to_i)
-      return id.to_i if sp_available?(id, p)
+      target                   = (slot + offset) % 5
+      pitcher_id, pitcher_state = find_by_slot(target)
+      next unless pitcher_id
+      next if skip_ids.include?(pitcher_id.to_i)
+      return pitcher_id.to_i if sp_available?(pitcher_id, pitcher_state)
     end
-    # Fallback: any SP not injured
+    # Fallback: any SP not injured, starting with the earliest slot
     sps.reject { |id, _| skip_ids.include?(id.to_i) }
-       .min_by { |_, p| p["slot"].to_i }
-       &.then { |id, _| id.to_i }
+       .min_by { |_, pitcher_state| pitcher_state["slot"].to_i }
+       &.then  { |id, _| id.to_i }
   end
 
   def available_relievers(skip_ids: Set.new)
     BULLPEN_ROLE_ORDER.flat_map do |role|
       pitchers_by_role(role)
-        .reject { |id, _| skip_ids.include?(id.to_i) }
-        .select { |id, p| reliever_available?(id, p) }
-        .sort_by { |_, p| p["season_g"].to_i }
-        .map { |id, _| id.to_i }
+        .reject { |id, _|             skip_ids.include?(id.to_i) }
+        .select { |id, pitcher_state| reliever_available?(id, pitcher_state) }
+        .sort_by { |_, pitcher_state| pitcher_state["season_g"].to_i }
+        .map    { |id, _|             id.to_i }
     end
   end
 
@@ -165,19 +165,19 @@ class BullpenManager
 
   def record_appearance(id, outs: nil)
     return unless id
-    id_str = id.to_s
-    p      = @state.dig("pitchers", id_str) || {}
+    id_str        = id.to_s
+    pitcher_entry = @state.dig("pitchers", id_str) || {}
 
-    last         = p["last_pitched"]
-    yesterday    = (@game_date - 1).to_s
-    consecutive  = (last == yesterday) ? p["consecutive_days"].to_i + 1 : 0
+    last        = pitcher_entry["last_pitched"]
+    yesterday   = (@game_date - 1).to_s
+    consecutive = (last == yesterday) ? pitcher_entry["consecutive_days"].to_i + 1 : 0
 
-    p["last_pitched"]     = @game_date.to_s
-    p["consecutive_days"] = consecutive
-    p["season_g"]         = p["season_g"].to_i + 1
-    p["season_outs"]      = p["season_outs"].to_i + outs.to_i
+    pitcher_entry["last_pitched"]     = @game_date.to_s
+    pitcher_entry["consecutive_days"] = consecutive
+    pitcher_entry["season_g"]         = pitcher_entry["season_g"].to_i + 1
+    pitcher_entry["season_outs"]      = pitcher_entry["season_outs"].to_i + outs.to_i
 
-    @state["pitchers"][id_str] = p
+    @state["pitchers"][id_str] = pitcher_entry
   end
 
   def pitchers_by_role(role)

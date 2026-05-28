@@ -206,15 +206,22 @@ export default function SimulationConfig() {
   const qc = useQueryClient()
   const [localParams, setLocalParams] = useState(null)
   const [saved, setSaved] = useState(false)
+  const [presetName, setPresetName] = useState('')
+  const [showSavePreset, setShowSavePreset] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey:  ['sim-config', id],
     queryFn:   () => api.simulations.config(id),
     staleTime: 30_000,
-    onSuccess: d => { if (!localParams) setLocalParams(d.params) },
   })
 
-  const params = localParams || data?.params || {}
+  const { data: customPresets = [], refetch: refetchPresets } = useQuery({
+    queryKey:  ['simulation-presets'],
+    queryFn:   () => api.simulationPresets.list(),
+    staleTime: 60_000,
+  })
+
+  const params = localParams ?? data?.params ?? {}
 
   const saveMutation = useMutation({
     mutationFn: () => api.simulations.updateConfig(id, params),
@@ -233,9 +240,31 @@ export default function SimulationConfig() {
     },
   })
 
+  const applyCustomPreset = useMutation({
+    mutationFn: (presetParams) => api.simulations.updateConfig(id, presetParams),
+    onSuccess: (d) => {
+      setLocalParams(d.params)
+      qc.invalidateQueries({ queryKey: ['sim-config', id] })
+    },
+  })
+
+  const savePresetMutation = useMutation({
+    mutationFn: () => api.simulationPresets.create(presetName.trim(), params),
+    onSuccess: () => {
+      setPresetName('')
+      setShowSavePreset(false)
+      refetchPresets()
+    },
+  })
+
+  const deletePresetMutation = useMutation({
+    mutationFn: (presetId) => api.simulationPresets.destroy(presetId),
+    onSuccess: () => refetchPresets(),
+  })
+
   function handleChange(key, value) {
     setSaved(false)
-    setLocalParams(prev => ({ ...prev, [key]: value }))
+    setLocalParams(prev => ({ ...(prev ?? data?.params ?? {}), [key]: value }))
   }
 
   return (
@@ -260,13 +289,87 @@ export default function SimulationConfig() {
                   key={p.key}
                   type="button"
                   onClick={() => presetMutation.mutate(p.key)}
-                  disabled={presetMutation.isPending}
+                  disabled={presetMutation.isPending || applyCustomPreset.isPending}
                   title={p.desc}
                   className="px-3 py-1.5 text-xs font-bold border border-bg-border bg-bg-elevated text-content-secondary hover:text-brand hover:border-brand/40 rounded transition-colors disabled:opacity-50"
                 >
                   {p.label}
                 </button>
               ))}
+            </div>
+
+            {customPresets.length > 0 && (
+              <>
+                <div className="border-t border-bg-border pt-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-2">Saved Presets</div>
+                  <div className="flex flex-wrap gap-2">
+                    {customPresets.map(p => (
+                      <div key={p.id} className="flex items-center gap-0 border border-bg-border bg-bg-elevated rounded overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => applyCustomPreset.mutate(p.params)}
+                          disabled={applyCustomPreset.isPending || presetMutation.isPending}
+                          title={`Apply "${p.name}"`}
+                          className="px-3 py-1.5 text-xs font-bold text-content-secondary hover:text-brand transition-colors disabled:opacity-50"
+                        >
+                          {p.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deletePresetMutation.mutate(p.id)}
+                          disabled={deletePresetMutation.isPending}
+                          title={`Delete "${p.name}"`}
+                          className="px-2 py-1.5 text-[10px] text-content-muted hover:text-red-400 border-l border-bg-border transition-colors disabled:opacity-50"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="border-t border-bg-border pt-3">
+              {showSavePreset ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Preset name…"
+                    value={presetName}
+                    onChange={e => setPresetName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && presetName.trim()) savePresetMutation.mutate() }}
+                    className="bg-bg-elevated border border-bg-border text-content-primary text-xs rounded px-2.5 py-1.5 outline-none focus:border-brand flex-1 font-mono"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => savePresetMutation.mutate()}
+                    disabled={!presetName.trim() || savePresetMutation.isPending}
+                    className="px-3 py-1.5 text-xs font-bold bg-brand text-white rounded hover:bg-brand/90 transition-colors disabled:opacity-50"
+                  >
+                    {savePresetMutation.isPending ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowSavePreset(false); setPresetName('') }}
+                    className="px-2 py-1.5 text-xs text-content-muted hover:text-content-primary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  {savePresetMutation.isError && (
+                    <span className="text-[11px] text-red-400">{savePresetMutation.error?.message}</span>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowSavePreset(true)}
+                  className="text-xs text-content-muted hover:text-brand transition-colors"
+                >
+                  + Save current as preset
+                </button>
+              )}
             </div>
           </div>
 

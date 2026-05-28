@@ -10,13 +10,15 @@ const TOPICS = [
   { id: 'fangraphs', label: 'FanGraphs'    },
   { id: 'mlbtr',     label: 'Trade Rumors' },
   { id: 'reddit',    label: 'r/baseball'   },
+  { id: 'rotowire',  label: 'Rotowire'     },
 ]
 
 const SOURCE_META = {
-  mlb:       { dot: 'bg-blue-500',   text: 'text-blue-500',   label: 'MLB.com'           },
-  fangraphs: { dot: 'bg-green-600',  text: 'text-green-600',  label: 'FanGraphs'         },
-  mlbtr:     { dot: 'bg-orange-500', text: 'text-orange-500', label: 'MLB Trade Rumors'  },
-  reddit:    { dot: 'bg-rose-500',   text: 'text-rose-500',   label: 'r/baseball'        },
+  mlb:       { dot: 'bg-blue-500',    text: 'text-blue-500',    label: 'MLB.com'           },
+  fangraphs: { dot: 'bg-green-600',   text: 'text-green-600',   label: 'FanGraphs'         },
+  mlbtr:     { dot: 'bg-orange-500',  text: 'text-orange-500',  label: 'MLB Trade Rumors'  },
+  reddit:    { dot: 'bg-rose-500',    text: 'text-rose-500',    label: 'r/baseball'        },
+  rotowire:  { dot: 'bg-purple-500',  text: 'text-purple-500',  label: 'Rotowire'          },
 }
 
 function relativeTime(ts) {
@@ -95,6 +97,20 @@ function TeamChips({ teams = [] }) {
   )
 }
 
+function InjuryBadge({ injury }) {
+  if (!injury) return null
+  const label = [injury.part, injury.list].filter(Boolean).join(' · ')
+  if (!label) return null
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-red-400 bg-red-400/10 border border-red-400/20 px-1.5 py-0.5 rounded">
+      <svg viewBox="0 0 12 12" fill="currentColor" className="w-2.5 h-2.5 shrink-0" aria-hidden="true">
+        <path d="M6 1a5 5 0 100 10A5 5 0 006 1zm.5 7.5h-1v-1h1v1zm0-2.5h-1V3.5h1V6z"/>
+      </svg>
+      {label}
+    </span>
+  )
+}
+
 // Compact list row — used in "All Sources" view
 function NewsListItem({ item }) {
   const hasMentions = (item.mentions?.length || 0) + (item.teamMentions?.length || 0) > 0
@@ -105,6 +121,7 @@ function NewsListItem({ item }) {
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <SourceTag sourceKey={item.sourceKey} source={item.source} />
           <span className="text-[11px] text-content-muted">{relativeTime(item.publishedAt)}</span>
+          <InjuryBadge injury={item.injury} />
         </div>
         <a
           href={item.url}
@@ -161,6 +178,7 @@ function NewsCard({ item }) {
           <SourceTag sourceKey={item.sourceKey} source={item.source} />
           <span className="text-bg-border select-none">·</span>
           <span>{relativeTime(item.publishedAt)}</span>
+          <InjuryBadge injury={item.injury} />
         </div>
 
         <a

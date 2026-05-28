@@ -28,9 +28,9 @@ module Sandbox
           { name: "fg_projections_pitching", path: Warehouse::FgProjectionIngester.pitching_csv_path.to_s },
           { name: "teams_batting",           path: Warehouse::TeamIngester.batting_csv_path.to_s },
           { name: "teams_pitching",          path: Warehouse::TeamIngester.pitching_csv_path.to_s },
-          { name: "sim_player_stats",        path: Warehouse::SimulationIngester.player_stats_csv_path.to_s },
-          { name: "sim_team_standings",      path: Warehouse::SimulationIngester.team_standings_csv_path.to_s },
-          { name: "sim_season_log",          path: Warehouse::SimulationIngester.season_log_csv_path.to_s },
+          { name: "sim_player_stats",   path: Warehouse::SimulationIngester.player_stats_csv_path.to_s },
+          { name: "sim_team_standings", path: Warehouse::SimulationIngester.team_standings_csv_path.to_s },
+          { name: "sim_season_log",     path: Warehouse::SimulationIngester.season_log_csv_path.to_s },
         ].select { |t| File.exist?(t[:path]) }
       end
 

@@ -18,14 +18,29 @@ module Warehouse
         Rails.logger.info("Warehouse::Manager: starting full refresh")
         started = Time.now
 
-        batter_count  = Warehouse::BatterIngester.ingest!
-        pitcher_count = Warehouse::PitcherIngester.ingest!
-        proj_counts   = Warehouse::FgProjectionIngester.ingest!
-        team_counts   = Warehouse::TeamIngester.ingest!
-        sim_counts    = Warehouse::SimulationIngester.ingest!
+        # Ingesters write to independent CSVs — run them concurrently.
+        # SimulationIngester is local-only (no HTTP), so run it on the main thread.
+        sim_counts = Warehouse::SimulationIngester.ingest!
+
+        batter_t  = Thread.new { Warehouse::BatterIngester.ingest! }
+        pitcher_t = Thread.new { Warehouse::PitcherIngester.ingest! }
+        proj_t    = Thread.new { Warehouse::FgProjectionIngester.ingest! }
+        team_t    = Thread.new { Warehouse::TeamIngester.ingest! }
+        ottoneu_t = Thread.new { Warehouse::OttoneuSalaryIngester.ingest! }
+
+        batter_count  = batter_t.value
+        pitcher_count = pitcher_t.value
+        proj_counts   = proj_t.value
+        team_counts   = team_t.value
+        ottoneu_count = ottoneu_t.value
 
         build_duckdb!
+        reset_column_cache!
         LeagueConstantsService.refresh!
+
+        # Enqueue accuracy recomputation in the background now that warehouse data is fresh.
+        ProjectionAccuracyJob.perform_later("batter") if defined?(ProjectionAccuracyJob)
+        ProjectionAccuracyJob.perform_later("pitcher") if defined?(ProjectionAccuracyJob)
 
         meta = {
           last_refreshed_at:    Time.now.utc.iso8601,
@@ -38,6 +53,7 @@ module Warehouse
           sim_player_stat_rows: sim_counts[:player_stats],
           sim_standing_rows:    sim_counts[:team_standings],
           sim_season_rows:      sim_counts[:season_log],
+          ottoneu_salary_rows:  ottoneu_count,
           duration_s:           (Time.now - started).round(1),
           schema_fingerprint:   schema_fingerprint,
         }
@@ -59,6 +75,24 @@ module Warehouse
 
       def exists?
         File.exist?(duckdb_path)
+      end
+
+      # Returns the set of column names for a table. Cached until next refresh.
+      # Used by services to build resilient SELECTs when the schema may be ahead of the warehouse.
+      def table_columns(table_name)
+        @table_columns_cache ||= {}
+        @table_columns_cache[table_name.to_s] ||= begin
+          sql = "SELECT column_name FROM information_schema.columns WHERE table_name = '#{table_name}'"
+          result = Sandbox::QueryService.run(sql: sql, limit: 200)
+          cols = result[:columns] || []
+          Array(result[:rows]).map { |row| cols.zip(row).to_h["column_name"].to_s }.to_set
+        rescue
+          Set.new
+        end
+      end
+
+      def reset_column_cache!
+        @table_columns_cache = nil
       end
 
       SIM_PLAYER_STATS_COLUMNS = %w[
@@ -94,6 +128,7 @@ module Warehouse
           SIM_PLAYER_STATS_COLUMNS,
           SIM_TEAM_STANDINGS_COLUMNS,
           SIM_SEASON_LOG_COLUMNS,
+          Warehouse::OttoneuSalaryIngester::COLUMNS,
         ].map { |cols| cols.join(",") }.join("|")
         Digest::MD5.hexdigest(parts)[0, 8]
       end
@@ -140,6 +175,7 @@ module Warehouse
             sim_player_stats:        Warehouse::SimulationIngester.player_stats_csv_path.to_s,
             sim_team_standings:      Warehouse::SimulationIngester.team_standings_csv_path.to_s,
             sim_season_log:          Warehouse::SimulationIngester.season_log_csv_path.to_s,
+            ottoneu_salaries:        Warehouse::OttoneuSalaryIngester.csv_path.to_s,
           }
         })
 

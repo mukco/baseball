@@ -353,4 +353,233 @@ RSpec.describe GameSimulationEngine do
       expect(hot_scores.sum).to be > cold_scores.sum
     end
   end
+
+  # -----------------------------------------------------------------------
+  # Config multipliers
+  # -----------------------------------------------------------------------
+  describe ".simulate_game — config multipliers" do
+    let(:contact_lineup) do
+      lineup((1..9).to_a, { bb_pct: 0.08, k_pct: 0.20, babip: 0.300, hr_fb_pct: 0.12, fb_pct: 0.38 })
+    end
+    let(:opp_lineup)   { lineup((11..19).to_a) }
+    let(:home_staff)   { rotation([21]) }
+    let(:away_staff)   { rotation([31]) }
+
+    it "run_environment multiplier increases total runs scored" do
+      high_runs = 40.times.map do
+        r = described_class.simulate_game(
+          home_lineup: contact_lineup, away_lineup: opp_lineup,
+          home_pitchers: home_staff, away_pitchers: away_staff,
+          blend: 0.5, config: { "run_environment" => 2.0 }
+        )
+        r[:home_score] + r[:away_score]
+      end.sum
+
+      low_runs = 40.times.map do
+        r = described_class.simulate_game(
+          home_lineup: contact_lineup, away_lineup: opp_lineup,
+          home_pitchers: home_staff, away_pitchers: away_staff,
+          blend: 0.5, config: { "run_environment" => 0.5 }
+        )
+        r[:home_score] + r[:away_score]
+      end.sum
+
+      expect(high_runs).to be > low_runs
+    end
+
+    it "hr_environment multiplier increases home run frequency" do
+      count_hrs = ->(config) {
+        40.times.map do
+          described_class.simulate_game(
+            home_lineup: contact_lineup, away_lineup: opp_lineup,
+            home_pitchers: home_staff, away_pitchers: away_staff,
+            blend: 1.0, config: config
+          )[:batter_stats].values.sum { |s| s[:hr] }
+        end.sum
+      }
+
+      expect(count_hrs.call({ "hr_environment" => 3.0 })).to be > count_hrs.call({ "hr_environment" => 0.3 })
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # apply_walk — baserunner state transitions
+  # -----------------------------------------------------------------------
+  describe ".apply_walk (private)" do
+    subject(:result) { described_class.send(:apply_walk, bases, batter_id) }
+
+    let(:batter_id) { 99 }
+
+    context "with empty bases" do
+      let(:bases) { [nil, nil, nil] }
+
+      it "places batter on first" do
+        _runs, new_bases, _scorers = result
+        expect(new_bases[0]).to eq(batter_id)
+        expect(new_bases[1]).to be_nil
+        expect(new_bases[2]).to be_nil
+      end
+
+      it "scores no runs" do
+        runs, = result
+        expect(runs).to eq(0)
+      end
+    end
+
+    context "with runner on first only" do
+      let(:bases) { [10, nil, nil] }
+
+      it "forces runner to second, batter takes first" do
+        _runs, new_bases, = result
+        expect(new_bases[0]).to eq(batter_id)
+        expect(new_bases[1]).to eq(10)
+      end
+
+      it "scores no runs" do
+        runs, = result
+        expect(runs).to eq(0)
+      end
+    end
+
+    context "with bases loaded" do
+      let(:bases) { [10, 20, 30] }
+
+      it "scores the runner from third" do
+        runs, new_bases, scorers = result
+        expect(runs).to eq(1)
+        expect(scorers).to eq([30])
+        expect(new_bases[0]).to eq(batter_id)
+        expect(new_bases[1]).to eq(10)
+        expect(new_bases[2]).to eq(20)
+      end
+    end
+
+    context "with runner on third only" do
+      let(:bases) { [nil, nil, 30] }
+
+      it "places batter on first and leaves runner on third" do
+        _runs, new_bases, = result
+        expect(new_bases[0]).to eq(batter_id)
+        expect(new_bases[2]).to eq(30)
+      end
+
+      it "scores no runs (runner not forced)" do
+        runs, = result
+        expect(runs).to eq(0)
+      end
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # apply_single — baserunner advancement
+  # -----------------------------------------------------------------------
+  describe ".apply_single (private)" do
+    let(:batter_id) { 99 }
+
+    context "with runner on third" do
+      let(:bases) { [nil, nil, 30] }
+
+      it "always scores the runner from third" do
+        100.times do
+          runs, rbis, new_bases, scorers = described_class.send(:apply_single, bases, batter_id)
+          expect(runs).to eq(1)
+          expect(rbis).to eq(1)
+          expect(scorers).to include(30)
+          expect(new_bases[0]).to eq(batter_id)
+          expect(new_bases[2]).to be_nil
+        end
+      end
+    end
+
+    context "with runner on second" do
+      let(:bases) { [nil, 20, nil] }
+
+      it "either scores the runner or advances them to third (probabilistic)" do
+        scored_count = 0
+        100.times do
+          runs, _rbis, new_bases, = described_class.send(:apply_single, bases, batter_id)
+          if runs == 1
+            scored_count += 1
+          else
+            expect(new_bases[2]).to eq(20)
+          end
+        end
+        # SINGLE_SCORE_FROM_2B = 0.60, so should score roughly 60% of the time
+        expect(scored_count).to be_between(35, 85)
+      end
+    end
+
+    context "with empty bases" do
+      let(:bases) { [nil, nil, nil] }
+
+      it "places batter on first and scores nothing" do
+        runs, rbis, new_bases, scorers = described_class.send(:apply_single, bases, batter_id)
+        expect(runs).to eq(0)
+        expect(rbis).to eq(0)
+        expect(new_bases[0]).to eq(batter_id)
+        expect(scorers).to be_empty
+      end
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # apply_double — baserunner advancement
+  # -----------------------------------------------------------------------
+  describe ".apply_double (private)" do
+    let(:batter_id) { 99 }
+
+    context "with runners on first and second" do
+      let(:bases) { [10, 20, nil] }
+
+      it "scores the runner from second, advances batter to second" do
+        runs, rbis, new_bases, scorers = described_class.send(:apply_double, bases, batter_id)
+        expect(scorers).to include(20)
+        expect(new_bases[1]).to eq(batter_id)
+      end
+
+      it "scores or leaves the runner from first (probabilistic)" do
+        scored_from_first = 100.times.count do
+          runs, = described_class.send(:apply_double, bases, batter_id)
+          runs == 2
+        end
+        # DOUBLE_SCORE_FROM_1B = 0.45, so 2 runs ~45% of the time
+        expect(scored_from_first).to be_between(20, 70)
+      end
+    end
+
+    context "with empty bases" do
+      let(:bases) { [nil, nil, nil] }
+
+      it "places batter on second and scores nothing" do
+        runs, rbis, new_bases, scorers = described_class.send(:apply_double, bases, batter_id)
+        expect(runs).to eq(0)
+        expect(new_bases[1]).to eq(batter_id)
+        expect(scorers).to be_empty
+      end
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # credit_scorers — run credit helper
+  # -----------------------------------------------------------------------
+  describe ".credit_scorers (private)" do
+    it "increments :r for each scorer present in batter_stats" do
+      batter_stats = { 10 => { r: 0 }, 20 => { r: 2 } }
+      described_class.send(:credit_scorers, batter_stats, [10, 20])
+      expect(batter_stats[10][:r]).to eq(1)
+      expect(batter_stats[20][:r]).to eq(3)
+    end
+
+    it "skips scorers not tracked in batter_stats (e.g. fallback pitchers on base)" do
+      batter_stats = { 10 => { r: 0 } }
+      expect { described_class.send(:credit_scorers, batter_stats, [10, :unknown_runner]) }.not_to raise_error
+      expect(batter_stats[10][:r]).to eq(1)
+    end
+
+    it "is a no-op for an empty scorers list" do
+      batter_stats = { 10 => { r: 5 } }
+      described_class.send(:credit_scorers, batter_stats, [])
+      expect(batter_stats[10][:r]).to eq(5)
+    end
+  end
 end

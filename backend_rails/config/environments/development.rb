@@ -23,8 +23,10 @@ Rails.application.configure do
     config.action_controller.perform_caching = false
   end
 
-  # Change to :null_store to avoid any caching.
-  config.cache_store = :memory_store
+  # File store survives server restarts — critical for expensive cold loads
+  # (projections accuracy, daily summary, Ottoneu AI services).
+  # Change to :null_store to disable caching entirely during debugging.
+  config.cache_store = :file_store, Rails.root.join("tmp/cache")
 
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log

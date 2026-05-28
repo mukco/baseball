@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { BarChart, Bar, ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import MLHint from './MLHint'
+import { ML_HELP } from '../../lib/mlHelp'
 
 const MUTED = 'rgb(var(--color-content-muted))'
 const BORDER = 'rgb(var(--color-bg-border))'
@@ -26,10 +28,13 @@ function ResidualsHistogram({ yTrue, yPred }) {
 
   return (
     <div className="card p-4">
-      <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-1">
-        Residuals distribution
-        <span className="normal-case font-normal ml-1 text-content-muted">(predicted − actual)</span>
-      </p>
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+          Residuals distribution
+          <span className="normal-case font-normal ml-1">(predicted − actual)</span>
+        </p>
+        <MLHint hint={ML_HELP.residuals} />
+      </div>
       <p className="text-xs text-content-muted mb-3">A symmetric bell centred near 0 means errors are unbiased.</p>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={bins} margin={{ left: 4, right: 8, bottom: 20 }}>

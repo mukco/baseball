@@ -96,12 +96,23 @@ class StatcastService
     # ---------------------------------------------------------------- #
 
     def cache_fresh?(key)
-      @@cache.key?(key) && @@cache_timestamps[key].to_i > Time.now.to_i - CACHE_TTL
+      # L1: in-process hash (fastest)
+      return true if @@cache.key?(key) && @@cache_timestamps[key].to_i > Time.now.to_i - CACHE_TTL
+
+      # L2: file/memory store — survives restarts; rehydrates L1 on hit
+      if (val = Rails.cache.read("statcast:#{key}"))
+        @@cache[key] = val
+        @@cache_timestamps[key] = Time.now.to_i
+        return true
+      end
+
+      false
     end
 
     def cache_set(key, value)
       @@cache[key] = value
       @@cache_timestamps[key] = Time.now.to_i
+      Rails.cache.write("statcast:#{key}", value, expires_in: CACHE_TTL)
     end
 
     def fetch_pitcher(player_id, season)
@@ -145,6 +156,12 @@ class StatcastService
         bt = bat_tracking_for(player_id.to_i, season)
         result[:summary].merge!(bt) if bt.any?
       end
+      ss = sprint_speed_for(player_id.to_i, season)
+      result[:summary][:sprintSpeed] = ss if ss
+      sd = spray_direction(player_id, season)
+      result[:summary][:pullPct] = (sd[:pull_pct] * 100).round(1) if sd[:pull_pct]
+      result[:summary][:centPct] = (sd[:cent_pct] * 100).round(1) if sd[:cent_pct]
+      result[:summary][:oppoPct] = (sd[:oppo_pct] * 100).round(1) if sd[:oppo_pct]
       result
     rescue StandardError => e
       { error: e.message, summary: {}, sprayData: [] }
@@ -353,9 +370,6 @@ class StatcastService
       if (xwoba = float_vals(rows, "estimated_woba_using_speedangle")).any?
         summary[:xwOBA] = mean(xwoba).round(3)
       end
-      if (ss = float_vals(rows, "sprint_speed")).any?
-        summary[:sprintSpeed] = mean(ss).round(1)
-      end
 
       # Bat speed + swing length (Savant pitch-level tracking, available 2024+)
       if (bs = float_vals(rows.reject { |r| r["bat_speed"].nil? || r["bat_speed"].strip.empty? }, "bat_speed")).any?
@@ -546,6 +560,49 @@ class StatcastService
       end
     rescue StandardError => e
       Rails.logger.warn("StatcastService bat tracking leaderboard failed (#{season}): #{e.message}")
+      []
+    end
+
+    def sprint_speed_for(player_id, season)
+      key = "sprint_speed_#{season}"
+      leaderboard = if cache_fresh?(key)
+        @@cache[key]
+      else
+        data = fetch_sprint_speed_leaderboard(season)
+        cache_set(key, data) if data.any?
+        data
+      end
+      leaderboard.find { |r| r[:player_id] == player_id }&.dig(:sprint_speed)
+    rescue StandardError => e
+      Rails.logger.warn("StatcastService#sprint_speed_for failed (season #{season}): #{e.message}")
+      nil
+    end
+
+    def fetch_sprint_speed_leaderboard(season)
+      conn = Faraday.new do |f|
+        f.request  :retry, max: 2, interval: 1.0
+        f.response :raise_error
+        f.options.timeout      = 30
+        f.options.open_timeout = 10
+        f.headers["User-Agent"] = "Mozilla/5.0 (compatible; StatlineBot/1.0)"
+        f.headers["Referer"]    = "https://baseballsavant.mlb.com/leaderboard/sprint_speed"
+      end
+      resp = conn.get("https://baseballsavant.mlb.com/leaderboard/sprint_speed", {
+        min_opp: 0, position: "", team: "", year: season, csv: "true"
+      })
+      body = resp.body.force_encoding("UTF-8")
+      return [] if body.strip.empty? || body.start_with?("<")
+      csv = CSV.parse(body, headers: true, liberal_parsing: true)
+      csv.filter_map do |row|
+        h  = row.to_h.transform_keys(&:strip)
+        id = h["player_id"].to_s.strip
+        next unless id.match?(/\A\d+\z/)
+        speed = float_val(h["hp_to_1b"] || h["sprint_speed"])
+        next unless speed
+        { player_id: id.to_i, sprint_speed: speed.round(1) }
+      end
+    rescue StandardError => e
+      Rails.logger.warn("StatcastService sprint speed leaderboard failed (#{season}): #{e.message}")
       []
     end
 

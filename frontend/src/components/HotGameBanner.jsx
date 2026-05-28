@@ -59,7 +59,7 @@ function HotGameCard({ entry, rank }) {
           onError={(e) => { e.target.style.display = 'none' }}
         />
         {away.wins != null && (
-          <span className="text-[11px] text-content-muted font-mono ml-1">
+          <span className="hidden sm:inline text-[11px] text-content-muted font-mono ml-1">
             ({away.wins}–{away.losses}) vs ({home.wins}–{home.losses})
           </span>
         )}

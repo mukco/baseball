@@ -84,19 +84,19 @@ def train(
             model = LinearRegression()
 
     elif model_type == "logistic_regression":
+        raw_penalty = hp.get("penalty", "l2")
         model = LogisticRegression(
             C=float(hp.get("C", 1.0)),
-            penalty=hp.get("penalty", "l2"),
+            penalty=None if raw_penalty == "none" else raw_penalty,
             max_iter=1000,
             solver="lbfgs",
-            multi_class="auto",
         )
 
     elif model_type == "random_forest":
         cls = RandomForestClassifier if task == "classification" else RandomForestRegressor
         model = cls(
             n_estimators=int(hp.get("n_estimators", 100)),
-            max_depth=hp.get("max_depth") and int(hp.get("max_depth")) or None,
+            max_depth=int(hp["max_depth"]) if hp.get("max_depth") is not None else None,
             random_state=42,
         )
 

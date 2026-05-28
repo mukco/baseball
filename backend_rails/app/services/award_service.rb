@@ -25,15 +25,18 @@ class AwardService
     def generate_awards(league)
       stats   = SimulationPlayerStat.where(simulation_league_id: league.id)
       pos_map = build_position_map(league)
+      ctx     = SimulationSeasonContext.for_league(league)
+
+      return { error: "No stats available yet — the season has not started." } if ctx[:phase] == :pre_season
 
       candidates = build_candidates(stats, pos_map)
-      payload    = build_prompt_payload(candidates)
+      payload    = build_prompt_payload(candidates).merge(season_context: ctx)
 
       attempts = 0
       begin
         attempts += 1
         result = OpenAi::Client.new.json_completion(
-          system_prompt:    awards_system_prompt,
+          system_prompt:    awards_system_prompt(ctx),
           user_payload:     payload.to_json,
           interaction_type: "sim_season_awards",
           metadata:         { league_id: league.id },
@@ -222,13 +225,47 @@ class AwardService
       end
     end
 
-    def awards_system_prompt
+    def awards_system_prompt(ctx)
+      phase = ctx[:phase]
+      notes = ctx[:milestone_notes]
+      season_complete = phase == :complete
+
+      role, tone = if season_complete
+        [
+          "the official awards committee for a completed MLB season",
+          "The season is over. Select a definitive winner for each award and announce it with authority. " \
+          "Use past tense — 'led', 'posted', 'claimed'. Write each rationale as a formal award announcement."
+        ]
+      elsif %i[stretch_run final_weeks].include?(phase)
+        [
+          "a baseball analyst tracking the award races in the final weeks of the season",
+          "The races are nearly decided but not official. Use language like 'has built a commanding lead', " \
+          "'appears to be the frontrunner', 'is difficult to catch at this point'. Do NOT declare winners. " \
+          "Rationale should convey urgency — the chase is almost over."
+        ]
+      elsif phase == :midseason
+        [
+          "a baseball analyst reporting on award races at the All-Star break",
+          "We are at the midpoint of the season — no winner has been decided. Use language like " \
+          "'leads the race', 'is the frontrunner', 'has emerged as the top candidate', 'is on pace for'. " \
+          "Rationale should be analytical and forward-looking. Mention if the race is tight or a runaway."
+        ]
+      else
+        [
+          "a baseball analyst tracking the early award races",
+          "It is early in the season — small samples apply, but trends are emerging. Use cautious, " \
+          "forward-looking language: 'is off to a strong start', 'leads the early race', 'is pacing for', " \
+          "'has positioned themselves'. Acknowledge the season still has a long way to go."
+        ]
+      end
+
+      milestone_str = notes.any? ? "\n\nContext: #{notes.join(' ')}" : ""
+
       <<~PROMPT.strip
-        You are the official awards committee for a simulated MLB season.
+        You are #{role}.#{milestone_str}
         You will receive top statistical candidates for each award category.
-        For each award, select a winner and up to 2 finalists from the provided candidates.
-        Write a 2-3 sentence rationale that reads like an official league announcement.
-        Treat the simulated statistics as real — do not reference simulation or AI.
+        #{tone}
+        Treat the statistics as real — do not reference simulation or AI.
         Return ONLY valid JSON with no markdown, no code fences, matching this exact schema:
         {
           "mvp":           { "al": { "winner": <player>, "finalists": [<player>,...], "rationale": "..." }, "nl": { ... } },

@@ -64,8 +64,18 @@ class MlbApiService
   }.freeze
 
   def self.cache_fresh?(key)
+    # L1: in-process hash (fastest)
     ts = @@cache_timestamps[key]
-    ts && (Time.now.to_i - ts) < (@@cache_ttls[key] || 600)
+    return true if ts && (Time.now.to_i - ts) < (@@cache_ttls[key] || 600)
+
+    # L2: file/memory store — survives restarts; rehydrates L1 on hit
+    if (val = Rails.cache.read("mlb_api:#{key}"))
+      @@cache[key]            = val
+      @@cache_timestamps[key] = Time.now.to_i
+      return true
+    end
+
+    false
   end
 
   def self.cache_get(key) = @@cache[key]
@@ -74,6 +84,7 @@ class MlbApiService
     @@cache[key]            = value
     @@cache_timestamps[key] = Time.now.to_i
     @@cache_ttls[key]       = ttl
+    Rails.cache.write("mlb_api:#{key}", value, expires_in: ttl)
   end
 
   def initialize
@@ -306,6 +317,28 @@ class MlbApiService
     entry&.dig("status", "description")
   rescue
     nil
+  end
+
+  def team_roster_statuses(team_id)
+    cache_key = "team_full_roster:#{team_id}"
+    unless self.class.cache_fresh?(cache_key)
+      data = get("teams/#{team_id}/roster", { rosterType: "fullRoster" })
+      self.class.cache_set(cache_key, data, 30 * 60)
+    end
+    roster = self.class.cache_get(cache_key)
+    # Returns two indexes: by integer player_id and by downcased name (fallback)
+    by_id   = {}
+    by_name = {}
+    (roster["roster"] || []).each do |entry|
+      status = { code: entry.dig("status", "code").to_s, desc: entry.dig("status", "description").to_s }
+      pid    = entry.dig("person", "id").to_i
+      name   = entry.dig("person", "fullName").to_s.downcase.strip
+      by_id[pid]   = status if pid > 0
+      by_name[name] = status
+    end
+    { by_id: by_id, by_name: by_name }
+  rescue
+    { by_id: {}, by_name: {} }
   end
 
   # ------------------------------------------------------------------ #
@@ -645,7 +678,12 @@ class MlbApiService
     result = (data["stats"] || []).flat_map do |sg|
       (sg["splits"] || []).filter_map do |split|
         next unless split.dig("sport", "id") == 1
-        { season: split["season"] }.merge(split.fetch("stat", {}))
+        {
+          season:     split["season"],
+          age:        split["player"]&.dig("currentAge") || split["age"],
+          teamAbbrev: split.dig("team", "abbreviation"),
+          teamName:   split.dig("team", "name"),
+        }.merge(split.fetch("stat", {}))
       end
     end
     self.class.cache_set(cache_key, result, CACHE_TTLS[:player_career_stats])
@@ -1640,6 +1678,7 @@ class MlbApiService
   rescue StandardError
     []
   end
+  public :team_roster
 
   def normalize_transaction(t)
     type_code   = (t[:typeCode]   || t["typeCode"]).to_s
@@ -1695,10 +1734,11 @@ class MlbApiService
     pitching = nil
 
     (person["stats"] || []).each do |stat_group|
+      group_name = stat_group.dig("group", "displayName")&.downcase
       row = stat_group.dig("splits", 0, "stat") || {}
       next if row.empty?
 
-      if row["inningsPitched"].present? || row["era"].present?
+      if group_name == "pitching" || (group_name.nil? && (row["inningsPitched"].present? || row["era"].present?))
         pitching = {
           group:          "pitching",
           games:          to_i(row["gamesPitched"] || row["gamesPlayed"]),
@@ -1707,7 +1747,7 @@ class MlbApiService
           whip:           to_f(row["whip"]),
           strikeOuts:     to_i(row["strikeOuts"])
         }
-      else
+      elsif group_name == "hitting" || group_name.nil?
         hitting = {
           group:            "hitting",
           games:            to_i(row["gamesPlayed"]),

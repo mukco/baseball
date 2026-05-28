@@ -63,7 +63,8 @@ export const api = {
     teams: (season = CURRENT_SEASON, group = 'batting') => fetchJSON(`/leaderboards/teams?season=${season}&group=${group}`),
   },
   news: {
-    list: (topic = 'all', limit = 50) => fetchJSON(`/news?topic=${encodeURIComponent(topic)}&limit=${limit}`),
+    list:      (topic = 'all', limit = 50) => fetchJSON(`/news?topic=${encodeURIComponent(topic)}&limit=${limit}`),
+    forPlayer: (name)                       => fetchJSON(`/news?player_name=${encodeURIComponent(name)}`),
   },
   mlb: {
     watch: (gamePk) => fetchJSON(`/mlb/watch/${gamePk}`),
@@ -121,6 +122,45 @@ export const api = {
     dashboard: () => fetchJSON('/yahoo/dashboard'),
     insights: ({ refresh = false } = {}) => fetchJSON(`/yahoo/insights${refresh ? '?refresh=true' : ''}`),
     freeAgents: ({ refresh = false } = {}) => fetchJSON(`/yahoo/free_agents${refresh ? '?refresh=true' : ''}`),
+    searchFreeAgents: ({ position = null, search = null, limit = 25 } = {}) => {
+      const params = new URLSearchParams()
+      if (position) params.set('position', position)
+      if (search)   params.set('search', search)
+      if (limit !== 25) params.set('limit', String(limit))
+      const qs = params.toString()
+      return fetchJSON(`/yahoo/free_agent_search${qs ? `?${qs}` : ''}`)
+    },
+  },
+  ottoneu: {
+    roster:       () => fetchJSON('/ottoneu/roster'),
+    standings:    () => fetchJSON('/ottoneu/standings'),
+    auctions:     () => fetchJSON('/ottoneu/auctions'),
+    waivers:      () => fetchJSON('/ottoneu/waivers'),
+    capOverview:  () => fetchJSON('/ottoneu/cap_overview'),
+    playerStatus: (fgId) => fetchJSON(`/ottoneu/player_status?fg_id=${fgId}`),
+    insights:     ({ refresh = false } = {}) => fetchJSON(`/ottoneu/insights${refresh ? '?refresh=true' : ''}`),
+    freeAgents:   ({ refresh = false, minors = false } = {}) => {
+      const params = new URLSearchParams()
+      if (refresh) params.set('refresh', 'true')
+      if (minors)  params.set('minors', 'true')
+      const qs = params.toString()
+      return fetchJSON(`/ottoneu/free_agents${qs ? `?${qs}` : ''}`)
+    },
+    allRosters:   () => fetchJSON('/ottoneu/all_rosters'),
+    playerStats:  ({ fgIds = [], names = [] } = {}) => {
+      const p = new URLSearchParams()
+      fgIds.forEach(id => p.append('fg_ids[]', id))
+      names.forEach(n  => p.append('names[]', n))
+      return fetchJSON(`/ottoneu/player_stats?${p}`)
+    },
+    playerAnalysis: ({ fgId, name } = {}) => {
+      const p = new URLSearchParams()
+      if (fgId) p.set('fg_id', fgId)
+      if (name) p.set('name', name)
+      return fetchJSON(`/ottoneu/player_analysis?${p}`)
+    },
+    loans: () => fetchJSON('/ottoneu/loans'),
+    leagueStats: () => fetchJSON('/ottoneu/league_stats'),
   },
   prospects: {
     top100: () => fetchJSON('/prospects/top100'),
@@ -205,7 +245,9 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
-    advance: (id) => fetchJSON(`/franchises/${id}/advance`, { method: 'POST' }),
+    advance:       (id)               => fetchJSON(`/franchises/${id}/advance`, { method: 'POST' }),
+    playerHistory: (id, playerId)     => fetchJSON(`/franchises/${id}/player_history/${playerId}`),
+    teamHistory:   (id, teamId)       => fetchJSON(`/franchises/${id}/team_history/${teamId}`),
   },
   simulations: {
     list: () => fetchJSON('/simulations'),
@@ -281,8 +323,25 @@ export const api = {
       body:    JSON.stringify({ preset }),
     }),
   },
+  simulationPresets: {
+    list:    ()             => fetchJSON('/simulation_presets'),
+    create:  (name, params) => fetchJSON('/simulation_presets', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name, params }),
+    }),
+    destroy: (id)           => fetchJSON(`/simulation_presets/${id}`, { method: 'DELETE' }),
+  },
   cache: {
     status: () => fetchJSON('/cache/status'),
     warm: (tier) => fetchJSON(`/cache/warm${tier ? `?tier=${tier}` : ''}`, { method: 'POST' }),
+  },
+  settings: {
+    get: () => fetchJSON('/settings'),
+    update: (attrs) => fetchJSON('/settings', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ settings: attrs }),
+    }),
   },
 }

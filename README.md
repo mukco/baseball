@@ -75,19 +75,34 @@ Full game-by-game simulation engine driven by FanGraphs projections.
 - Season leaderboard view of projected stats
 - Projection accuracy backtesting against final stats
 
-### Yahoo Fantasy
+### Fantasy Baseball (Yahoo + Ottoneu)
+
+**Yahoo Fantasy:**
 - OAuth 2.0 integration with token persistence
 - Roster, matchup, and free agent views
 - AI-generated lineup recommendations and waiver wire analysis
 
+**Ottoneu Fantasy (FanGraphs H2H Points):**
+- Full league roster browser — all 12 teams, every player with salary, positions, and MLB team
+- Salary efficiency metrics: PPD (Points Per Dollar), surplus (pts − salary × 10), fair value salary
+- League stats tab — sortable batting/pitching table with salary, PPD, and surplus for every rostered player; position and team filters
+- Free agent finder — unrostered players ranked by FanGraphs projected pts, enriched with Steamer projection comparison and fair value salary
+- AI-generated insights: waiver wire targets, league trends, and cap strategy recommendations
+- Transactions — live auction bids and waiver claims in progress
+- Standings with record, total points, and points scored/against
+- Player analysis — per-player AI analysis combining season stats, Steamer projections, IL status, and Ottoneu salary context
+- Cap overview — all teams' base salary, penalties, and remaining cap space
+- Loans tracker — salary loan agreements between teams
+
 ### AI Assistant
 - Floating chat sidebar available on every page
-- Tools: player stats lookup, game data, SQL sandbox queries, ML model training
-- Context-aware — knows what page you're on
+- Tools: player stats lookup, game data, SQL sandbox queries, ML model training, full Ottoneu league data
+- Context-aware — knows what page you're on; defaults to Ottoneu tools on the fantasy page
+- Ottoneu tools: roster, standings, transactions, free agents, cap overview, and `ottoneu_salaries` SQL for cross-league analysis
 
 ### News & Content
 - Live MLB news feed
-- Daily AI-generated digest of previous day's action
+- AI-generated Stat Blast summary of previous day's action
 - Recent MLB transactions feed
 - Gambling picks with AI analysis of daily odds
 
@@ -202,12 +217,16 @@ YAHOO_CLIENT_ID=...
 YAHOO_CLIENT_SECRET=...
 YAHOO_LEAGUE_ID=211665
 YAHOO_REDIRECT_URI=https://xxxx.loca.lt/api/yahoo/callback
+
+# Required for Ottoneu Fantasy
+OTTONEU_LEAGUE_ID=...   # Numeric league ID from your Ottoneu URL
 ```
 
-- **`OPENAI_API_KEY`** — Used by the AI assistant, game insights, factoids, daily digest, picks, simulation news/awards/insights, and the ML Builder assistant. All calls logged to `log/openai_requests.jsonl`.
+- **`OPENAI_API_KEY`** — Used by the AI assistant, game insights, factoids, Stat Blast, picks, simulation news/awards/insights, and the ML Builder assistant. All calls logged to `log/openai_requests.jsonl`.
 - **`YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`** — Yahoo OAuth 2.0. See setup section below.
 - **`YAHOO_LEAGUE_ID`** — Numeric ID from your league URL.
-- **No key required** — MLB Stats API, Baseball Savant, FanGraphs, and ESPN are free public endpoints.
+- **`OTTONEU_LEAGUE_ID`** — Numeric ID from your Ottoneu league URL. Used for all Ottoneu scraping.
+- **No key required** — MLB Stats API, Baseball Savant, FanGraphs, ESPN, and Ottoneu are free public endpoints.
 
 ---
 
@@ -266,6 +285,7 @@ The **Sandbox** (`/sandbox`) is an in-browser SQL interface over a DuckDB wareho
 | `fg_projections_pitching` | FanGraphs Steamer | Current-season pitching projections |
 | `teams_batting` | MLB Stats API | Team-level batting stats, 2010–present |
 | `teams_pitching` | MLB Stats API | Team-level pitching stats, 2010–present |
+| `ottoneu_salaries` | Ottoneu scraper | All rostered players across every team in the Ottoneu league — salary, positions, team; refreshed on warehouse rebuild |
 | `sim_player_stats` | Simulation | Per-player stats across all simulated league seasons |
 | `sim_team_standings` | Simulation | Per-team final standings across all simulated league seasons |
 | `sim_season_log` | Simulation | One row per league season — completion, champion, configuration |
@@ -326,6 +346,7 @@ Long-running operations (simulate season, generate daily news, generate awards) 
 |-----|----------|---------|
 | `WarmSimulationCacheJob` | Every 30 minutes | Pre-warms Statcast + projection caches for all active sim league roster players |
 | `WarmLeaderboardCacheJob` | Every 6 hours | Pre-warms FanGraphs batting/pitching leaderboard caches (the 30–89 s HTTP outliers) |
+| `WarmOttoneuCacheJob` | Every 50 minutes | Pre-warms Ottoneu league data (rosters → league stats → insights → free agents, in dependency order) |
 | `clear_solid_queue_finished_jobs` | Every hour | Prunes completed SolidQueue job records |
 
 ### Playoff Simulation
@@ -380,11 +401,11 @@ Regression: R², RMSE, MAE. Classification: accuracy, F1, precision, recall, con
 | `/projections/scenarios` | Scenario builder |
 | `/sandbox` | SQL sandbox |
 | `/ml` | ML Builder |
-| `/fantasy` | Yahoo Fantasy dashboard |
+| `/fantasy` | Fantasy dashboard — Yahoo Fantasy + Ottoneu league (roster, stats, insights, free agents, transactions) |
 | `/prospects` | Top-100 prospects |
 | `/gambling` | Daily odds + AI picks |
 | `/news` | MLB news |
-| `/digest` | AI daily summary |
+| `/digest` | Stat Blast — AI daily summary |
 | `/transactions` | Recent transactions |
 | `/live` | MLB.TV stream links |
 | `/stats-reference` | Sabermetric glossary |
@@ -425,7 +446,7 @@ All controllers in `app/controllers/api/` inherit from `Api::BaseController`. Co
 | `ManagerStrategy` | In-game decision interface (injury rates, substitution logic); stub today, extensible to difficulty levels |
 | `PlayerRatingService` | League-relative 1–3 star ratings: contact/power/discipline (batters), stuff/control/HR prevention (pitchers) |
 | `LeagueConstantsService` | Derives MLB baseline rates (K%, BB%, BABIP, ISO, etc.) from DuckDB warehouse at runtime |
-| `CacheWarmingService` | Two-tier pre-warming: simulation players (Statcast + projections) and FanGraphs leaderboards |
+| `CacheWarmingService` | Three-tier pre-warming: simulation players (Statcast + projections), FanGraphs leaderboards, and Ottoneu league data |
 | `FranchiseService` | Multi-season franchise create/advance |
 | `PlayoffSimulationService` | Postseason bracket simulation |
 | `AwardService` | Season award voting (MVP, Cy Young, SS, GG) |
@@ -442,11 +463,18 @@ All controllers in `app/controllers/api/` inherit from `Api::BaseController`. Co
 | `ProjectionService` | Orchestrates projection runs |
 | `ProjectionDataService` | Fetches player data (Statcast, FanGraphs) for projection inputs |
 | `YahooFantasyService` | OAuth + Yahoo Fantasy API |
+| `OttoneuService` | Scrapes Ottoneu league data: rosters, standings, auctions, waivers, cap, IL status, loans |
+| `OttoneuInsightsService` | AI-generated league insights: trends, value targets, cap strategy |
+| `OttoneuFreeAgentsService` | FA candidates from warehouse with projection enrichment and AI pickup recommendations |
+| `OttoneuLeagueStatsService` | League-wide sortable stats table from DuckDB with salary/PPD/surplus |
+| `OttoneuPlayerStatsService` | Per-player warehouse stats lookup (by fg_id or name) |
+| `OttoneuPlayerAnalysisService` | Per-player AI analysis: season stats + Steamer projection + IL status + Ottoneu salary context |
 | `Warehouse::Manager` | Orchestrates all ingesters + DuckDB build |
 | `Warehouse::BatterIngester` | FanGraphs batting → CSV |
 | `Warehouse::PitcherIngester` | FanGraphs pitching → CSV |
 | `Warehouse::FgProjectionIngester` | Steamer projections → CSV |
 | `Warehouse::TeamIngester` | MLB team stats → CSV |
+| `Warehouse::OttoneuSalaryIngester` | Ottoneu league salaries → `ottoneu_salaries` CSV |
 | `Warehouse::SimulationIngester` | Sim player stats, standings, season log → CSV |
 | `Sandbox::DatasetRegistry` | Dataset metadata (columns, row counts, default SQL) |
 | `Sandbox::QueryService` | Read-only SQL execution against DuckDB |

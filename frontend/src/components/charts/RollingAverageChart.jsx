@@ -125,6 +125,7 @@ export default function RollingAverageChart({
           fillOpacity={0.3}
           r={2.5}
           line={false}
+          isAnimationActive={false}
         />
 
         {/* Rolling average — gradient area fill */}
@@ -137,6 +138,7 @@ export default function RollingAverageChart({
           dot={false}
           activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
           connectNulls
+          isAnimationActive={false}
         />
       </ComposedChart>
     </ResponsiveContainer>

@@ -116,7 +116,7 @@ class Api::SimulationsController < Api::BaseController
                               .for_team(params[:team_id].to_i)
     injured_map = active_injuries.index_by(&:player_id)
 
-    ratings = SimulationService.live_mode?(@league) ? {} : PlayerRatingService.ratings_for_league(@league)
+    ratings = PlayerRatingService.ratings_for_league(@league)
 
     render json: {
       team_id:       roster.team_id,

@@ -88,6 +88,7 @@ class HotGameService
         minWinnerProbPct:   (min_winner_prob * 100).round(1),
         leadChanges:        lead_changes,
         wasComeback:        min_winner_prob < 0.15,
+        winnerEverTrailed:  min_winner_prob < 0.50,
         homeWins:           home_wins
       }
     end
@@ -98,17 +99,26 @@ class HotGameService
       winner    = metrics[:homeWins] ? home : away
       loser     = metrics[:homeWins] ? away : home
 
+      narrative_type = derive_narrative_type(metrics)
+
       context = {
-        winner:           winner[:name],
-        loser:            loser[:name],
-        final_score:      "#{home[:score]}-#{away[:score]}",
-        venue:            game[:venue],
-        max_swing_pct:    metrics[:maxSwingPct],
-        pivot_inning:     metrics[:pivotInning],
-        pivot_half:       metrics[:pivotHalf],
-        min_winner_prob:  metrics[:minWinnerProbPct],
-        lead_changes:     metrics[:leadChanges],
-        was_comeback:     metrics[:wasComeback]
+        winner:                winner[:name],
+        winner_abbreviation:   winner[:abbreviation],
+        loser:                 loser[:name],
+        loser_abbreviation:    loser[:abbreviation],
+        winner_score:          metrics[:homeWins] ? home[:score] : away[:score],
+        loser_score:           metrics[:homeWins] ? away[:score] : home[:score],
+        home_team:             home[:name],
+        away_team:             away[:name],
+        venue:                 game[:venue],
+        narrative_type:        narrative_type,
+        max_swing_pct:         metrics[:maxSwingPct],
+        pivot_inning:          metrics[:pivotInning],
+        pivot_half:            metrics[:pivotHalf],
+        min_winner_prob_pct:   metrics[:minWinnerProbPct],
+        lead_changes:          metrics[:leadChanges],
+        was_comeback:          metrics[:wasComeback],
+        winner_ever_trailed:   metrics[:winnerEverTrailed]
       }
 
       result = OpenAi::Client.new.json_completion(
@@ -116,11 +126,27 @@ class HotGameService
         temperature: 0.7,
         system_prompt: <<~PROMPT,
           You are a baseball analyst writing a punchy caption for a "Hot Game" feature in a sports app.
-          Use the win probability data to describe what made this game dramatic.
-          Be specific: name comebacks, lead changes, clutch innings. Avoid clichés.
+
+          RULES — follow these exactly, they are not suggestions:
+          1. Use ONLY the facts provided in the data. Do not invent game events.
+          2. If winner_ever_trailed is false, the winner NEVER trailed. Do not say or imply they trailed, came from behind, or were in danger.
+          3. If winner_ever_trailed is true, the winner did trail at some point and you may mention it.
+          4. If lead_changes is 0, no lead changed hands. Do not mention lead changes.
+          5. If was_comeback is true (winner was below 15% probability), it was a genuine comeback. Mention it.
+          6. narrative_type tells you what kind of game this was — use it to set the tone.
+          7. If narrative_type is "wire_to_wire", describe a dominant, never-in-doubt win.
+          8. If pivot_inning is present, it marks the moment of greatest probability swing — you may reference that inning.
+          9. The final score is winner_score-loser_score. Reference it accurately.
+
+          narrative_type values and their meaning:
+          - "wire_to_wire": winner led wire-to-wire, opponent never threatened
+          - "comeback": winner rallied from a serious deficit (was below 15% odds)
+          - "late_drama": no lead change but a big swing late in the game
+          - "back_and_forth": multiple lead changes, genuinely contested throughout
+
           Return JSON with exactly two keys:
             "headline" — 5-8 words, present-tense, punchy (no punctuation at end)
-            "summary"  — 1-2 sentences of specific drama, past tense
+            "summary"  — 1-2 sentences of specific drama, past tense, grounded in the facts provided
         PROMPT
         user_payload: context
       )
@@ -128,9 +154,16 @@ class HotGameService
       result[:output]
     rescue => _e
       {
-        headline: "#{winner[:abbreviation] || winner[:name]} survive a thriller",
-        summary:  "A wild finish at #{game[:venue]}."
+        headline: "#{winner[:abbreviation] || winner[:name]} claim a #{narrative_type&.tr('_', ' ')} win",
+        summary:  "A memorable finish at #{game[:venue]}."
       }
+    end
+
+    def derive_narrative_type(metrics)
+      return "comeback"      if metrics[:wasComeback]
+      return "back_and_forth" if metrics[:leadChanges] >= 2
+      return "wire_to_wire"  if !metrics[:winnerEverTrailed] && metrics[:leadChanges] == 0
+      "late_drama"
     end
 
     def cache_fresh?(key)

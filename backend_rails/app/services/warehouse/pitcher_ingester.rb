@@ -8,7 +8,7 @@ module Warehouse
 
     NAMED_COLUMNS = %w[
       player_id fg_id name team league season
-      g gs w l sv ip tbf h er hr bb k
+      g gs w l sv hld ip tbf h er hr bb hbp k
       era fip xfip siera war whip k_per_9 bb_per_9
       k_pct bb_pct k_minus_bb_pct babip gb_pct ld_pct fb_pct
     ].freeze
@@ -16,8 +16,9 @@ module Warehouse
     class << self
       def ingest!
         FileUtils.mkdir_p(base_dir)
-        seasons = (SEASONS_START..Date.today.year).to_a
-        all_rows = seasons.flat_map { |season| season_rows(season) }
+        FileUtils.mkdir_p(season_cache_dir)
+        current  = Date.today.year
+        all_rows = (SEASONS_START..current).flat_map { |s| fetch_or_cache_season(s, current) }
         write_csv(all_rows)
         Rails.logger.info("Warehouse::PitcherIngester: wrote #{all_rows.size} rows")
         all_rows.size
@@ -31,6 +32,25 @@ module Warehouse
 
       def base_dir
         Rails.root.join("tmp", "warehouse")
+      end
+
+      def season_cache_dir
+        base_dir.join("season_cache")
+      end
+
+      def fetch_or_cache_season(season, current_season)
+        cache_file = season_cache_dir.join("pitchers_#{season}.json")
+        if season < current_season && cache_file.exist?
+          Rails.logger.info("Warehouse::PitcherIngester: using cached #{season}")
+          JSON.parse(File.read(cache_file), symbolize_names: true)
+        else
+          rows = season_rows(season)
+          File.write(cache_file, JSON.generate(rows)) if rows.any?
+          rows
+        end
+      rescue => e
+        Rails.logger.warn("Warehouse::PitcherIngester: cache read failed for #{season} (#{e.message}), re-fetching")
+        season_rows(season)
       end
 
       def season_rows(season)
@@ -55,12 +75,14 @@ module Warehouse
             w:              integer_or_nil(row["W"]),
             l:              integer_or_nil(row["L"]),
             sv:             integer_or_nil(row["SV"]),
+            hld:            integer_or_nil(row["HLD"]),
             ip:             float_or_nil(row["IP"]),
             tbf:            integer_or_nil(row["TBF"]),
             h:              integer_or_nil(row["H"]),
             er:             integer_or_nil(row["ER"]),
             hr:             integer_or_nil(row["HR"]),
             bb:             integer_or_nil(row["BB"]),
+            hbp:            integer_or_nil(row["HBP"]),
             k:              integer_or_nil(row["SO"] || row["K"]),
             era:            float_or_nil(row["ERA"]),
             fip:            float_or_nil(row["FIP"]),
@@ -104,10 +126,10 @@ module Warehouse
 
       def fangraphs_conn
         Faraday.new do |f|
-          f.request  :retry, max: 2, interval: 1.5
+          f.request  :retry, max: 1, interval: 0.5
           f.response :raise_error
-          f.options.timeout      = 60
-          f.options.open_timeout = 15
+          f.options.timeout      = 30
+          f.options.open_timeout = 10
           f.headers["User-Agent"] = "Mozilla/5.0 (compatible; StatlineBot/1.0)"
           f.headers["Accept"]     = "application/json, text/javascript, */*"
           f.headers["Referer"]    = "https://www.fangraphs.com/leaders/major-league"

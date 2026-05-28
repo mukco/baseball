@@ -38,38 +38,49 @@ class NewsService
   }.freeze
 
   SOURCE_CONFIG = {
-    "mlb" => { name: "MLB", kind: :rss, url: "https://www.mlb.com/feeds/news/rss.xml" },
-    "fangraphs" => { name: "FanGraphs", kind: :rss, url: "https://blogs.fangraphs.com/feed/" },
-    "mlbtr" => { name: "MLB Trade Rumors", kind: :rss, url: "https://www.mlbtraderumors.com/feed" },
-    "reddit" => { name: "r/baseball", kind: :reddit, url: "https://www.reddit.com/r/baseball/new.json?limit=35" }
+    "mlb"      => { name: "MLB",             kind: :rss,      url: "https://www.mlb.com/feeds/news/rss.xml" },
+    "fangraphs"=> { name: "FanGraphs",       kind: :rss,      url: "https://blogs.fangraphs.com/feed/" },
+    "mlbtr"    => { name: "MLB Trade Rumors",kind: :rss,      url: "https://www.mlbtraderumors.com/feed" },
+    "reddit"   => { name: "r/baseball",      kind: :reddit,   url: "https://www.reddit.com/r/baseball/new.json?limit=35" },
+    "rotowire" => { name: "Rotowire",        kind: :rotowire, url: "https://www.rotowire.com/rss/news.php?sport=MLB" }
   }.freeze
+
+  CACHE_TTL = 10 * 60 # 10 minutes — news changes slowly; all player searches share this
+  @@cache            = {}
+  @@cache_timestamps = {}
 
   class << self
     def fetch(topic: "all", limit: 50)
       selected_keys = selected_sources(topic)
-      errors = []
+      cache_key     = selected_keys.sort.join(",")
 
-      items = selected_keys.flat_map do |key|
-        cfg = SOURCE_CONFIG[key]
-        begin
-          fetch_source(cfg, key)
-        rescue StandardError => e
-          Rails.logger.warn("News fetch failed for #{key}: #{e.class} #{e.message}")
-          errors << { source: cfg[:name], error: e.message }
-          []
+      unless cache_fresh?(cache_key)
+        errors = []
+        items  = selected_keys.flat_map do |key|
+          cfg = SOURCE_CONFIG[key]
+          begin
+            fetch_source(cfg, key)
+          rescue StandardError => e
+            Rails.logger.warn("News fetch failed for #{key}: #{e.class} #{e.message}")
+            errors << { source: cfg[:name], error: e.message }
+            []
+          end
         end
+
+        deduped = dedupe(items)
+        sorted  = deduped.sort_by { |item| item[:publishedAt] || "" }.reverse
+        cache_set(cache_key, { items: sorted, errors: errors }) unless errors.size == selected_keys.size
       end
 
-      deduped = dedupe(items)
-      sorted = deduped.sort_by { |item| item[:publishedAt] || "" }.reverse
+      cached    = @@cache[cache_key] || { items: [], errors: [] }
       bounded_limit = [[limit.to_i, 5].max, 100].min
 
       {
-        topic: topic,
+        topic:   topic,
         sources: selected_keys,
-        count: sorted.first(bounded_limit).size,
-        items: sorted.first(bounded_limit),
-        errors: errors
+        count:   cached[:items].first(bounded_limit).size,
+        items:   cached[:items].first(bounded_limit),
+        errors:  cached[:errors]
       }
     end
 
@@ -111,6 +122,15 @@ class NewsService
       end
     end
 
+    def cache_fresh?(key)
+      @@cache.key?(key) && @@cache_timestamps[key].to_i > Time.now.to_i - CACHE_TTL
+    end
+
+    def cache_set(key, value)
+      @@cache[key]            = value
+      @@cache_timestamps[key] = Time.now.to_i
+    end
+
     def selected_sources(topic)
       key = topic.to_s.downcase
       return SOURCE_CONFIG.keys if key.empty? || key == "all"
@@ -123,6 +143,8 @@ class NewsService
       items = case cfg[:kind]
       when :rss
         parse_rss_items(body, source_name: cfg[:name], source_key: source_key)
+      when :rotowire
+        parse_rotowire_items(body, source_name: cfg[:name], source_key: source_key)
       when :reddit
         parse_reddit_items(body, source_name: cfg[:name], source_key: source_key)
       else
@@ -197,7 +219,8 @@ class NewsService
         imageUrl: item[:imageUrl].to_s.strip.presence,
         mentions: extract_player_mentions("#{title} #{item[:summary]}"),
         teamMentions: extract_team_mentions("#{title} #{item[:summary]}"),
-        tags: item[:tags] || []
+        tags: item[:tags] || [],
+        injury: item[:injury]
       }
     end
 
@@ -264,6 +287,24 @@ class NewsService
 
       from_html = description_html.to_s[/<img\b[^>]*src=["']([^"']+)["']/i, 1]
       decode_xml(from_html)
+    end
+
+    def parse_rotowire_items(xml, source_name:, source_key:)
+      items = parse_rss_items(xml, source_name: source_name, source_key: source_key)
+      items.map { |item| item.merge(injury: extract_rotowire_injury(item[:title], item[:summary])) }
+    end
+
+    # Rotowire titles:  "Walcott (Elbow) Won't Play Until August"
+    # Rotowire summaries end with lines like:  "Injury: Elbow, 60-Day IL"
+    def extract_rotowire_injury(title, summary)
+      part_from_title = title.to_s.match(/\(([^)]{3,40})\)/i)&.[](1)
+
+      injury_line = summary.to_s.match(/\bInjury:\s*([^\n]{3,60})/i)&.[](1)&.strip
+      il_tag = injury_line || summary.to_s.match(/\b(60-Day IL|10-Day IL|15-Day IL|7-Day IL|DTD|Out)\b/i)&.[](1)
+
+      return nil unless part_from_title || il_tag
+
+      { part: part_from_title, list: il_tag }.compact
     end
 
     def extract_player_mentions(text)

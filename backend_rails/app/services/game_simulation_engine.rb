@@ -1,35 +1,39 @@
 class GameSimulationEngine
   def self.league_avg_batter
-    c = LeagueConstantsService.batter
+    constants = LeagueConstantsService.batter
     {
-      k_pct:     c["k_pct"],
-      bb_pct:    c["bb_pct"],
-      hbp_pct:   c["hbp_pct"],
-      hr_fb_pct: c["hr_fb_pct"],
-      fb_pct:    c["fb_pct"],
-      gb_pct:    c["gb_pct"],
-      babip:     c["babip"],
-      pull_pct:  c["pull_pct"],
-      cent_pct:  c["cent_pct"],
-      oppo_pct:  c["oppo_pct"],
+      k_pct:     constants["k_pct"],
+      bb_pct:    constants["bb_pct"],
+      hbp_pct:   constants["hbp_pct"],
+      hr_fb_pct: constants["hr_fb_pct"],
+      fb_pct:    constants["fb_pct"],
+      gb_pct:    constants["gb_pct"],
+      babip:     constants["babip"],
+      pull_pct:  constants["pull_pct"],
+      cent_pct:  constants["cent_pct"],
+      oppo_pct:  constants["oppo_pct"],
     }
   end
 
   def self.league_avg_reliever
-    c = LeagueConstantsService.pitcher_reliever
+    constants = LeagueConstantsService.pitcher_reliever
     {
-      k_pct:     c["k_pct"],
-      bb_pct:    c["bb_pct"],
-      hr_fb_pct: c["hr_fb_pct"],
-      gb_pct:    c["gb_pct"],
-      fb_pct:    c["fb_pct"],
-      babip:     c["babip"],
+      k_pct:     constants["k_pct"],
+      bb_pct:    constants["bb_pct"],
+      hr_fb_pct: constants["hr_fb_pct"],
+      gb_pct:    constants["gb_pct"],
+      fb_pct:    constants["fb_pct"],
+      babip:     constants["babip"],
     }
   end
 
-  SP_MAX_BF = 27   # ~5-6 IP before considering bullpen
-  SP_MAX_ER = 5    # blown up — go to the pen
-  RP_MAX_BF = 5    # ~1 inning per reliever appearance
+  SP_MAX_BF            = 27   # ~5-6 IP before considering bullpen
+  MAX_ER_BEFORE_RELIEF = 5    # starter or reliever blown up — go to the pen
+  RP_MAX_BF            = 5    # ~1 inning per reliever appearance
+
+  # Assumed line-drive rate when a pitcher's fb_pct is unknown.
+  # Used to derive fly-ball% from ground-ball%: fb ≈ 1 - gb - ld.
+  ASSUMED_LD_PCT = 0.10
 
   # Baserunner advancement probabilities
   SINGLE_SCORE_FROM_2B = 0.60
@@ -41,6 +45,8 @@ class GameSimulationEngine
   # Hit type distribution (cumulative, of non-HR BABIP hits)
   SINGLE_CUM = 0.77
   DOUBLE_CUM = 0.97
+
+  GROUND_BALL_OUT_PROB = 0.55
 
   MAX_INNINGS = 15
 
@@ -70,12 +76,12 @@ class GameSimulationEngine
 
       (1..MAX_INNINGS).each do |inning|
         # --- Top half: away bats vs current home pitcher ---
-        hp = home_pitchers[home_pitch_idx] || fallback_pitcher
-        pitcher_stats[hp[:player_id]] ||= blank_pitcher_stat
+        home_pitcher = home_pitchers[home_pitch_idx] || fallback_pitcher
+        pitcher_stats[home_pitcher[:player_id]] ||= blank_pitcher_stat
 
         away_runs, away_bat_pos = simulate_half_inning(
           lineup:        away_lineup,
-          pitcher:       hp,
+          pitcher:       home_pitcher,
           bat_pos:       away_bat_pos,
           batter_stats:  batter_stats,
           pitcher_stats: pitcher_stats,
@@ -89,15 +95,15 @@ class GameSimulationEngine
         )
 
         # --- Bottom half: home bats vs current away pitcher ---
-        # Walk-off eligible: skip if home leads after the 9th
+        # Walk-off eligible: skip bottom of inning if home team already leads after the 9th
         home_runs = 0
         unless inning >= 9 && home_score > away_score
-          ap = away_pitchers[away_pitch_idx] || fallback_pitcher
-          pitcher_stats[ap[:player_id]] ||= blank_pitcher_stat
+          away_pitcher = away_pitchers[away_pitch_idx] || fallback_pitcher
+          pitcher_stats[away_pitcher[:player_id]] ||= blank_pitcher_stat
 
           home_runs, home_bat_pos = simulate_half_inning(
             lineup:        home_lineup,
-            pitcher:       ap,
+            pitcher:       away_pitcher,
             bat_pos:       home_bat_pos,
             batter_stats:  batter_stats,
             pitcher_stats: pitcher_stats,
@@ -130,161 +136,171 @@ class GameSimulationEngine
     private
 
     def simulate_half_inning(lineup:, pitcher:, bat_pos:, batter_stats:, pitcher_stats:, blend:, config: {})
-      outs  = 0
-      bases = [nil, nil, nil]
-      runs  = 0
-      pos   = bat_pos
+      outs       = 0
+      bases      = [nil, nil, nil]
+      runs       = 0
+      lineup_pos = bat_pos
 
-      ppid = pitcher[:player_id]
-      pitcher_stats[ppid] ||= blank_pitcher_stat
-      pr = pitcher[:rates] || league_avg_reliever
+      pitcher_id    = pitcher[:player_id]
+      pitcher_rates = pitcher[:rates] || league_avg_reliever
+      pitcher_stats[pitcher_id] ||= blank_pitcher_stat
 
       while outs < 3
-        batter = lineup[pos % lineup.size]
-        pos += 1
-        pid = batter[:player_id]
-        batter_stats[pid] ||= blank_batter_stat
-        br = batter[:rates] || league_avg_batter
+        batter = lineup[lineup_pos % lineup.size]
+        lineup_pos += 1
+        batter_id    = batter[:player_id]
+        batter_rates = batter[:rates] || league_avg_batter
+        batter_stats[batter_id] ||= blank_batter_stat
 
-        outcome = simulate_pa(br, pr, blend, config)
-        pitcher_stats[ppid][:bf] += 1
+        outcome = simulate_pa(batter_rates, pitcher_rates, blend, config)
+        pitcher_stats[pitcher_id][:bf] += 1
 
         case outcome
         when :walk
-          batter_stats[pid][:bb] += 1
-          scored, bases, scorers = apply_walk(bases, pid)
+          batter_stats[batter_id][:bb] += 1
+          scored, bases, scorers = apply_walk(bases, batter_id)
           runs += scored
-          scorers.each { |s| batter_stats[s][:r] += 1 if batter_stats.key?(s) }
-          pitcher_stats[ppid][:bb] += 1
-          pitcher_stats[ppid][:er] += scored
+          credit_scorers(batter_stats, scorers)
+          pitcher_stats[pitcher_id][:bb] += 1
+          pitcher_stats[pitcher_id][:er] += scored
 
         when :hbp
-          batter_stats[pid][:hbp] += 1
-          scored, bases, scorers = apply_walk(bases, pid)
+          batter_stats[batter_id][:hbp] += 1
+          scored, bases, scorers = apply_walk(bases, batter_id)
           runs += scored
-          scorers.each { |s| batter_stats[s][:r] += 1 if batter_stats.key?(s) }
-          pitcher_stats[ppid][:er] += scored
+          credit_scorers(batter_stats, scorers)
+          pitcher_stats[pitcher_id][:er] += scored
 
         when :strikeout
-          batter_stats[pid][:k]  += 1
-          batter_stats[pid][:ab] += 1
-          pitcher_stats[ppid][:k]    += 1
-          pitcher_stats[ppid][:outs] += 1
+          batter_stats[batter_id][:ab] += 1
+          batter_stats[batter_id][:k]  += 1
+          pitcher_stats[pitcher_id][:k]    += 1
+          pitcher_stats[pitcher_id][:outs] += 1
           outs += 1
 
         when :home_run
-          batter_stats[pid][:ab] += 1
-          batter_stats[pid][:h]  += 1
-          batter_stats[pid][:hr] += 1
+          batter_stats[batter_id][:ab]  += 1
+          batter_stats[batter_id][:h]   += 1
+          batter_stats[batter_id][:hr]  += 1
           scored = 1 + bases.count { |b| b }
-          batter_stats[pid][:rbi] += scored
-          batter_stats[pid][:r]   += 1
-          bases.each { |s| batter_stats[s][:r] += 1 if s && batter_stats.key?(s) }
+          batter_stats[batter_id][:rbi] += scored
+          batter_stats[batter_id][:r]   += 1
+          credit_scorers(batter_stats, bases.compact)
           runs += scored
-          pitcher_stats[ppid][:h]  += 1
-          pitcher_stats[ppid][:hr] += 1
-          pitcher_stats[ppid][:er] += scored
+          pitcher_stats[pitcher_id][:h]  += 1
+          pitcher_stats[pitcher_id][:hr] += 1
+          pitcher_stats[pitcher_id][:er] += scored
           bases = [nil, nil, nil]
 
         when :single
-          batter_stats[pid][:ab] += 1
-          batter_stats[pid][:h]  += 1
-          scored, rbis, bases, scorers = apply_single(bases, pid)
-          batter_stats[pid][:rbi] += rbis
+          batter_stats[batter_id][:ab] += 1
+          batter_stats[batter_id][:h]  += 1
+          scored, rbis, bases, scorers = apply_single(bases, batter_id)
+          batter_stats[batter_id][:rbi] += rbis
           runs += scored
-          scorers.each { |s| batter_stats[s][:r] += 1 if batter_stats.key?(s) }
-          pitcher_stats[ppid][:h]  += 1
-          pitcher_stats[ppid][:er] += scored
+          credit_scorers(batter_stats, scorers)
+          pitcher_stats[pitcher_id][:h]  += 1
+          pitcher_stats[pitcher_id][:er] += scored
 
         when :double
-          batter_stats[pid][:ab]     += 1
-          batter_stats[pid][:h]      += 1
-          batter_stats[pid][:double] += 1
-          scored, rbis, bases, scorers = apply_double(bases, pid)
-          batter_stats[pid][:rbi] += rbis
+          batter_stats[batter_id][:ab]     += 1
+          batter_stats[batter_id][:h]      += 1
+          batter_stats[batter_id][:double] += 1
+          scored, rbis, bases, scorers = apply_double(bases, batter_id)
+          batter_stats[batter_id][:rbi] += rbis
           runs += scored
-          scorers.each { |s| batter_stats[s][:r] += 1 if batter_stats.key?(s) }
-          pitcher_stats[ppid][:h]  += 1
-          pitcher_stats[ppid][:er] += scored
+          credit_scorers(batter_stats, scorers)
+          pitcher_stats[pitcher_id][:h]  += 1
+          pitcher_stats[pitcher_id][:er] += scored
 
         when :triple
-          batter_stats[pid][:ab]     += 1
-          batter_stats[pid][:h]      += 1
-          batter_stats[pid][:triple] += 1
+          batter_stats[batter_id][:ab]     += 1
+          batter_stats[batter_id][:h]      += 1
+          batter_stats[batter_id][:triple] += 1
           scorers = bases.compact
           scored  = scorers.size
-          batter_stats[pid][:rbi] += scored
-          scorers.each { |s| batter_stats[s][:r] += 1 if batter_stats.key?(s) }
+          batter_stats[batter_id][:rbi] += scored
           runs += scored
-          pitcher_stats[ppid][:h]  += 1
-          pitcher_stats[ppid][:er] += scored
-          bases = [nil, nil, pid]
+          credit_scorers(batter_stats, scorers)
+          pitcher_stats[pitcher_id][:h]  += 1
+          pitcher_stats[pitcher_id][:er] += scored
+          bases = [nil, nil, batter_id]
 
         when :ground_out
-          batter_stats[pid][:ab]  += 1
-          pitcher_stats[ppid][:outs] += 1
+          batter_stats[batter_id][:ab]       += 1
+          pitcher_stats[pitcher_id][:outs]   += 1
           outs += 1
           if bases[0] && outs < 3 && rand < DP_PROB
-            pitcher_stats[ppid][:outs] += 1
+            pitcher_stats[pitcher_id][:outs] += 1
             outs += 1
             bases[0] = nil
           end
 
         when :fly_out
-          batter_stats[pid][:ab]  += 1
-          pitcher_stats[ppid][:outs] += 1
+          batter_stats[batter_id][:ab]     += 1
+          pitcher_stats[pitcher_id][:outs] += 1
           outs += 1
           if bases[2] && rand < SAC_FLY_PROB
             scorer = bases[2]
-            batter_stats[pid][:ab]  -= 1
-            batter_stats[pid][:sf]  += 1
-            batter_stats[pid][:rbi] += 1
-            batter_stats[scorer][:r] += 1 if batter_stats.key?(scorer)
+            batter_stats[batter_id][:ab]  -= 1
+            batter_stats[batter_id][:sf]  += 1
+            batter_stats[batter_id][:rbi] += 1
+            batter_stats[scorer][:r]      += 1 if batter_stats.key?(scorer)
             runs += 1
-            pitcher_stats[ppid][:er] += 1
+            pitcher_stats[pitcher_id][:er] += 1
             bases[2] = nil
           end
         end
       end
 
-      [runs, pos % lineup.size]
+      [runs, lineup_pos % lineup.size]
     end
 
     def simulate_pa(batter_rates, pitcher_rates, blend, config = {})
-      br = blend.to_f.clamp(0.0, 1.0)
-      pr = 1.0 - br
-      db = league_avg_batter
-      dp = league_avg_reliever
+      batter_weight  = blend.to_f.clamp(0.0, 1.0)
+      pitcher_weight = 1.0 - batter_weight
+      league_batter  = league_avg_batter
+      league_pitcher = league_avg_reliever
 
-      run_env = (config["run_environment"] || 1.0).to_f.clamp(0.5, 2.0)
-      hr_env  = (config["hr_environment"]  || 1.0).to_f.clamp(0.3, 3.0)
+      # Blends a rate key from batter/pitcher projections against league-average defaults
+      blended = ->(key) {
+        rate_for(batter_rates, key, league_batter)  * batter_weight +
+        rate_for(pitcher_rates, key, league_pitcher) * pitcher_weight
+      }
 
-      bb_pct    = clamp(r(batter_rates, :bb_pct, db) * br + r(pitcher_rates, :bb_pct, dp) * pr, 0.03, 0.20)
-      hbp_pct   = r(batter_rates, :hbp_pct, db).to_f
-      k_pct     = clamp(r(batter_rates, :k_pct,  db) * br + r(pitcher_rates, :k_pct,  dp) * pr, 0.05, 0.38)
-      babip     = clamp(r(batter_rates, :babip,   db) * br + r(pitcher_rates, :babip,  dp) * pr, 0.200, 0.380) * run_env
-      hr_fb_pct = clamp(r(batter_rates, :hr_fb_pct, db) * br + r(pitcher_rates, :hr_fb_pct, dp) * pr, 0.02, 0.32) * hr_env
-      fb_pct    = clamp(r(batter_rates, :fb_pct,  db) * br + pitcher_fb(pitcher_rates, dp) * pr, 0.20, 0.55)
+      run_environment = (config["run_environment"] || 1.0).to_f.clamp(0.5, 2.0)
+      hr_environment  = (config["hr_environment"]  || 1.0).to_f.clamp(0.3, 3.0)
+
+      bb_pct    = clamp(blended.call(:bb_pct),    0.03, 0.20)
+      hbp_pct   = rate_for(batter_rates, :hbp_pct, league_batter).to_f
+      k_pct     = clamp(blended.call(:k_pct),     0.05, 0.38)
+      babip     = clamp(blended.call(:babip),      0.200, 0.380) * run_environment
+      hr_fb_pct = clamp(blended.call(:hr_fb_pct),  0.02, 0.32)  * hr_environment
+      fb_pct    = clamp(
+        rate_for(batter_rates, :fb_pct, league_batter)        * batter_weight +
+        pitcher_fly_ball_pct(pitcher_rates, league_pitcher)   * pitcher_weight,
+        0.20, 0.55
+      )
 
       bip_rate = [1.0 - bb_pct - hbp_pct - k_pct, 0.10].max
       hr_rate  = hr_fb_pct * fb_pct * bip_rate
       hit_rate = babip * (bip_rate - hr_rate)
 
-      cum = 0.0
-      rv  = rand
-      cum += bb_pct;    return :walk       if rv < cum
-      cum += hbp_pct;   return :hbp        if rv < cum
-      cum += k_pct;     return :strikeout  if rv < cum
-      cum += hr_rate;   return :home_run   if rv < cum
-      cum += hit_rate
-      if rv < cum
-        hr = rand
-        return :single if hr < SINGLE_CUM
-        return :double if hr < DOUBLE_CUM
+      roll      = rand
+      threshold = 0.0
+      threshold += bb_pct;   return :walk      if roll < threshold
+      threshold += hbp_pct;  return :hbp       if roll < threshold
+      threshold += k_pct;    return :strikeout if roll < threshold
+      threshold += hr_rate;  return :home_run  if roll < threshold
+      threshold += hit_rate
+      if roll < threshold
+        hit_type_roll = rand
+        return :single if hit_type_roll < SINGLE_CUM
+        return :double if hit_type_roll < DOUBLE_CUM
         return :triple
       end
 
-      rand < 0.55 ? :ground_out : :fly_out
+      rand < GROUND_BALL_OUT_PROB ? :ground_out : :fly_out
     end
 
     def apply_walk(bases, batter_id)
@@ -369,11 +385,12 @@ class GameSimulationEngine
     def maybe_pull_pitcher(pitchers, idx, pitcher_stats, inning: 1, score_diff: 0, roles: {})
       return idx if idx >= pitchers.size - 1
 
-      sp_stat = pitcher_stats[pitchers[idx][:player_id]]
-      return idx unless sp_stat
+      current_pitcher_stat = pitcher_stats[pitchers[idx][:player_id]]
+      return idx unless current_pitcher_stat
 
-      max_bf = idx == 0 ? SP_MAX_BF : RP_MAX_BF
-      should_pull = sp_stat[:bf] >= max_bf || sp_stat[:er] >= SP_MAX_ER
+      max_bf      = idx == 0 ? SP_MAX_BF : RP_MAX_BF
+      should_pull = current_pitcher_stat[:bf] >= max_bf ||
+                    current_pitcher_stat[:er] >= MAX_ER_BEFORE_RELIEF
       return idx unless should_pull
 
       # Role-based selection: closer in 9th with lead, setup in 7th-8th, long relief early
@@ -420,12 +437,17 @@ class GameSimulationEngine
       { player_id: :league_avg_rp, name: "Bullpen", rates: league_avg_reliever }
     end
 
-    def r(rates, key, defaults)
+    def credit_scorers(batter_stats, scorers)
+      scorers.each { |id| batter_stats[id][:r] += 1 if batter_stats.key?(id) }
+    end
+
+    def rate_for(rates, key, defaults)
       rates[key]&.to_f || defaults[key].to_f
     end
 
-    def pitcher_fb(rates, defaults)
-      rates[:fb_pct]&.to_f || (1.0 - (rates[:gb_pct] || defaults[:gb_pct]).to_f - 0.10).clamp(0.20, 0.55)
+    def pitcher_fly_ball_pct(rates, defaults)
+      rates[:fb_pct]&.to_f ||
+        (1.0 - (rates[:gb_pct] || defaults[:gb_pct]).to_f - ASSUMED_LD_PCT).clamp(0.20, 0.55)
     end
 
     def clamp(val, min, max)

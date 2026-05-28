@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useContext } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, formatDistanceToNow } from 'date-fns'
 import { api } from '../api'
 import FactoidsPanel from '../components/FactoidsPanel'
 import { StatCard } from '../components/StatCard'
@@ -16,6 +16,8 @@ import RollingAverageChart from '../components/charts/RollingAverageChart'
 import SankeyChart from '../components/charts/SankeyChart'
 import TransactionsList from '../components/TransactionsList'
 import SystemComparison from '../components/SystemComparison'
+import StatHelpTooltip from '../components/StatHelpTooltip'
+import { PlayerListsContext } from '../hooks/usePlayerLists.jsx'
 
 const CURRENT_SEASON = new Date().getFullYear()
 const MIN_SEASON = 2018
@@ -263,6 +265,220 @@ function ToolGrade({ label, value }) {
   )
 }
 
+const OTTONEU_FAIR_PPD = 10
+
+function ottPtsPct(val, dist) {
+  if (val == null || !dist?.length) return null
+  const below = dist.filter(v => v < val).length
+  return Math.round((below / dist.length) * 100)
+}
+
+function ottPctBarColor(pct) {
+  if (pct >= 75) return 'bg-green-400'
+  if (pct >= 50) return 'bg-blue-400'
+  if (pct >= 25) return 'bg-amber-400'
+  return 'bg-red-400'
+}
+
+function useLeagueDist() {
+  const { data: allRosters } = useQuery({
+    queryKey: ['ottoneu-all-rosters'],
+    queryFn: () => api.ottoneu.allRosters(),
+    staleTime: 30 * 60_000,
+  })
+
+  const rosterFgIds = useMemo(() => {
+    if (!Array.isArray(allRosters)) return []
+    return allRosters.flatMap(t => t.players ?? []).map(p => p.fg_id).filter(Boolean)
+  }, [allRosters])
+
+  const salaryByFgId = useMemo(() => {
+    if (!Array.isArray(allRosters)) return {}
+    const map = {}
+    allRosters.flatMap(t => t.players ?? []).forEach(p => {
+      if (p.fg_id && p.salary > 0) map[String(p.fg_id)] = p.salary
+    })
+    return map
+  }, [allRosters])
+
+  const { data: leagueStats = [] } = useQuery({
+    queryKey: ['ottoneu-league-pts-dist', rosterFgIds.slice().sort().join(',')],
+    queryFn: () => api.ottoneu.playerStats({ fgIds: rosterFgIds }),
+    enabled: rosterFgIds.length > 0,
+    staleTime: 30 * 60_000,
+  })
+
+  return useMemo(() => {
+    const pts = [], ppd = [], surplus = []
+    leagueStats.forEach(p => {
+      const ap  = p.approx_fg_pts
+      const sal = salaryByFgId[String(p.fg_id)]
+      if (ap != null && ap > 0) pts.push(ap)
+      if (ap != null && sal > 0) {
+        ppd.push(ap / sal)
+        surplus.push(Math.round(ap / OTTONEU_FAIR_PPD) - sal)
+      }
+    })
+    return {
+      leaguePtsDist:     pts.sort((a, b) => a - b),
+      leaguePpdDist:     ppd.sort((a, b) => a - b),
+      leagueSurplusDist: surplus.sort((a, b) => a - b),
+    }
+  }, [leagueStats, salaryByFgId])
+}
+
+const LIST_META_PP = {
+  watch: { label: 'Watch', accent: 'text-sky-400',   activeBg: 'bg-sky-400/10',   icon: '◎' },
+  cut:   { label: 'Cut',   accent: 'text-red-400',   activeBg: 'bg-red-400/10',   icon: '✂' },
+  trade: { label: 'Trade', accent: 'text-amber-400', activeBg: 'bg-amber-400/10', icon: '⇄' },
+}
+
+function OttoneuPlayerPanel({ playerName, playerId }) {
+  const { data, isLoading } = useQuery({
+    queryKey:  ['ottoneu-player-analysis', playerName],
+    queryFn:   () => api.ottoneu.playerAnalysis({ name: playerName }),
+    staleTime: 30 * 60_000,
+    enabled:   !!playerName,
+  })
+
+  const { leaguePtsDist, leaguePpdDist, leagueSurplusDist } = useLeagueDist()
+  const listsCtx = useContext(PlayerListsContext)
+
+  if (isLoading || !data || data.error) return null
+
+  const ptsPctile     = ottPtsPct(data.approx_fg_pts, leaguePtsDist)
+  const ppdPctile     = ottPtsPct(data.ppd,           leaguePpdDist)
+  const surplusPctile = ottPtsPct(data.surplus,       leagueSurplusDist)
+
+  const playerObj = {
+    player_id:     playerId ?? null,
+    fg_id:         data.fg_id ?? null,
+    name:          playerName,
+    mlb_team:      data.mlb_team ?? '',
+    roster_team:   data.roster_team ?? null,
+    salary:        data.salary ?? null,
+    approx_fg_pts: data.approx_fg_pts ?? null,
+    on_my_team:    data.on_my_team ?? false,
+  }
+
+  const visibleLists = data.on_my_team
+    ? ['cut', 'trade']
+    : ['watch', 'trade']
+
+  return (
+    <div className="card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">
+          Ottoneu
+        </span>
+        <div className="flex items-center gap-2">
+          {listsCtx && (
+            <div className="flex gap-1">
+              {visibleLists.map(list => {
+                const { label, accent, activeBg, icon } = LIST_META_PP[list]
+                const active = listsCtx.isOn(playerObj, list)
+                return (
+                  <button
+                    key={list}
+                    onClick={() => listsCtx.toggle(playerObj, list)}
+                    title={active ? `Remove from ${label}` : `Add to ${label}`}
+                    className={`text-[11px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1
+                      ${active
+                        ? `${accent} ${activeBg} border-current/30`
+                        : `text-content-muted border-bg-border hover:${accent} hover:bg-bg-elevated`}`}
+                  >
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {data.roster_team ? (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              data.on_my_team
+                ? 'bg-brand/15 text-brand'
+                : 'bg-bg-elevated text-content-secondary'
+            }`}>
+              {data.roster_team}
+            </span>
+          ) : (
+            <span className="text-xs text-content-muted">Free Agent</span>
+          )}
+        </div>
+      </div>
+
+      {data.salary != null && (
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex flex-col items-center">
+            <span className="text-[15px] font-semibold text-content-primary">${data.salary}</span>
+            <span className="text-[9px] text-content-muted uppercase">Salary</span>
+          </div>
+          {data.approx_fg_pts != null && (
+            <div className="flex flex-col items-center min-w-[48px]">
+              <span className="text-[15px] font-semibold text-content-primary">
+                {Number(data.approx_fg_pts).toFixed(0)}
+              </span>
+              <span className="text-[9px] text-content-muted uppercase">FG Pts</span>
+              {ptsPctile != null && (
+                <div className="mt-1 h-0.5 rounded-full bg-bg-border overflow-hidden w-full">
+                  <div className={`h-full rounded-full ${ottPctBarColor(ptsPctile)}`} style={{ width: `${ptsPctile}%` }} />
+                </div>
+              )}
+            </div>
+          )}
+          {data.ppd != null && (
+            <div className="flex flex-col items-center min-w-[48px]">
+              <span className={`text-[15px] font-semibold ${
+                data.ppd >= 20 ? 'text-green-400'
+                : data.ppd >= 15 ? 'text-green-300'
+                : data.ppd >= OTTONEU_FAIR_PPD ? 'text-content-primary'
+                : 'text-red-400'
+              }`}>
+                {Number(data.ppd).toFixed(1)}
+              </span>
+              <span className="text-[9px] text-content-muted uppercase flex items-center gap-0.5">
+                PPD <StatHelpTooltip stat="ppd" />
+              </span>
+              {ppdPctile != null && (
+                <div className="mt-1 h-0.5 rounded-full bg-bg-border overflow-hidden w-full">
+                  <div className={`h-full rounded-full ${ottPctBarColor(ppdPctile)}`} style={{ width: `${ppdPctile}%` }} />
+                </div>
+              )}
+            </div>
+          )}
+          {data.surplus != null && (
+            <div className="flex flex-col items-center min-w-[48px]">
+              <span className={`text-[15px] font-semibold ${
+                data.surplus > 50 ? 'text-green-400'
+                : data.surplus > 0 ? 'text-green-300'
+                : data.surplus > -30 ? 'text-content-primary'
+                : 'text-red-400'
+              }`}>
+                {data.surplus > 0 ? '+' : ''}{Number(data.surplus).toFixed(0)}
+              </span>
+              <span className="text-[9px] text-content-muted uppercase flex items-center gap-0.5">
+                Surplus <StatHelpTooltip stat="surplus" />
+              </span>
+              {surplusPctile != null && (
+                <div className="mt-1 h-0.5 rounded-full bg-bg-border overflow-hidden w-full">
+                  <div className={`h-full rounded-full ${ottPctBarColor(surplusPctile)}`} style={{ width: `${surplusPctile}%` }} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {data.analysis && (
+        <p className="text-[13px] text-content-secondary leading-relaxed">
+          {data.analysis}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function ProspectCard({ playerId }) {
   const { data, isLoading } = useQuery({
     queryKey: ['prospect-player', playerId],
@@ -506,6 +722,31 @@ function PlayerHeader({ info, season, onSeasonChange }) {
               </span>
             )}
           </div>
+
+          {info.awards?.length > 0 && (() => {
+            const grouped = {}
+            for (const award of info.awards) {
+              if (!grouped[award.name]) grouped[award.name] = { name: award.name, seasons: [] }
+              grouped[award.name].seasons.push(award.season)
+            }
+            return (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {Object.values(grouped).map(({ name, seasons }) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/25"
+                    title={seasons.join(', ')}
+                  >
+                    {name}
+                    {seasons.length > 1
+                      ? <span className="text-amber-500/60 font-normal">×{seasons.length}</span>
+                      : <span className="text-amber-500/60 font-normal">'{String(seasons[0]).slice(2)}</span>
+                    }
+                  </span>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       </div>
     </div>
@@ -751,10 +992,9 @@ function RecentGameLog({ group, rows = [] }) {
 }
 
 function PlayerMetaCards({ info }) {
-  const awards = info.awards || []
   const contract = info.contract
 
-  if (!contract && awards.length === 0) return null
+  if (!contract) return null
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -800,24 +1040,6 @@ function PlayerMetaCards({ info }) {
         </section>
       )}
 
-      {awards.length > 0 && (
-        <section className="card p-5 space-y-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-content-muted">Awards</h2>
-          <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-            {awards.slice(0, 15).map((award, idx) => (
-              <div key={`${award.id || award.name}-${award.season}-${idx}`} className="rounded-lg bg-bg-elevated border border-bg-border px-3 py-2.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium text-content-primary">{award.name}</div>
-                    <div className="text-xs text-content-secondary">{award.league || award.team || 'MLB'}</div>
-                  </div>
-                  <div className="text-xs font-mono text-content-muted shrink-0">{award.season}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }
@@ -952,6 +1174,9 @@ function BattingTab({ playerId, mlbStats, statcast, projection, gameLog, batSide
             <StatCard label="Blast%" value={sc.blastPerSwing != null ? `${sc.blastPerSwing}%` : null} subtitle="hard + pure contact" percentile={approxPercentile(sc.blastPerSwing, BATTING_THRESHOLDS.blastPerSwing)} />
             <StatCard label="O-Swing%" value={sc.oSwingPct != null ? `${sc.oSwingPct}%` : null} subtitle="chase rate" percentile={approxPercentile(sc.oSwingPct, BATTING_THRESHOLDS.oSwingPct)} />
             <StatCard label="Z-Swing%" value={sc.zSwingPct != null ? `${sc.zSwingPct}%` : null} subtitle="in-zone rate" percentile={approxPercentile(sc.zSwingPct, BATTING_THRESHOLDS.zSwingPct)} />
+            <StatCard label="Pull%" value={sc.pullPct != null ? `${sc.pullPct}%` : null} percentile={approxPercentile(sc.pullPct, BATTING_THRESHOLDS.pullPct)} />
+            <StatCard label="Cent%" value={sc.centPct != null ? `${sc.centPct}%` : null} percentile={approxPercentile(sc.centPct, BATTING_THRESHOLDS.centPct)} />
+            <StatCard label="Oppo%" value={sc.oppoPct != null ? `${sc.oppoPct}%` : null} percentile={approxPercentile(sc.oppoPct, BATTING_THRESHOLDS.oppoPct)} />
           </div>
         )}
       </section>
@@ -1245,6 +1470,72 @@ function PitchingTab({ playerId, mlbStats, statcast, projection, gameLog, pitchH
       <CareerStatsTable playerId={playerId} group="pitching" />
       <PlayerTransactions playerId={playerId} />
     </div>
+  )
+}
+
+function PlayerNewsPanel({ playerName }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['player-news', playerName],
+    queryFn: () => api.news.forPlayer(playerName),
+    enabled: !!playerName,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const items = data?.items || []
+  if (!isLoading && !items.length) return null
+
+  function relTime(ts) {
+    try { return formatDistanceToNow(parseISO(ts), { addSuffix: true }) } catch { return '' }
+  }
+
+  const SOURCE_COLOR = {
+    rotowire:  'text-purple-400',
+    mlbtr:     'text-orange-400',
+    mlb:       'text-blue-400',
+    fangraphs: 'text-green-500',
+    reddit:    'text-rose-400',
+  }
+
+  return (
+    <section>
+      <h3 className="text-[11px] font-semibold text-content-muted uppercase tracking-[0.08em] mb-3">News &amp; Updates</h3>
+      <div className="card divide-y divide-bg-border">
+        {isLoading ? (
+          <div className="p-4 space-y-3 animate-pulse">
+            {[...Array(3)].map((_, i) => <div key={i} className="h-4 bg-bg-elevated rounded" />)}
+          </div>
+        ) : (
+          items.slice(0, 8).map((item) => (
+            <div key={item.id} className="p-3.5 flex gap-3 items-start">
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${SOURCE_COLOR[item.sourceKey] ?? 'text-content-muted'}`}>
+                    {item.source}
+                  </span>
+                  {item.injury && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-red-400 bg-red-400/10 border border-red-400/20 px-1.5 py-0.5 rounded">
+                      {[item.injury.part, item.injury.list].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-content-muted">{relTime(item.publishedAt)}</span>
+                </div>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-sm font-medium text-content-primary hover:text-brand transition-colors leading-snug"
+                >
+                  {item.title}
+                </a>
+                {item.summary && (
+                  <p className="text-xs text-content-muted leading-relaxed line-clamp-2">{item.summary}</p>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -1706,10 +1997,14 @@ export default function PlayerProfile() {
 
       <ProspectCard playerId={playerId} />
 
+      <PlayerNewsPanel playerName={info.name} />
+
       <FactoidsPanel
         queryKey={['player-factoids', playerId, season]}
         queryFn={() => api.factoids.player(playerId, season)}
       />
+
+      <OttoneuPlayerPanel playerName={info.name} playerId={playerId} />
 
       {/* Tabs */}
       <div className="flex items-center border-b border-bg-border w-fit">

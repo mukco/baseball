@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
@@ -327,6 +327,84 @@ function RosterPanel({ rosterData, leagueId, teamId, id }) {
   )
 }
 
+function FranchiseTeamLog({ franchiseId, teamId, currentLeagueId }) {
+  const { data, isLoading } = useQuery({
+    queryKey:  ['franchise-team-history', franchiseId, teamId],
+    queryFn:   () => api.franchises.teamHistory(franchiseId, teamId),
+    staleTime: 5 * 60_000,
+    enabled:   !!franchiseId,
+  })
+
+  const seasons = useMemo(
+    () => [...(data?.seasons || [])].sort((a, b) => b.season - a.season),
+    [data]
+  )
+
+  if (isLoading || !seasons.length) return null
+
+  const fmt3 = v => v != null ? Number(v).toFixed(3) : '—'
+  const fmt2 = v => v != null ? Number(v).toFixed(2) : '—'
+  const fmtPct = v => v != null ? `.${String(Math.round(Number(v) * 1000)).padStart(3, '0')}` : '—'
+
+  return (
+    <section className="card overflow-hidden">
+      <div className="px-5 pt-4 pb-3 border-b border-bg-border flex items-center justify-between">
+        <h3 className="text-[11px] font-semibold text-content-muted uppercase tracking-[0.08em]">Franchise History</h3>
+        <span className="text-[10px] text-content-muted">{seasons.length} season{seasons.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-bg-border text-content-muted text-[10px] uppercase tracking-wider">
+              <th className="px-4 py-2 text-left font-medium">Season</th>
+              <th className="px-3 py-2 text-center font-medium">W</th>
+              <th className="px-3 py-2 text-center font-medium">L</th>
+              <th className="px-3 py-2 text-center font-medium">PCT</th>
+              <th className="px-3 py-2 text-right font-medium">AVG</th>
+              <th className="px-3 py-2 text-right font-medium">HR</th>
+              <th className="px-3 py-2 text-right font-medium">ERA</th>
+              <th className="px-4 py-2 text-left font-medium">Notable</th>
+            </tr>
+          </thead>
+          <tbody>
+            {seasons.map((s) => {
+              const isCurrent = s.league_id === Number(currentLeagueId)
+              const playerAwards = (s.awards || []).filter(a => a.category !== 'postseason').slice(0, 4)
+              return (
+                <tr
+                  key={s.season}
+                  className={`border-b border-bg-border/60 last:border-b-0 transition-colors hover:bg-bg-elevated/40 ${isCurrent ? 'bg-brand/5' : ''}`}
+                >
+                  <td className="px-4 py-2.5 font-medium text-content-primary whitespace-nowrap">
+                    {s.season}
+                    {isCurrent && <span className="ml-1.5 text-[9px] text-brand font-semibold uppercase">Current</span>}
+                    {s.champion && <span className="ml-1.5 text-[9px] font-bold text-amber-400">🏆 Champs</span>}
+                  </td>
+                  <td className="px-3 py-2.5 text-center font-bold text-emerald-400">{s.w ?? '—'}</td>
+                  <td className="px-3 py-2.5 text-center text-red-400">{s.l ?? '—'}</td>
+                  <td className="px-3 py-2.5 text-center font-mono text-content-secondary">{fmtPct(s.pct)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-content-secondary">{fmt3(s.avg)}</td>
+                  <td className="px-3 py-2.5 text-right text-content-primary">{s.hr ?? '—'}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-content-primary">{fmt2(s.era)}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex flex-wrap gap-1">
+                      {playerAwards.map((a, i) => (
+                        <span key={i} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                          {a.player_name} · {a.label}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 export default function SimulationTeam() {
   const { id, teamId } = useParams()
   const qc = useQueryClient()
@@ -351,11 +429,24 @@ export default function SimulationTeam() {
   })
 
   const teamIdInt = parseInt(teamId)
+  const franchiseId = stateData?.simulation_franchise_id
+
+  const { data: franchiseTeamHistory } = useQuery({
+    queryKey:  ['franchise-team-history', franchiseId, teamId],
+    queryFn:   () => api.franchises.teamHistory(franchiseId, teamId),
+    staleTime: 5 * 60_000,
+    enabled:   !!franchiseId,
+  })
 
   const teamMeta = rosterData ?? {}
   const teamName = teamMeta.team_name || `Team ${teamId}`
   const teamAbbr = teamMeta.team_abbr
   const teamColor = teamMeta.team_color
+
+  const championshipSeasons = useMemo(
+    () => (franchiseTeamHistory?.seasons || []).filter(s => s.champion).map(s => s.season).sort((a, b) => a - b),
+    [franchiseTeamHistory]
+  )
 
   // Team record from standings
   const standings = stateData?.standings || {}
@@ -392,6 +483,16 @@ export default function SimulationTeam() {
                 {record.gb !== '—' && <span className="text-content-muted text-xs">{record.gb} GB</span>}
                 <span className={`text-xs font-bold ${record.streak_type === 'W' ? 'text-emerald-400' : 'text-red-400'}`}>
                   {record.streak_type}
+                </span>
+              </div>
+            )}
+            {championshipSeasons.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/30">
+                  🏆 {championshipSeasons.length > 1 ? `×${championshipSeasons.length}` : `'${String(championshipSeasons[0]).slice(2)}`}
+                  {championshipSeasons.length > 1 && (
+                    <span className="font-normal opacity-60 ml-0.5">({championshipSeasons.map(y => `'${String(y).slice(2)}`).join(', ')})</span>
+                  )}
                 </span>
               </div>
             )}
@@ -439,6 +540,9 @@ export default function SimulationTeam() {
           )}
         </div>
       )}
+
+      {/* ── Franchise season history ── */}
+      <FranchiseTeamLog franchiseId={stateData?.simulation_franchise_id} teamId={teamId} currentLeagueId={id} />
     </div>
   )
 }

@@ -9,6 +9,7 @@ from typing import Optional, Any
 import duckdb
 
 from trainer import train_model
+from data_loader import VALID_TABLES, PITCH_BY_PITCH_TABLE, PITCH_BY_PITCH_COLUMNS
 
 app = FastAPI(title="Statline ML Service", version="1.0.0")
 
@@ -34,21 +35,17 @@ class TrainRequest(BaseModel):
     test_size: float = 0.2
 
 
-VALID_TABLES = {
-    "batters", "pitchers", "teams_batting", "teams_pitching",
-    "fg_projections_batting", "fg_projections_pitching",
-}
-
-
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "statline-ml"}
 
 
 @app.get("/columns/{table}")
-def columns(table: str, duckdb_path: str):
+def columns(table: str, duckdb_path: str = ""):
     if table not in VALID_TABLES:
         raise HTTPException(status_code=400, detail=f"Unknown table: {table}")
+    if table == PITCH_BY_PITCH_TABLE:
+        return {"table": table, "columns": PITCH_BY_PITCH_COLUMNS}
     if not os.path.exists(duckdb_path):
         raise HTTPException(status_code=503, detail="Warehouse not built yet. Refresh the sandbox first.")
     try:
@@ -72,7 +69,7 @@ def train(req: TrainRequest):
         raise HTTPException(status_code=400, detail=f"Unknown table: {req.table}")
     if not req.features:
         raise HTTPException(status_code=400, detail="features must not be empty")
-    if not os.path.exists(req.duckdb_path):
+    if req.table != PITCH_BY_PITCH_TABLE and not os.path.exists(req.duckdb_path):
         raise HTTPException(status_code=503, detail="Warehouse not built yet. Refresh the sandbox first.")
     if req.task not in ("regression", "classification"):
         raise HTTPException(status_code=400, detail="task must be 'regression' or 'classification'")
