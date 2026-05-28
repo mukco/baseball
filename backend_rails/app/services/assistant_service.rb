@@ -431,6 +431,51 @@ class AssistantService
     {
       type: "function",
       function: {
+        name: "get_ottoneu_loans",
+        description: "Get current loan arrangements in the Ottoneu league — which teams have loaned players to other teams, the player involved, and the loan amount. Use for any question about loans, loaned players, or cap relief arrangements.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "evaluate_ottoneu_trade",
+        description: "Evaluate a proposed Ottoneu trade using live stats, projections, salary, PPD, and surplus. Returns per-player breakdowns and an LLM analysis verdict. Pass player names (not IDs). Supports loans (temporary player transfers) in addition to permanent trades. Use when the user asks 'should I make this trade?', 'is this trade fair?', 'evaluate this trade', or asks about trading or loaning specific players.",
+        parameters: {
+          type: "object",
+          properties: {
+            give: {
+              type: "array",
+              items: { type: "string" },
+              description: "Player names you are permanently sending away."
+            },
+            receive: {
+              type: "array",
+              items: { type: "string" },
+              description: "Player names you are permanently receiving."
+            },
+            loan_out: {
+              type: "array",
+              items: { type: "string" },
+              description: "Player names you are temporarily loaning to the other team. Optional."
+            },
+            loan_in: {
+              type: "array",
+              items: { type: "string" },
+              description: "Player names you are temporarily receiving on loan. Optional."
+            }
+          },
+          required: ["give", "receive"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
         name: "save_obsidian_note",
         description: "Save a note or analysis to the user's Obsidian vault as a Markdown file. Use when the user explicitly asks to save, note down, or record something to their vault or notes. Only works if the Obsidian vault path is configured in Settings.",
         parameters: {
@@ -651,7 +696,7 @@ class AssistantService
         my_cap    = Array(cap).find { |t| t[:team_name].to_s.include?("Dingers") }
         prod_ok   = prod.is_a?(Hash) && !prod[:error]
         players   = Array(roster[:players]).map do |p|
-          production = prod_ok ? prod[p[:name]] : nil
+          production = prod_ok ? prod[p[:name].to_s.downcase.strip] : nil
           il         = il_status[p[:name]] || {}
           p.merge(
             season_points: production&.dig(:season_points),
@@ -681,6 +726,17 @@ class AssistantService
 
       when "get_ottoneu_cap_overview"
         OttoneuService.cap_overview
+
+      when "get_ottoneu_loans"
+        OttoneuService.loans
+
+      when "evaluate_ottoneu_trade"
+        OttoneuTradeAnalysisService.call(
+          give:     Array(args["give"]).map(&:to_s).compact,
+          receive:  Array(args["receive"]).map(&:to_s).compact,
+          loan_out: Array(args["loan_out"]).map(&:to_s).compact,
+          loan_in:  Array(args["loan_in"]).map(&:to_s).compact
+        )
 
       when "get_team_financials"
         TeamFinanceService.fetch(team_id: args["team_id"].to_i, season: season)
@@ -828,6 +884,8 @@ class AssistantService
         - get_ottoneu_transactions — active auctions (current bid, deadline) and waiver claims in progress.
         - get_ottoneu_free_agents — players not rostered by any team in the league, with stats, projected FG pts, fair value salary, and AI pickup recommendations. Use for "who should I pick up", "best available", or "is X a free agent in Ottoneu".
         - get_ottoneu_cap_overview — cap situation for every team: base salary, penalties, and cap space remaining. Use for trade analysis ("which teams are buyers?"), identifying cap-constrained teams, or any cross-league cap comparison.
+        - get_ottoneu_loans — current loan arrangements in the league: which teams have loaned players to which other teams, and the loan amount. Use for any question about loans or cap relief deals.
+        - evaluate_ottoneu_trade — evaluate a proposed trade using live stats, projections, salary, PPD, and surplus. Pass player names. Supports permanent trades and loans. Use immediately when the user mentions specific players in a trade or asks "is this trade fair?".
         - query_players_sql with the `ottoneu_salaries` table — join salary data against stats for cross-league value analysis (see SQL section).
 
         **Checking if a specific player is rostered in Ottoneu:**
@@ -872,11 +930,41 @@ class AssistantService
 
         **Visualisation (mandatory):**
         - create_chart — **Call this every time you return ranked lists, comparisons, or time-series data.** Never reply with a table or bullet list of stats when a chart would communicate it better. Call it in the same tool-call batch as your last data fetch whenever possible.
+
+          **Chart type selection:**
           - horizontal_bar → leaderboards, top-N player rankings
-          - bar → team comparisons, side-by-side stats
+          - bar → team comparisons, side-by-side stats, distribution histograms (binned — see below)
           - line → trends over time (career stats by year, rolling stats)
           - scatter → two-stat correlations (e.g. exit velo vs. HR)
-          - xKey must match an actual key in every data object. yKey must be the numeric stat key.
+
+          **xKey / data shape rules — read these before every chart call:**
+
+          1. **Never use a raw continuous numeric value as xKey.** Salary, age, wRC+, ERA, exit velocity, FG pts, innings pitched — any field that can take 20+ distinct values will produce an unreadable bar-per-value chart. Always pre-aggregate in SQL.
+
+          2. **Distributions must be bucketed in SQL before charting.** Use a CASE expression to create 5–8 labelled ranges, then GROUP BY the label. Bucket widths should match how data clusters — narrower where values are dense, wider in the tail. Example pattern:
+             ```sql
+             SELECT
+               CASE
+                 WHEN <col> <= <n1> THEN '<label1>'
+                 WHEN <col> <= <n2> THEN '<label2>'
+                 ...
+                 ELSE '<label_n>+'
+               END AS bucket,
+               COUNT(*) AS count
+             FROM <table>
+             GROUP BY bucket
+             ORDER BY MIN(<col>)
+             ```
+
+          3. **Rankings and leaderboards: cap at 15–20 rows.** More than that becomes a wall of bars. Use `LIMIT` in the SQL query. If the user asked for "top 10" or "top 25", honour that; otherwise default to 15.
+
+          4. **Time series: one row per time unit.** For career or season trends, the xKey should be `season` (or a date string). Never aggregate multiple seasons into one row unless that's the explicit goal.
+
+          5. **Scatter plots need exactly two numeric fields** — one for xKey, one for yKey — plus a label field (e.g. `name`) for identification. Ensure every row has non-null values for both axes.
+
+          6. **xKey must exactly match a key present in every row of the data array.** yKey must be a numeric field. If the SQL returns snake_case column names, the xKey/yKey must use those exact names.
+
+          7. **Don't chart when it won't help.** A single-player stat lookup, a yes/no answer, or a two-row comparison doesn't need a chart. Only call create_chart when there are at least 4 data points and a visual comparison adds meaning.
 
         ## How to behave
 
@@ -906,9 +994,9 @@ class AssistantService
         FG Points formula:
         - **Batters:** (AB × −1.0) + (H × 5.6) + (2B × 2.9) + (3B × 5.7) + (HR × 9.4) + (BB × 3.0) + (HBP × 3.0) + (SB × 1.9) + (CS × −2.8)
         - **Pitchers:** (IP × 7.4) + (K × 2.0) + (H × −2.6) + (BB × −3.0) + (HBP × −3.0) + (HR × −12.3) + (SV × 5.0) + (HLD × 4.0)
-        - **PPD** = FG pts ÷ salary. Fair value = 10. Good = 15+. Elite = 20+.
-        - **Surplus** = FG pts − (salary × 10). Positive = underpriced. Negative = overpaid.
-        - **Fair value salary** = FG pts ÷ 10.
+        - **PPD** = paced FG pts ÷ salary (paced = season-to-date pts ÷ season fraction elapsed). Fair value ≈ 10 (derived from actual league economics: total paced pts ÷ total salary across all rostered players). Good = 15+. Elite = 20+. Severely underpriced breakout players may show 50–150+.
+        - **Surplus** = (paced FG pts ÷ fair PPD) − salary. Positive = underpriced. Negative = overpaid.
+        - **Fair value salary** = paced FG pts ÷ fair PPD.
 
         When you fetch stats from the warehouse, compute approximate FG pts yourself. Then use traditional stats to explain the score:
         - A low HR total explains a low FG pts ceiling (HR = +9.4 each, the highest single-event value).
@@ -924,8 +1012,14 @@ class AssistantService
         Every response about a specific player MUST include Ottoneu context. Always do ALL of the following:
 
         1. **Check Ottoneu roster status.** Run `query_players_sql`: `SELECT team_name, salary, positions FROM ottoneu_salaries WHERE player_name ILIKE '%<name>%'`.
-        2. **Fetch season stats and compute FG pts.** Query `batters` or `pitchers`, compute approximate FG pts, then derive PPD and surplus.
-        3. **Get cap situation.** Call `get_ottoneu_roster` before any add/drop/cut recommendation.
+        2. **Get authoritative FG pts.** Call `get_ottoneu_roster` immediately. It returns `season_points` scraped directly from the Ottoneu site — this is the real accumulated FG pts, always more accurate than any estimate you compute from stats. Use `season_points` as the FG pts figure. Do NOT re-derive FG pts from a stat line when `season_points` is available.
+        3. **Fetch supporting stats.** Query `batters` or `pitchers` for the current season to get traditional stats (wOBA, wRC+, K%, BB%, HR, etc.) that explain WHY the player is scoring what they score.
+           - **If the warehouse returns no rows** (recent call-up, stale refresh, or prospect with limited MLB time), do NOT stop. Fall back in this order:
+             a. Query `fg_projections_batting` or `fg_projections_pitching` for their Steamer projection — use proj_woba, proj_wrc_plus, proj_pa, proj_era, proj_fip to contextualize the season-to-date pts.
+             b. Call `get_player_profile` to get this season's traditional MLB stats from the live API.
+             c. Call `get_player_game_log` for their last 10–15 games for playing time and trend context.
+             d. Call `get_statcast` if they have enough PAs/IP for meaningful Statcast data.
+           - **Never respond with "no stats available"** without first attempting all of the above fallbacks.
         4. **Lead with the Ottoneu verdict.** Open with the FG pts / PPD / surplus number, then use traditional stats to explain and support it.
 
         ### How to handle the three ownership states — CRITICAL
@@ -956,6 +1050,11 @@ class AssistantService
         - "Who should I add?" / "Who's available?" → call `get_ottoneu_free_agents`
         - "What's happening on waivers?" → call `get_ottoneu_transactions`
         - "How does my cap look?" → call `get_ottoneu_cap_overview`
+        - "What loans are active?" / "Who's on loan?" → call `get_ottoneu_loans`
+        - "Should I trade X for Y?" / "Evaluate this trade" / "Is this trade fair?" → call `evaluate_ottoneu_trade` immediately with the named players. Do NOT ask clarifying questions first — make a best-effort call with the names given.
+
+        ### Ottoneu trades and loans
+        In Ottoneu, a **trade** is a permanent player swap between two teams. A **loan** is a temporary arrangement where a player goes to another team for the season (or part of it) while their salary often stays on the loaning team's books. Use `evaluate_ottoneu_trade` for both scenarios — pass loan players via `loan_out`/`loan_in` and traded players via `give`/`receive`.
 
         ### When the question is about Yahoo
         Use `get_fantasy_roster` and `get_fantasy_free_agents` instead. Do not mix Ottoneu salary/cap data into Yahoo responses.

@@ -1,20 +1,20 @@
 class OttoneuTradeAnalysisService
   CACHE_TTL = 30.minutes
-  FAIR_PPD  = 10.0
 
   class << self
-    # give / receive — arrays of player names or fg_ids being permanently swapped.
-    # loan_out / loan_in — arrays of player names being temporarily loaned out/in.
-    def call(give:, receive:, loan_out: [], loan_in: [])
-      give     = clean(give)
-      receive  = clean(receive)
-      loan_out = clean(loan_out)
-      loan_in  = clean(loan_in)
-      return { error: "Both sides of the trade must have at least one player" } if give.empty? && loan_out.empty?
+    # give / receive — arrays of fg_ids being permanently swapped.
+    # loan_out_amount / loan_in_amount — cash loan dollar amounts (Ottoneu cash loans).
+    def call(give:, receive:, loan_out_amount: 0, loan_in_amount: 0)
+      give    = clean(give)
+      receive = clean(receive)
+      return { error: "Both sides of the trade must have at least one player" } if give.empty? || receive.empty?
 
-      key = "#{give.sort.join(",")}::#{receive.sort.join(",")}::#{loan_out.sort.join(",")}::#{loan_in.sort.join(",")}"
+      loan_out_amount = loan_out_amount.to_i
+      loan_in_amount  = loan_in_amount.to_i
+
+      key = "#{give.sort.join(",")}::#{receive.sort.join(",")}::#{loan_out_amount}::#{loan_in_amount}"
       Rails.cache.fetch("ottoneu_trade_analysis:#{key}", expires_in: CACHE_TTL) do
-        generate(give: give, receive: receive, loan_out: loan_out, loan_in: loan_in)
+        generate(give: give, receive: receive, loan_out_amount: loan_out_amount, loan_in_amount: loan_in_amount)
       end
     rescue => e
       { error: e.message }
@@ -33,24 +33,24 @@ class OttoneuTradeAnalysisService
       stats
     end
 
-    def generate(give:, receive:, loan_out:, loan_in:)
-      all         = (give + receive + loan_out + loan_in).uniq
+    def generate(give:, receive:, loan_out_amount:, loan_in_amount:)
+      all         = (give + receive).uniq
       stats       = fetch_stats(all)
       all_fg_ids  = stats.map { |s| s[:fg_id].to_s }.compact.uniq
       projections = OttoneuPlayerStatsService.fetch_projections(fg_ids: all_fg_ids)
       salary_map  = build_salary_map
+      fair_ppd    = OttoneuLeagueStatsService.fair_ppd
 
-      give_players     = enrich(give,     stats, projections, salary_map)
-      recv_players     = enrich(receive,  stats, projections, salary_map)
-      loan_out_players = enrich(loan_out, stats, projections, salary_map)
-      loan_in_players  = enrich(loan_in,  stats, projections, salary_map)
+      give_players = enrich(give,    stats, projections, salary_map, fair_ppd)
+      recv_players = enrich(receive, stats, projections, salary_map, fair_ppd)
 
       payload = { give: give_players, receive: recv_players }
-      payload[:loan_out] = loan_out_players if loan_out_players.any?
-      payload[:loan_in]  = loan_in_players  if loan_in_players.any?
+      payload[:loan_out_amount] = loan_out_amount if loan_out_amount > 0
+      payload[:loan_in_amount]  = loan_in_amount  if loan_in_amount  > 0
 
+      has_loans = loan_out_amount > 0 || loan_in_amount > 0
       result = OpenAi::Client.new.json_completion(
-        system_prompt: system_prompt(has_loans: loan_out.any? || loan_in.any?),
+        system_prompt: system_prompt(has_loans: has_loans),
         user_payload:  payload,
         interaction_type: "ottoneu_trade_analysis",
         temperature: 0.3
@@ -74,7 +74,8 @@ class OttoneuTradeAnalysisService
       map
     end
 
-    def enrich(identifiers, stats, projections, salary_map)
+    def enrich(identifiers, stats, projections, salary_map, fair_ppd)
+      sf = season_frac
       identifiers.map do |id|
         s = if id.match?(/\A\d+\z/)
           stats.find { |x| x[:fg_id].to_s == id } || {}
@@ -85,8 +86,9 @@ class OttoneuTradeAnalysisService
         roster = salary_map[s[:fg_id].to_s] || {}
         salary = roster[:salary]
         pts    = s[:approx_fg_pts]
-        ppd     = (pts && salary && salary > 0) ? (pts / salary.to_f).round(2) : nil
-        surplus = (pts && salary)               ? (pts - salary * FAIR_PPD).round(1) : nil
+        paced  = (pts && sf > 0) ? (pts / sf) : pts
+        ppd     = (paced && salary && salary > 0) ? (paced / salary.to_f).round(2) : nil
+        surplus = (paced && salary)               ? (paced / fair_ppd - salary).round(1) : nil
         vs_proj = compute_vs_projection(s, j)
 
         s.merge(
@@ -99,6 +101,14 @@ class OttoneuTradeAnalysisService
           vs_projection: vs_proj
         )
       end
+    end
+
+    def season_frac
+      start_date = Date.new(Date.today.year, 3, 28)
+      end_date   = Date.new(Date.today.year, 10, 1)
+      elapsed    = [Date.today - start_date, 1].max.to_f
+      total      = (end_date - start_date).to_f
+      [elapsed / total, 1.0].min
     end
 
     def compute_vs_projection(s, proj)
@@ -117,12 +127,14 @@ class OttoneuTradeAnalysisService
     end
 
     def system_prompt(has_loans: false)
+      fair = OttoneuLeagueStatsService.fair_ppd.round(1)
       loan_section = has_loans ? <<~LOANS : ""
 
-        This trade also includes temporary loans:
-        - loan_out: players you are temporarily sending to the other team this season. Their salary typically stays on your books.
-        - loan_in: players you are temporarily receiving. You get their production without the permanent salary commitment.
-        Loans expire — factor the short-term production gain vs. long-term roster cost into your analysis.
+        This trade also includes Ottoneu cash loan clauses:
+        - loan_out_amount: dollars you are temporarily sending to the other team (reduces your effective cap cost this season).
+        - loan_in_amount: dollars you are temporarily receiving from the other team (increases your effective cap cost).
+        Net cash impact = loan_in_amount − loan_out_amount. Positive means you net receive cash; negative means you net send cash.
+        Factor this short-term cap adjustment into your salary-impact and recommendation points.
       LOANS
 
       <<~PROMPT
@@ -137,8 +149,9 @@ class OttoneuTradeAnalysisService
         Always frame analysis as "you" — never as a neutral third party.#{loan_section}
 
         Each player includes: name, group (batter/pitcher), salary, approx_fg_pts (season total so far),
-        ppd (pts÷salary — fair=10, good=15+, elite=20+), surplus (pts−salary×10, positive=underpriced),
-        projected_pts (full-season projection), vs_projection (pace vs projection — positive=outperforming).
+        ppd (paced pts÷salary — paced to full season so fair=#{fair} [derived from actual league data], good=15+, elite=20+),
+        surplus (paced pts÷#{fair} − salary — positive=underpriced, both are already paced),
+        projected_pts (full-season Steamer projection), vs_projection (pace vs projection — positive=outperforming).
 
         FG pts are the verdict. Traditional stats (wOBA, FIP, K%) explain why a player scores what they score — use them to support the pts/PPD/surplus argument, not replace it.
 

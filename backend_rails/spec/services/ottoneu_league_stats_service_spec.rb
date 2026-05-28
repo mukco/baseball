@@ -40,12 +40,15 @@ RSpec.describe OttoneuLeagueStatsService do
 
   let(:empty_result) { { columns: [], rows: [] } }
 
+  let(:batter_columns)  { %w[fg_id player_id name avg obp slg ops woba wrc_plus ab h hr bb sb doubles triples hbp cs] }
+  let(:pitcher_columns) { %w[fg_id player_id name era fip k_pct whip k_per_9 ip k h bb hr sv hbp hld] }
+
   before do
     Rails.cache.clear
     allow(OttoneuService).to receive(:all_rosters).and_return(roster_data)
     allow(Warehouse::Manager).to receive(:exists?).and_return(true)
-    # Rostered queries use fg_id IN (...); FA queries use NOT IN — return empty for FAs
-    allow(Sandbox::QueryService).to receive(:run).with(hash_including(sql: / IN /)).and_call_original
+    allow(Warehouse::Manager).to receive(:table_columns).with("batters").and_return(batter_columns)
+    allow(Warehouse::Manager).to receive(:table_columns).with("pitchers").and_return(pitcher_columns)
     allow(Sandbox::QueryService).to receive(:run).with(hash_including(sql: /NOT IN/)).and_return(empty_result)
     allow(Sandbox::QueryService).to receive(:run).with(hash_including(sql: /batters.*IN/m)).and_return(batter_result)
     allow(Sandbox::QueryService).to receive(:run).with(hash_including(sql: /pitchers.*IN/m)).and_return(pitcher_result)

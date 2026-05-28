@@ -6,22 +6,29 @@ class ProjectionAccuracyService
   MIN_PITCHER_IP_FOR_ACCURACY = 30.0
   MIN_BATTER_PA_FOR_ACCURACY  = 100
 
-  CACHE_TTL = 24.hours
+  # Accuracy against completed seasons never changes — cache for a week.
+  CACHE_TTL = 7.days
 
   class << self
+    # Returns cached result or nil if not yet computed. Never blocks on computation.
     def league_accuracy(player_type:)
-      cache_key = "projection_accuracy_league_#{player_type}"
-      cached = Rails.cache.read(cache_key)
-      return cached if cached
+      Rails.cache.read(cache_key(player_type))
+    end
 
+    # Called by ProjectionAccuracyJob — computes and writes to cache.
+    def compute_and_cache(player_type)
       result = compute_league(player_type.to_s)
-      Rails.cache.write(cache_key, result, expires_in: CACHE_TTL) unless result[:error]
+      Rails.cache.write(cache_key(player_type), result, expires_in: CACHE_TTL) unless result[:error]
       result
     rescue => e
       { error: e.message }
     end
 
     private
+
+    def cache_key(player_type)
+      "projection_accuracy_league_#{player_type}"
+    end
 
     def compute_league(player_type)
       player_ids = sample_player_ids(player_type)

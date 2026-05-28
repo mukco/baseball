@@ -18,16 +18,29 @@ module Warehouse
         Rails.logger.info("Warehouse::Manager: starting full refresh")
         started = Time.now
 
-        batter_count   = Warehouse::BatterIngester.ingest!
-        pitcher_count  = Warehouse::PitcherIngester.ingest!
-        proj_counts    = Warehouse::FgProjectionIngester.ingest!
-        team_counts    = Warehouse::TeamIngester.ingest!
-        sim_counts     = Warehouse::SimulationIngester.ingest!
-        ottoneu_count  = Warehouse::OttoneuSalaryIngester.ingest!
+        # Ingesters write to independent CSVs — run them concurrently.
+        # SimulationIngester is local-only (no HTTP), so run it on the main thread.
+        sim_counts = Warehouse::SimulationIngester.ingest!
+
+        batter_t  = Thread.new { Warehouse::BatterIngester.ingest! }
+        pitcher_t = Thread.new { Warehouse::PitcherIngester.ingest! }
+        proj_t    = Thread.new { Warehouse::FgProjectionIngester.ingest! }
+        team_t    = Thread.new { Warehouse::TeamIngester.ingest! }
+        ottoneu_t = Thread.new { Warehouse::OttoneuSalaryIngester.ingest! }
+
+        batter_count  = batter_t.value
+        pitcher_count = pitcher_t.value
+        proj_counts   = proj_t.value
+        team_counts   = team_t.value
+        ottoneu_count = ottoneu_t.value
 
         build_duckdb!
         reset_column_cache!
         LeagueConstantsService.refresh!
+
+        # Enqueue accuracy recomputation in the background now that warehouse data is fresh.
+        ProjectionAccuracyJob.perform_later("batter") if defined?(ProjectionAccuracyJob)
+        ProjectionAccuracyJob.perform_later("pitcher") if defined?(ProjectionAccuracyJob)
 
         meta = {
           last_refreshed_at:    Time.now.utc.iso8601,

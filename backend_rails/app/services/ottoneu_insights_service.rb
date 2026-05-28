@@ -61,6 +61,8 @@ class OttoneuInsightsService
       sorted      = mlb_players.sort_by { |p| -p[:salary].to_i }
       mlb         = MlbApiService.new
 
+      fair_ppd = OttoneuLeagueStatsService.fair_ppd
+      sf = season_frac
       sorted.first(MAX_PLAYERS).map do |player|
         prod     = production.is_a?(Hash) ? (production[player[:name]] || {}) : {}
         mlb_id   = resolve_mlb_id(mlb, player)
@@ -68,12 +70,20 @@ class OttoneuInsightsService
         game_log = mlb_id ? mlb.player_game_log(mlb_id, Date.current.year, group: group, limit: 5) : nil
         games    = Array(game_log&.dig(:games)).first(5)
 
+        pts    = prod[:season_points]
+        salary = player[:salary].to_i
+        paced  = (pts && sf > 0) ? (pts / sf) : pts
+        ppd    = (paced && salary > 0) ? (paced / salary.to_f).round(1) : nil
+        surplus = (paced && salary)    ? (paced / fair_ppd - salary).round(1) : nil
+
         entry = {
           name:           player[:name],
           mlb_team:       player[:mlb_team],
           positions:      player[:positions],
-          salary:         player[:salary],
-          season_points:  prod[:season_points],
+          salary:         salary,
+          season_points:  pts,
+          ppd:            ppd,
+          surplus:        surplus,
           pts_per_game:   prod[:pts_per_game],
           recent_games:   games.map { |g| annotate_game(g, group) }
         }
@@ -167,11 +177,20 @@ class OttoneuInsightsService
       value.to_s.strip.downcase
     end
 
+    def season_frac
+      start_date = Date.new(Date.today.year, 3, 28)
+      end_date   = Date.new(Date.today.year, 10, 1)
+      elapsed    = [Date.today - start_date, 1].max.to_f
+      total      = (end_date - start_date).to_f
+      [elapsed / total, 1.0].min
+    end
+
     def normalize_factoids(output)
       Array(output["factoids"] || output[:factoids]).map(&:to_s).map(&:strip).reject(&:blank?).first(6)
     end
 
     def system_prompt
+      fair = OttoneuLeagueStatsService.fair_ppd.round(1)
       <<~PROMPT
         You are a sharp Ottoneu fantasy baseball analyst. Return only valid JSON: { "factoids": ["string", ...] }.
 
@@ -183,9 +202,9 @@ class OttoneuInsightsService
 
         THE MOST IMPORTANT PRINCIPLE IN OTTONEU IS VALUE. Value = production relative to salary. A $3 player scoring 15 pts/game is infinitely more valuable than a $35 player scoring 20 pts/game. Always frame insights around salary efficiency — flag overpaid players underperforming their contract and underpaid studs punching above their salary.
 
-        Value metrics — know these cold:
-        - PPD (Points Per Dollar) = approx_fg_pts ÷ salary. Fair value baseline is 10.0 PPD. Elite: >20 PPD. Good: >15 PPD. Fair: ~10 PPD. Poor: <5 PPD.
-        - Surplus = approx_fg_pts − (salary × 10). Positive = underpriced. Negative = overpaid. Cite the dollar figure (e.g. "+$74 surplus" or "−$41 surplus").
+        Value metrics — these are pre-computed paced values (season-to-date pts extrapolated to a full-season rate):
+        - PPD (Points Per Dollar, paced): fair=#{fair} (derived from actual league data), good=15+, elite=20+. Severely underpriced breakout players may show 50–150+ — cite the number as-is, it's correct.
+        - Surplus (paced pts÷#{fair} − salary): positive = underpriced, negative = overpaid. Cite the dollar figure (e.g. "+$74 surplus" or "−$41 surplus").
 
         FG pts are the verdict. Traditional stats are the explanation. Always connect them:
         - A high HR rate drives FG pts (HR = +9.4 each, the highest single-event value) — cite it when it explains a surplus.

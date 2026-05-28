@@ -2,7 +2,6 @@ class OttoneuFreeAgentsService
   CACHE_TTL       = 60.minutes
   AI_CANDIDATES   = 8    # sent to OpenAI — keep small
   SQL_LIMIT       = 120  # per position from warehouse
-  FAIR_PPD        = 10.0
 
   PROJ_BATTER_COLS  = "pa, hr, bb, sb, avg".freeze
   PROJ_PITCHER_COLS = "ip, k, bb, hr, sv, whip".freeze
@@ -179,7 +178,10 @@ class OttoneuFreeAgentsService
       actual_pts = row[:approx_fg_pts]
       proj       = projections[row[:fg_id].to_s]
       proj_pts   = proj&.dig(:projected_pts)
-      fair_value = actual_pts ? (actual_pts / FAIR_PPD).round(1) : nil
+      fair_ppd   = OttoneuLeagueStatsService.fair_ppd
+      sf         = season_frac
+      paced_pts  = (actual_pts && sf > 0) ? (actual_pts / sf) : actual_pts
+      fair_value = paced_pts ? (paced_pts / fair_ppd).round(1) : nil
 
       vs_projection =
         if actual_pts && proj_pts
@@ -200,6 +202,14 @@ class OttoneuFreeAgentsService
         projected_pts:     proj_pts,
         vs_projection:     vs_projection
       )
+    end
+
+    def season_frac
+      start_date = Date.new(Date.today.year, 3, 28)
+      end_date   = Date.new(Date.today.year, 10, 1)
+      elapsed    = [Date.today - start_date, 1].max.to_f
+      total      = (end_date - start_date).to_f
+      [elapsed / total, 1.0].min
     end
 
     def level_for(team_str)
@@ -262,6 +272,7 @@ class OttoneuFreeAgentsService
     end
 
     def system_prompt
+      fair = OttoneuLeagueStatsService.fair_ppd.round(1)
       <<~PROMPT
         You are a sharp Ottoneu fantasy baseball analyst. Return only valid JSON: { "factoids": ["string", ...] }.
 
@@ -273,7 +284,7 @@ class OttoneuFreeAgentsService
 
         Data you receive per player:
         - approx_fg_pts: season FG points to date (approximate)
-        - fair_value_salary: the max bid where PPD = 10.0 (break-even point). Bidding under this generates surplus.
+        - fair_value_salary: the max bid where PPD = #{fair} (derived from actual league data — break-even point). Bidding under this generates surplus.
         - projected_pts: full-season Steamer FG point projection
         - vs_projection: pts above/below full-season projection pace. Positive = outperforming (buy signal before market adjusts). Negative = underperforming.
 
@@ -282,8 +293,8 @@ class OttoneuFreeAgentsService
         - If cap_space is under $30, flag cost efficiency even more aggressively — expensive bids are off the table.
 
         Value framework:
-        - PPD = pts ÷ bid. Fair = 10. Good = 15+. Elite = 20+.
-        - Surplus = pts − (bid × 10). Positive = underpriced. Cite the dollar figure (e.g. "+$45 surplus at a $3 bid").
+        - PPD = pts ÷ bid. Fair = #{fair} (derived from actual league data). Good = 15+. Elite = 20+.
+        - Surplus = (pts ÷ #{fair}) − bid. Positive = underpriced. Cite the dollar figure (e.g. "+$45 surplus at a $3 bid").
         - Waiver claims are the best value — no bidding war, instant surplus at the listed salary. Always flag waiver players first.
 
         FG pts are the verdict. Traditional stats explain why. Always connect them in your factoids:

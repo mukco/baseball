@@ -14,8 +14,13 @@ module Api
     # GET /api/projections/accuracy/league?player_type=batter
     def league_accuracy
       player_type = params.fetch(:player_type, "batter")
-      result = ProjectionAccuracyService.league_accuracy(player_type:)
-      result[:error] ? render(json: result, status: :bad_gateway) : render(json: result)
+      cached = ProjectionAccuracyService.league_accuracy(player_type:)
+      if cached
+        render json: cached
+      else
+        ProjectionAccuracyJob.perform_later(player_type)
+        render json: { loading: true, message: "Accuracy data is being computed. Refresh in a moment." }
+      end
     end
 
     # GET /api/projections/leaderboard?run_id=X&player_type=batter&season=2024

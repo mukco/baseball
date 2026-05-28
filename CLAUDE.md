@@ -125,6 +125,51 @@ end
 - Always set `staleTime`: live game data 0–2 min, player stats 15 min, leaderboards 30+ min
 - Query keys follow the pattern `['resource-name', id, season, ...]`
 
+### Visual Language — Reuse First
+
+> Full design system reference: `system design/ui-design-system.md` — consult it before building any new UI.
+
+**Before building any new UI, find the closest existing component and copy its structure exactly.** Do not invent new layouts for things the app already renders.
+
+Key patterns to reuse:
+
+| What you're building | Copy from |
+|---|---|
+| **Non-compact player card** (trade target, FA rec, analysis result) | `PlayerCardHeader` — see below |
+| Compact list row (trade builder, stat tables, league stats list) | `TradeSidePlayerList` `PlayerRow` — w-9 avatar, name+pos left, `divide-x` columns right |
+| Single stat metric column | The `px-3 text-right min-w-[56px]` block: large number + small label + optional percentile bar |
+| Salary badge | `salaryBadge()` helper |
+| PPD color | `ppdColor()` helper |
+| Surplus color | inline: green ≥10, primary ≥0, amber ≥-10, red below |
+| Factoid / AI insight | `FactoidsPanel` |
+| Tab bar | `tab-active` / `tab-inactive` token classes |
+
+#### `PlayerCardHeader` — canonical non-compact player card
+
+Use `PlayerCardHeader` for **any player shown outside of a dense list** (trade target results, free-agent recommendations, compare cards, analysis cards, etc.). Never hand-roll a player card layout.
+
+```jsx
+<PlayerCardHeader
+  playerId={player.player_id}   // MLB ID for headshot
+  name={player.name}
+  mlbTeam={player.mlb_team}
+  positions={player.positions}
+  isPitcher={player.group === 'pitcher'}
+  warehouseStats={{ avg, ops }}           // or { era, fip, k_per_9 } for pitchers — optional
+  salary={player.salary}
+  pts={player.approx_fg_pts}
+  ppd={player.ppd}
+  surplus={player.surplus}
+  actions={<button>+ Trade</button>}      // optional right-side action slot
+/>
+```
+
+Renders: w-9 circular avatar · bold name · `mlbTeam · positions` · optional inline stat chips · `divide-x` salary/pts/PPD/surplus columns with percentile bars · optional `actions` slot.
+
+The `divide-x divide-bg-border/50` metrics block is the canonical way to show side-by-side stat columns. Every player list, picker, and card must use this pattern — not custom flex rows with ad-hoc spacing.
+
+When in doubt: open the existing page that looks most like what you need, read its JSX, and replicate the structure. Never approximate from memory.
+
 ### Components
 
 - `StatCard` for any single numeric stat — supports `percentile`, `progress`, `comparison`, and `invert` props

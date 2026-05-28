@@ -125,10 +125,10 @@ module Warehouse
 
       def fetch_fg_projections(stats:)
         conn = Faraday.new do |f|
-          f.request  :retry, max: 2, interval: 1.5
+          f.request  :retry, max: 1, interval: 0.5
           f.response :raise_error
-          f.options.timeout      = 60
-          f.options.open_timeout = 15
+          f.options.timeout      = 30
+          f.options.open_timeout = 10
           f.headers["User-Agent"] = "Mozilla/5.0 (compatible; StatlineBot/1.0)"
           f.headers["Accept"]     = "application/json, text/javascript, */*"
           f.headers["Referer"]    = "https://www.fangraphs.com/projections"

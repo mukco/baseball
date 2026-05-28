@@ -22,8 +22,9 @@ module Warehouse
     class << self
       def ingest!
         FileUtils.mkdir_p(base_dir)
-        seasons = (SEASONS_START..Date.today.year).to_a
-        all_rows = seasons.flat_map { |season| season_rows(season) }
+        FileUtils.mkdir_p(season_cache_dir)
+        current  = Date.today.year
+        all_rows = (SEASONS_START..current).flat_map { |s| fetch_or_cache_season(s, current) }
         write_csv(all_rows)
         Rails.logger.info("Warehouse::BatterIngester: wrote #{all_rows.size} rows")
         all_rows.size
@@ -39,12 +40,40 @@ module Warehouse
         Rails.root.join("tmp", "warehouse")
       end
 
+      def season_cache_dir
+        base_dir.join("season_cache")
+      end
+
+      # Historical seasons (before current year) are stable — load from JSON cache if present.
+      # Always re-fetch the current season.
+      def fetch_or_cache_season(season, current_season)
+        cache_file = season_cache_dir.join("batters_#{season}.json")
+        if season < current_season && cache_file.exist?
+          Rails.logger.info("Warehouse::BatterIngester: using cached #{season}")
+          JSON.parse(File.read(cache_file), symbolize_names: true)
+        else
+          rows = season_rows(season)
+          File.write(cache_file, JSON.generate(rows)) if rows.any?
+          rows
+        end
+      rescue => e
+        Rails.logger.warn("Warehouse::BatterIngester: cache read failed for #{season} (#{e.message}), re-fetching")
+        season_rows(season)
+      end
+
+      # Fetch the four independent FanGraphs / Savant endpoints concurrently.
       def season_rows(season)
         Rails.logger.info("Warehouse::BatterIngester: fetching #{season}")
-        rows   = fetch_fangraphs_batting(season)
-        disc   = fetch_fangraphs_discipline(season)
-        speeds = season >= BAT_SPEED_START ? fetch_savant_bat_speed(season) : {}
-        spray  = fetch_fangraphs_spray_direction(season)
+
+        rows_t   = Thread.new { fetch_fangraphs_batting(season) }
+        disc_t   = Thread.new { fetch_fangraphs_discipline(season) }
+        spray_t  = Thread.new { fetch_fangraphs_spray_direction(season) }
+        speeds_t = Thread.new { season >= BAT_SPEED_START ? fetch_savant_bat_speed(season) : {} }
+
+        rows   = rows_t.value
+        disc   = disc_t.value
+        spray  = spray_t.value
+        speeds = speeds_t.value
 
         disc_by_id   = disc.each_with_object({}) do |r, h|
           id = integer_or_nil(r["xMLBAMID"] || r["MLBID"])
@@ -134,10 +163,10 @@ module Warehouse
       end
 
       # Baseball Savant bat tracking leaderboard — available from 2024 onward.
-      # Returns a hash of { player_id (int) => bat_speed (float) }.
+      # Returns a hash of { player_id (int) => bat_speed_attrs }.
       def fetch_savant_bat_speed(season)
         conn = Faraday.new do |f|
-          f.request  :retry, max: 2, interval: 1.0
+          f.request  :retry, max: 1, interval: 0.5
           f.response :raise_error
           f.options.timeout      = 30
           f.options.open_timeout = 10
@@ -156,7 +185,6 @@ module Warehouse
         csv = CSV.parse(body, headers: true, liberal_parsing: true)
         csv.each_with_object({}) do |row, memo|
           h  = row.to_h.transform_keys(&:strip)
-          # Savant uses "id" as the player id column (not "player_id")
           id = integer_or_nil(h["id"] || h["player_id"])
           next unless id
           memo[id] = {
@@ -242,10 +270,10 @@ module Warehouse
 
       def fangraphs_conn
         Faraday.new do |f|
-          f.request  :retry, max: 2, interval: 1.5
+          f.request  :retry, max: 1, interval: 0.5
           f.response :raise_error
-          f.options.timeout      = 60
-          f.options.open_timeout = 15
+          f.options.timeout      = 30
+          f.options.open_timeout = 10
           f.headers["User-Agent"] = "Mozilla/5.0 (compatible; StatlineBot/1.0)"
           f.headers["Accept"]     = "application/json, text/javascript, */*"
           f.headers["Referer"]    = "https://www.fangraphs.com/leaders/major-league"

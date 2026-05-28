@@ -136,7 +136,7 @@ class OttoneuService
       prod_ok    = production.is_a?(Hash) && !production[:error]
 
       enriched = Array(data[:players]).map do |player|
-        prod = prod_ok ? production[player[:name]] : nil
+        prod = prod_ok ? production[player[:name].to_s.downcase.strip] : nil
         il   = il_status[player[:name]] || {}
         player
           .merge(prod ? { season_points: prod[:season_points], pts_per_game: prod[:pts_per_game] } : {})
@@ -372,7 +372,7 @@ class OttoneuService
 
           float_cells = cells.filter_map { |c| Float(c, exception: false) }.last(3)
 
-          production[cells[0]] = {
+          production[name_cell] = {
             season_points: float_cells[-1] || 0.0,
             pts_per_game:  float_cells[-2] || 0.0
           }

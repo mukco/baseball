@@ -16,8 +16,9 @@ module Warehouse
     class << self
       def ingest!
         FileUtils.mkdir_p(base_dir)
-        seasons = (SEASONS_START..Date.today.year).to_a
-        all_rows = seasons.flat_map { |season| season_rows(season) }
+        FileUtils.mkdir_p(season_cache_dir)
+        current  = Date.today.year
+        all_rows = (SEASONS_START..current).flat_map { |s| fetch_or_cache_season(s, current) }
         write_csv(all_rows)
         Rails.logger.info("Warehouse::PitcherIngester: wrote #{all_rows.size} rows")
         all_rows.size
@@ -31,6 +32,25 @@ module Warehouse
 
       def base_dir
         Rails.root.join("tmp", "warehouse")
+      end
+
+      def season_cache_dir
+        base_dir.join("season_cache")
+      end
+
+      def fetch_or_cache_season(season, current_season)
+        cache_file = season_cache_dir.join("pitchers_#{season}.json")
+        if season < current_season && cache_file.exist?
+          Rails.logger.info("Warehouse::PitcherIngester: using cached #{season}")
+          JSON.parse(File.read(cache_file), symbolize_names: true)
+        else
+          rows = season_rows(season)
+          File.write(cache_file, JSON.generate(rows)) if rows.any?
+          rows
+        end
+      rescue => e
+        Rails.logger.warn("Warehouse::PitcherIngester: cache read failed for #{season} (#{e.message}), re-fetching")
+        season_rows(season)
       end
 
       def season_rows(season)
@@ -106,10 +126,10 @@ module Warehouse
 
       def fangraphs_conn
         Faraday.new do |f|
-          f.request  :retry, max: 2, interval: 1.5
+          f.request  :retry, max: 1, interval: 0.5
           f.response :raise_error
-          f.options.timeout      = 60
-          f.options.open_timeout = 15
+          f.options.timeout      = 30
+          f.options.open_timeout = 10
           f.headers["User-Agent"] = "Mozilla/5.0 (compatible; StatlineBot/1.0)"
           f.headers["Accept"]     = "application/json, text/javascript, */*"
           f.headers["Referer"]    = "https://www.fangraphs.com/leaders/major-league"

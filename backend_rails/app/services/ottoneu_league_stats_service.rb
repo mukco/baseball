@@ -1,5 +1,6 @@
 class OttoneuLeagueStatsService
-  FAIR_PPD = 10.0
+  FAIR_PPD_FALLBACK  = 10.0
+  FAIR_PPD_CACHE_KEY = "ottoneu_fair_ppd".freeze
 
   BATTER_CORE  = "CAST(fg_id AS VARCHAR) AS fg_id, player_id, name, avg, obp, slg, ops, woba, wrc_plus, ab, h, hr, bb, sb".freeze
   PITCHER_CORE = "CAST(fg_id AS VARCHAR) AS fg_id, player_id, name, era, fip, k_pct, whip, k_per_9, ip, k, h, bb, hr, sv".freeze
@@ -16,11 +17,25 @@ class OttoneuLeagueStatsService
   class << self
     def call(refresh: false)
       cache_key = "ottoneu_league_stats"
-      Rails.cache.delete(cache_key) if refresh
+      if refresh
+        Rails.cache.delete(cache_key)
+        Rails.cache.delete(FAIR_PPD_CACHE_KEY)
+      end
       Rails.cache.fetch(cache_key, expires_in: CACHE_TTL) { generate }
     rescue => e
       Rails.logger.warn("OttoneuLeagueStatsService: #{e.message}")
       []
+    end
+
+    # Derived from actual rostered players: total paced pts / total salary.
+    # Populated as a side effect of call; falls back to FAIR_PPD_FALLBACK if
+    # league data hasn't loaded yet.
+    def fair_ppd
+      cached = Rails.cache.read(FAIR_PPD_CACHE_KEY)
+      return cached if cached
+
+      call  # populates FAIR_PPD_CACHE_KEY as a side effect
+      Rails.cache.read(FAIR_PPD_CACHE_KEY) || FAIR_PPD_FALLBACK
     end
 
     private
@@ -62,17 +77,17 @@ class OttoneuLeagueStatsService
       bat_rows.each do |r|
         roster = salary_map[r[:fg_id].to_s] || {}
         next if roster.empty?
-        pts    = approx_batter_pts(r)
-        salary = roster[:salary]
-        results << build_row(r, :batter, pts, salary, roster)
+        pts = approx_batter_pts(r)
+        next if pts.nil?  # skip pitchers with 0 AB who appear in the batters table
+        results << build_row(r, :batter, pts, roster[:salary], roster)
       end
 
       pit_rows.each do |r|
         roster = salary_map[r[:fg_id].to_s] || {}
         next if roster.empty?
-        pts    = approx_pitcher_pts(r)
-        salary = roster[:salary]
-        results << build_row(r, :pitcher, pts, salary, roster)
+        pts = approx_pitcher_pts(r)
+        next if pts.nil?  # skip position players with 0 IP who appear in the pitchers table
+        results << build_row(r, :pitcher, pts, roster[:salary], roster)
       end
 
       # Free agents — top unrostered players from the warehouse
@@ -101,17 +116,44 @@ class OttoneuLeagueStatsService
         results << build_row(r, :pitcher, pts, nil, { roster_team: nil, salary: nil, positions: nil, mlb_team: r[:team].to_s })
       end
 
-      # Final dedup: a two-way player can appear in both bat and pit queries.
-      # Deduplicate within each group so no fg_id appears twice as 'batter' or twice as 'pitcher'.
-      results
+      # Dedup: a two-way player can appear in both bat and pit queries.
+      deduped = results
         .group_by { |r| "#{r[:fg_id]}_#{r[:group]}" }
         .map { |_, dupes| dupes.find { |e| e[:approx_fg_pts] } || dupes.first }
         .sort_by { |r| -(r[:approx_fg_pts] || 0) }
+
+      # Derive fair PPD from actual rostered data and write to its own cache key.
+      sf = season_frac
+      rostered = deduped.select { |r| r[:salary].to_i > 0 && r[:approx_fg_pts] }
+      derived_fair_ppd =
+        if rostered.any?
+          paced_total  = rostered.sum { |r| sf > 0 ? r[:approx_fg_pts].to_f / sf : r[:approx_fg_pts].to_f }
+          salary_total = rostered.sum { |r| r[:salary].to_i }
+          salary_total > 0 ? (paced_total / salary_total.to_f).round(2) : FAIR_PPD_FALLBACK
+        else
+          FAIR_PPD_FALLBACK
+        end
+      Rails.cache.write(FAIR_PPD_CACHE_KEY, derived_fair_ppd, expires_in: CACHE_TTL)
+
+      # Second pass: recalculate surplus, ppd_plus, and fair_value_salary using the derived fair PPD.
+      deduped.map do |r|
+        next r unless r[:approx_fg_pts] && r[:salary].to_i > 0
+        paced            = sf > 0 ? r[:approx_fg_pts].to_f / sf : r[:approx_fg_pts].to_f
+        ppd_plus         = r[:ppd] ? (r[:ppd] / derived_fair_ppd * 100).round(0) : nil
+        fair_value_salary = (paced / derived_fair_ppd).round(1)
+        r.merge(
+          surplus:           (paced / derived_fair_ppd - r[:salary]).round(1),
+          ppd_plus:          ppd_plus,
+          fair_value_salary: fair_value_salary
+        )
+      end
     end
 
     def build_row(r, group, pts, salary, roster)
-      ppd     = (pts && salary && salary > 0) ? (pts / salary.to_f).round(2) : nil
-      surplus = (pts && salary)               ? ((pts - salary * FAIR_PPD).round(1)) : nil
+      sf      = season_frac
+      paced   = (pts && sf > 0) ? (pts / sf) : pts
+      ppd     = (paced && salary && salary > 0) ? (paced / salary.to_f).round(2) : nil
+      surplus = (paced && salary)               ? (paced / FAIR_PPD_FALLBACK - salary).round(1) : nil
       r.merge(
         group:         group.to_s,
         approx_fg_pts: pts,
@@ -177,6 +219,14 @@ class OttoneuLeagueStatsService
 
     def current_season
       Date.today.year
+    end
+
+    def season_frac
+      start_date = Date.new(Date.today.year, 3, 28)
+      end_date   = Date.new(Date.today.year, 10, 1)
+      elapsed    = [Date.today - start_date, 1].max.to_f
+      total      = (end_date - start_date).to_f
+      [elapsed / total, 1.0].min
     end
   end
 end
