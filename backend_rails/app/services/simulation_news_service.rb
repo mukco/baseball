@@ -126,7 +126,7 @@ class SimulationNewsService
     def call_openai(date, games_count, events)
       system_prompt = <<~PROMPT.strip
         You are a newspaper editor covering a simulated MLB season.
-        Given notable events from today's games, write a brief daily digest.
+        Given notable events from today's games, write a brief Stat Blast.
         Treat the simulation as real. Return ONLY valid JSON:
         {"headline":"one-sentence day summary","stories":[{"headline":"...","body":"1-2 sentences"}]}
         Rules:

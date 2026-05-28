@@ -102,7 +102,7 @@ Full game-by-game simulation engine driven by FanGraphs projections.
 
 ### News & Content
 - Live MLB news feed
-- Daily AI-generated digest of previous day's action
+- AI-generated Stat Blast summary of previous day's action
 - Recent MLB transactions feed
 - Gambling picks with AI analysis of daily odds
 
@@ -222,7 +222,7 @@ YAHOO_REDIRECT_URI=https://xxxx.loca.lt/api/yahoo/callback
 OTTONEU_LEAGUE_ID=...   # Numeric league ID from your Ottoneu URL
 ```
 
-- **`OPENAI_API_KEY`** — Used by the AI assistant, game insights, factoids, daily digest, picks, simulation news/awards/insights, and the ML Builder assistant. All calls logged to `log/openai_requests.jsonl`.
+- **`OPENAI_API_KEY`** — Used by the AI assistant, game insights, factoids, Stat Blast, picks, simulation news/awards/insights, and the ML Builder assistant. All calls logged to `log/openai_requests.jsonl`.
 - **`YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`** — Yahoo OAuth 2.0. See setup section below.
 - **`YAHOO_LEAGUE_ID`** — Numeric ID from your league URL.
 - **`OTTONEU_LEAGUE_ID`** — Numeric ID from your Ottoneu league URL. Used for all Ottoneu scraping.
@@ -405,7 +405,7 @@ Regression: R², RMSE, MAE. Classification: accuracy, F1, precision, recall, con
 | `/prospects` | Top-100 prospects |
 | `/gambling` | Daily odds + AI picks |
 | `/news` | MLB news |
-| `/digest` | AI daily summary |
+| `/digest` | Stat Blast — AI daily summary |
 | `/transactions` | Recent transactions |
 | `/live` | MLB.TV stream links |
 | `/stats-reference` | Sabermetric glossary |

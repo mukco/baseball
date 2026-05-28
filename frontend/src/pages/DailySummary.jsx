@@ -141,7 +141,7 @@ export default function DailySummary() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[32px] font-semibold tracking-[-0.02em] text-content-primary">Daily Digest</h1>
+          <h1 className="text-[32px] font-semibold tracking-[-0.02em] text-content-primary">Stat Blast</h1>
           <p className="text-sm text-content-muted mt-1">
             {format(new Date(), 'EEEE, MMMM d, yyyy')}
           </p>

@@ -142,7 +142,7 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
 
     const NEWS_ITEMS = [
       { to: '/news',         label: 'News'         },
-      { to: '/digest',       label: 'Digest'       },
+      { to: '/digest',       label: 'Stat Blast'   },
       { to: '/transactions', label: 'Transactions' },
       { to: '/gambling',     label: 'Picks'        },
     ]
@@ -351,7 +351,7 @@ export default function Navbar({ theme = 'light', onToggleTheme, assistantOpen =
 
           {drawerSection('News')}
           {mobileLink('/news',         'News'        )}
-          {mobileLink('/digest',       'Digest'      )}
+          {mobileLink('/digest',       'Stat Blast'  )}
           {mobileLink('/transactions', 'Transactions')}
           {mobileLink('/gambling',     'Picks'       )}
 
