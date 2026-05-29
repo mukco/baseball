@@ -67,19 +67,21 @@ class OttoneuPlayerStatsService
       []
     end
 
-    def fetch(fg_ids: [], names: [], player_ids: [])
+    def fetch(fg_ids: [], names: [], player_ids: [], fg_minor_ids: [])
       return [] unless Warehouse::Manager.exists?
 
-      fg_ids     = Array(fg_ids).compact.map(&:to_s).reject(&:blank?).sort
-      names      = Array(names).compact.map(&:to_s).reject(&:blank?).sort
-      player_ids = Array(player_ids).compact.map(&:to_i).reject(&:zero?).sort
+      fg_ids       = Array(fg_ids).compact.map(&:to_s).reject(&:blank?).sort
+      names        = Array(names).compact.map(&:to_s).reject(&:blank?).sort
+      player_ids   = Array(player_ids).compact.map(&:to_i).reject(&:zero?).sort
+      fg_minor_ids = Array(fg_minor_ids).compact.map(&:to_s).reject(&:blank?).sort
 
-      cache_key = "ottoneu_player_stats:#{Digest::MD5.hexdigest("#{fg_ids.join('|')}::#{names.join('|')}::#{player_ids.join('|')}")}"
+      cache_key = "ottoneu_player_stats:#{Digest::MD5.hexdigest("#{fg_ids.join('|')}::#{names.join('|')}::#{player_ids.join('|')}::#{fg_minor_ids.join('|')}")}"
       Rails.cache.fetch(cache_key, expires_in: CACHE_TTL) do
         results = []
-        results += fetch_by_fg_ids(fg_ids)       if fg_ids.any?
-        results += fetch_by_player_ids(player_ids) if player_ids.any?
-        results += fetch_by_names(names)           if names.any?
+        results += fetch_by_fg_ids(fg_ids)           if fg_ids.any?
+        results += fetch_by_player_ids(player_ids)   if player_ids.any?
+        results += fetch_by_names(names)             if names.any?
+        results += fetch_by_minor_ids(fg_minor_ids)  if fg_minor_ids.any?
         merge_results(results)
       end
     rescue => e
@@ -126,6 +128,17 @@ class OttoneuPlayerStatsService
       bat = run("SELECT #{batter_cols}  FROM batters  WHERE season = #{current_season} AND name IN (#{quoted})")
       pit = run("SELECT #{pitcher_cols} FROM pitchers WHERE season = #{current_season} AND name IN (#{quoted})")
       merge_results(shape(bat, :batter) + shape(pit, :pitcher))
+    end
+
+    def fetch_by_minor_ids(ids)
+      return [] unless Warehouse::Manager.table_columns("minor_leaguers").any?
+      quoted = ids.map { |id| "'#{id.gsub("'", "''")}'" }.join(", ")
+      rows   = run("SELECT * FROM minor_leaguers WHERE season = #{current_season} AND fg_minor_id IN (#{quoted})")
+      rows.map do |r|
+        group = r[:group].to_s == "pitcher" ? :pitcher : :batter
+        pts   = group == :pitcher ? approx_pitcher_fg_pts(r) : approx_batter_fg_pts(r)
+        r.merge(fg_id: nil, group: "minor_leaguer", approx_fg_pts: pts)
+      end
     end
 
     # When a player appears in both tables (e.g., a pitcher with a pinch-hit PA),

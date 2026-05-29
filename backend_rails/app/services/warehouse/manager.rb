@@ -27,12 +27,14 @@ module Warehouse
         proj_t    = Thread.new { Warehouse::FgProjectionIngester.ingest! }
         team_t    = Thread.new { Warehouse::TeamIngester.ingest! }
         ottoneu_t = Thread.new { Warehouse::OttoneuSalaryIngester.ingest! }
+        milb_t    = Thread.new { Warehouse::MiLBIngester.ingest! }
 
         batter_count  = batter_t.value
         pitcher_count = pitcher_t.value
         proj_counts   = proj_t.value
         team_counts   = team_t.value
         ottoneu_count = ottoneu_t.value
+        milb_count    = milb_t.value
 
         build_duckdb!
         reset_column_cache!
@@ -54,6 +56,7 @@ module Warehouse
           sim_standing_rows:    sim_counts[:team_standings],
           sim_season_rows:      sim_counts[:season_log],
           ottoneu_salary_rows:  ottoneu_count,
+          milb_rows:            milb_count,
           duration_s:           (Time.now - started).round(1),
           schema_fingerprint:   schema_fingerprint,
         }
@@ -129,6 +132,7 @@ module Warehouse
           SIM_TEAM_STANDINGS_COLUMNS,
           SIM_SEASON_LOG_COLUMNS,
           Warehouse::OttoneuSalaryIngester::COLUMNS,
+          Warehouse::MiLBIngester::COLUMNS,
         ].map { |cols| cols.join(",") }.join("|")
         Digest::MD5.hexdigest(parts)[0, 8]
       end
@@ -176,6 +180,7 @@ module Warehouse
             sim_team_standings:      Warehouse::SimulationIngester.team_standings_csv_path.to_s,
             sim_season_log:          Warehouse::SimulationIngester.season_log_csv_path.to_s,
             ottoneu_salaries:        Warehouse::OttoneuSalaryIngester.csv_path.to_s,
+            minor_leaguers:          Warehouse::MiLBIngester.csv_path.to_s,
           }
         })
 

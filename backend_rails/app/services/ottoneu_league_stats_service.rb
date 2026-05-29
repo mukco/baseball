@@ -46,65 +46,81 @@ class OttoneuLeagueStatsService
       return [] if rosters.blank?
       return [] unless Warehouse::Manager.exists?
 
-      salary_map = {}
+      salary_map       = {}
+      minor_salary_map = {}
       Array(rosters).each do |team|
         Array(team[:players]).each do |player|
-          fid = player[:fg_id].to_s.strip
-          next if fid.blank?
-          salary_map[fid] = {
+          fid  = player[:fg_id].to_s.strip
+          fmid = player[:fg_minor_id].to_s.strip
+          entry = {
             roster_team: team[:team_name].to_s,
             salary:      player[:salary].to_i,
             positions:   player[:positions].to_s,
             mlb_team:    player[:mlb_team].to_s,
           }
+          if fid.present?
+            salary_map[fid] = entry
+          elsif fmid.present?
+            minor_salary_map[fmid] = entry
+          end
         end
       end
 
-      return [] if salary_map.empty?
+      return [] if salary_map.empty? && minor_salary_map.empty?
 
-      fg_ids = salary_map.keys
-      quoted = fg_ids.map { |id| "'#{id.gsub("'", "''")}'" }.join(", ")
-      lim    = [fg_ids.size + 50, 600].max
+      fg_ids   = salary_map.keys
+      results  = []
 
-      bat_cols = batter_cols
-      pit_cols = pitcher_cols
+      if fg_ids.any?
+        quoted   = fg_ids.map { |id| "'#{id.gsub("'", "''")}'" }.join(", ")
+        lim      = [fg_ids.size + 50, 600].max
+        bat_cols = batter_cols
+        pit_cols = pitcher_cols
 
-      bat_rows = dedup_by_fg_id(run("SELECT #{bat_cols}  FROM batters  WHERE season = #{current_season} AND fg_id IN (#{quoted})", lim), :ab)
-      pit_rows = dedup_by_fg_id(run("SELECT #{pit_cols} FROM pitchers WHERE season = #{current_season} AND fg_id IN (#{quoted})", lim), :ip)
+        bat_rows = dedup_by_fg_id(run("SELECT #{bat_cols}  FROM batters  WHERE season = #{current_season} AND fg_id IN (#{quoted})", lim), :ab)
+        pit_rows = dedup_by_fg_id(run("SELECT #{pit_cols} FROM pitchers WHERE season = #{current_season} AND fg_id IN (#{quoted})", lim), :ip)
 
-      results = []
+        bat_rows.each do |r|
+          roster = salary_map[r[:fg_id].to_s] || {}
+          next if roster.empty?
+          pts = approx_batter_pts(r)
+          next if pts.nil?
+          results << build_row(r, :batter, pts, roster[:salary], roster)
+        end
 
-      bat_rows.each do |r|
-        roster = salary_map[r[:fg_id].to_s] || {}
-        next if roster.empty?
-        pts = approx_batter_pts(r)
-        next if pts.nil?  # skip pitchers with 0 AB who appear in the batters table
-        results << build_row(r, :batter, pts, roster[:salary], roster)
-      end
-
-      pit_rows.each do |r|
-        roster = salary_map[r[:fg_id].to_s] || {}
-        next if roster.empty?
-        pts = approx_pitcher_pts(r)
-        next if pts.nil?  # skip position players with 0 IP who appear in the pitchers table
-        results << build_row(r, :pitcher, pts, roster[:salary], roster)
+        pit_rows.each do |r|
+          roster = salary_map[r[:fg_id].to_s] || {}
+          next if roster.empty?
+          pts = approx_pitcher_pts(r)
+          next if pts.nil?
+          results << build_row(r, :pitcher, pts, roster[:salary], roster)
+        end
       end
 
       # Free agents — top unrostered players from the warehouse
-      excl_clause = "AND CAST(fg_id AS VARCHAR) NOT IN (#{quoted})"
       minor_excl  = "AND team NOT LIKE '%AAA%' AND team NOT LIKE '%AA%' AND team NOT LIKE '%A+%' AND team NOT LIKE '%A-%'"
 
-      fa_bat = dedup_by_fg_id(run(<<~SQL.squish, FA_BATTER_LIMIT), :ab)
-        SELECT #{bat_cols}, team FROM batters
-        WHERE season = #{current_season} AND fg_id IS NOT NULL #{minor_excl} #{excl_clause}
-        ORDER BY woba DESC NULLS LAST LIMIT #{FA_BATTER_LIMIT}
-      SQL
+      if fg_ids.any?
+        bat_cols_fa  = batter_cols
+        pit_cols_fa  = pitcher_cols
+        quoted_fa    = fg_ids.map { |id| "'#{id.gsub("'", "''")}'" }.join(", ")
+        excl_clause  = "AND CAST(fg_id AS VARCHAR) NOT IN (#{quoted_fa})"
 
-      fa_pit = dedup_by_fg_id(run(<<~SQL.squish, FA_PITCHER_LIMIT), :ip)
-        SELECT #{pit_cols}, team FROM pitchers
-        WHERE season = #{current_season} AND fg_id IS NOT NULL #{minor_excl} #{excl_clause}
-        ORDER BY fip ASC NULLS LAST LIMIT #{FA_PITCHER_LIMIT}
-      SQL
+        fa_bat = dedup_by_fg_id(run(<<~SQL.squish, FA_BATTER_LIMIT), :ab)
+          SELECT #{bat_cols_fa}, team FROM batters
+          WHERE season = #{current_season} AND fg_id IS NOT NULL #{minor_excl} #{excl_clause}
+          ORDER BY woba DESC NULLS LAST LIMIT #{FA_BATTER_LIMIT}
+        SQL
+
+        fa_pit = dedup_by_fg_id(run(<<~SQL.squish, FA_PITCHER_LIMIT), :ip)
+          SELECT #{pit_cols_fa}, team FROM pitchers
+          WHERE season = #{current_season} AND fg_id IS NOT NULL #{minor_excl} #{excl_clause}
+          ORDER BY fip ASC NULLS LAST LIMIT #{FA_PITCHER_LIMIT}
+        SQL
+      else
+        fa_bat = []
+        fa_pit = []
+      end
 
       fa_bat.each do |r|
         pts = approx_batter_pts(r)
@@ -116,9 +132,22 @@ class OttoneuLeagueStatsService
         results << build_row(r, :pitcher, pts, nil, { roster_team: nil, salary: nil, positions: nil, mlb_team: r[:team].to_s })
       end
 
+      # Rostered minor leaguers — stats from minor_leaguers table keyed by fg_minor_id.
+      if minor_salary_map.any? && Warehouse::Manager.table_columns("minor_leaguers").any?
+        quoted_minor = minor_salary_map.keys.map { |id| "'#{id.gsub("'", "''")}'" }.join(", ")
+        milb_rows    = run("SELECT * FROM minor_leaguers WHERE season = #{current_season} AND fg_minor_id IN (#{quoted_minor})", minor_salary_map.size + 10)
+
+        milb_rows.each do |r|
+          roster = minor_salary_map[r[:fg_minor_id].to_s] || {}
+          next if roster.empty?
+          pts = r[:group].to_s == "pitcher" ? approx_pitcher_pts(r) : approx_batter_pts(r)
+          results << build_minor_row(r, pts, roster[:salary], roster)
+        end
+      end
+
       # Dedup: a two-way player can appear in both bat and pit queries.
       deduped = results
-        .group_by { |r| "#{r[:fg_id]}_#{r[:group]}" }
+        .group_by { |r| "#{r[:fg_id].presence || r[:fg_minor_id]}_#{r[:group]}" }
         .map { |_, dupes| dupes.find { |e| e[:approx_fg_pts] } || dupes.first }
         .sort_by { |r| -(r[:approx_fg_pts] || 0) }
 
@@ -164,6 +193,33 @@ class OttoneuLeagueStatsService
         positions:     roster[:positions],
         mlb_team:      roster[:mlb_team],
       )
+    end
+
+    def build_minor_row(r, pts, salary, roster)
+      {
+        fg_id:         nil,
+        fg_minor_id:   r[:fg_minor_id].to_s,
+        name:          r[:name].to_s,
+        group:         "minor_leaguer",
+        approx_fg_pts: pts,
+        ppd:           nil,
+        surplus:       nil,
+        roster_team:   roster[:roster_team],
+        salary:        salary,
+        positions:     roster[:positions],
+        mlb_team:      roster[:mlb_team].to_s,
+        level:         r[:level].to_s,
+        avg:           r[:avg],
+        obp:           r[:obp],
+        slg:           r[:slg],
+        ops:           r[:ops],
+        hr:            r[:hr],
+        sb:            r[:sb],
+        ip:            r[:ip],
+        era:           r[:era],
+        fip:           r[:fip],
+        whip:          r[:whip],
+      }
     end
 
     # FanGraphs returns one row per team stint for traded players plus a combined row.

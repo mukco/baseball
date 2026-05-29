@@ -19,13 +19,15 @@ class OttoneuPlayerAnalysisService
     private
 
     def generate(fg_id:, player_id:, name:)
-      stats = OttoneuPlayerStatsService.fetch(
-        fg_ids:     [fg_id].compact.reject(&:blank?),
-        player_ids: [player_id].compact.reject(&:blank?),
-        names:      (fg_id.blank? && player_id.blank?) ? [name].compact : []
-      ).first
-
       roster_entry, owner_team = find_in_all_rosters(fg_id: fg_id, name: name)
+      fg_minor_id = roster_entry&.dig(:fg_minor_id)
+
+      stats = OttoneuPlayerStatsService.fetch(
+        fg_ids:       [fg_id].compact.reject(&:blank?),
+        player_ids:   [player_id].compact.reject(&:blank?),
+        fg_minor_ids: (fg_id.blank? && player_id.blank? && fg_minor_id.present?) ? [fg_minor_id] : [],
+        names:        (fg_id.blank? && player_id.blank? && fg_minor_id.blank?) ? [name].compact : []
+      ).first
       on_my_team = owner_team.to_s.include?(MY_TEAM_NAME)
 
       cap    = on_my_team ? OttoneuService.cap_overview : nil

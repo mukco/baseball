@@ -879,7 +879,7 @@ class AssistantService
         - get_fantasy_free_agents — league-aware free-agent candidates with AI recommendations. Only works if Yahoo is connected.
 
         **Fantasy (Ottoneu — always available):**
-        - get_ottoneu_roster — full Dingers and Dugouts roster with salary, positions, MLB team, season FG pts, and MLB IL status. Use for cap questions, overpaid/underpaid analysis, IL stashes, and trade targets.
+        - get_ottoneu_roster — full Dingers and Dugouts roster with salary, positions, MLB team, season FG pts, and MLB IL status. Includes rostered minor leaguers (group: "minor_leaguer") with their MiLB stats and level (AA, A+, etc.) — treat them as stash assets, no PPD/surplus. Use for cap questions, overpaid/underpaid analysis, IL stashes, and trade targets.
         - get_ottoneu_standings — league standings with record, total points, avg pts scored/against.
         - get_ottoneu_transactions — active auctions (current bid, deadline) and waiver claims in progress.
         - get_ottoneu_free_agents — players not rostered by any team in the league, with stats, projected FG pts, fair value salary, and AI pickup recommendations. Use for "who should I pick up", "best available", or "is X a free agent in Ottoneu".

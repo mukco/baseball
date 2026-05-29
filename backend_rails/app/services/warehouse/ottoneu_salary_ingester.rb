@@ -5,7 +5,7 @@ module Warehouse
   class OttoneuSalaryIngester
     COLUMNS = %w[
       season ottoneu_league_id ottoneu_team_id team_name
-      ottoneu_id fg_id player_name mlb_team positions salary
+      ottoneu_id fg_id fg_minor_id player_name mlb_team positions salary
     ].freeze
 
     class << self
@@ -31,6 +31,7 @@ module Warehouse
               "team_name"         => team[:team_name].to_s,
               "ottoneu_id"        => player[:ottoneu_id].to_s,
               "fg_id"             => player[:fg_id].to_s,
+              "fg_minor_id"       => player[:fg_minor_id].to_s,
               "player_name"       => player[:name].to_s,
               "mlb_team"          => player[:mlb_team].to_s,
               "positions"         => player[:positions].to_s,

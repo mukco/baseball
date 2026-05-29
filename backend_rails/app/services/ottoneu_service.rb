@@ -194,12 +194,13 @@ class OttoneuService
         }
 
         teams[tid][:players] << {
-          name:       normalized["Name"].to_s.strip,
-          ottoneu_id: normalized["ottoneu ID"].to_s.strip,
-          fg_id:      normalized["FG MajorLeagueID"].to_s.strip.presence,
-          mlb_team:   normalized["MLB Team"].to_s.strip,
-          positions:  normalized["Position(s)"].to_s.strip,
-          salary:     normalized["Salary"].to_s.delete("$").to_i
+          name:         normalized["Name"].to_s.strip,
+          ottoneu_id:   normalized["ottoneu ID"].to_s.strip,
+          fg_id:        normalized["FG MajorLeagueID"].to_s.strip.presence,
+          fg_minor_id:  normalized["FG MinorLeagueID"].to_s.strip.presence,
+          mlb_team:     normalized["MLB Team"].to_s.strip,
+          positions:    normalized["Position(s)"].to_s.strip,
+          salary:       normalized["Salary"].to_s.delete("$").to_i
         }
       end
 

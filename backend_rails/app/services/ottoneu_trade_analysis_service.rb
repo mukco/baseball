@@ -63,12 +63,12 @@ class OttoneuTradeAnalysisService
       map = {}
       Array(OttoneuService.all_rosters).each do |team|
         Array(team[:players]).each do |p|
-          next if p[:fg_id].blank?
-          map[p[:fg_id].to_s] = {
-            salary:      p[:salary].to_i,
-            roster_team: team[:team_name],
-            positions:   p[:positions]
-          }
+          entry = { salary: p[:salary].to_i, roster_team: team[:team_name], positions: p[:positions] }
+          if p[:fg_id].present?
+            map[p[:fg_id].to_s] = entry
+          elsif p[:fg_minor_id].present?
+            map[p[:fg_minor_id].to_s] = entry
+          end
         end
       end
       map
