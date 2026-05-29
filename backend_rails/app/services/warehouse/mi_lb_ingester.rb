@@ -24,7 +24,7 @@ module Warehouse
         end
 
         season   = Date.today.year
-        all_rows = prospects.filter_map { |p| fetch_player_row(p, season) }
+        all_rows = prospects.filter_map { |p| fetch_player_row(p[:fg_minor_id], p[:name], p[:positions], season) }
 
         write_csv(all_rows)
         Rails.logger.info("Warehouse::MiLBIngester: wrote #{all_rows.size} rows for #{prospects.size} rostered prospects")
@@ -59,11 +59,10 @@ module Warehouse
 
       # Fetch batting or pitching stats for a single player via FanGraphs per-player API.
       # Prefers the combined "MiLB" row; falls back to the highest level with AB/IP data.
-      def fetch_player_row(player, season)
-        fg_minor_id = player[:fg_minor_id]
-        is_pitcher  = player[:positions].to_s.match?(/\bP\b|SP|RP|CP/)
-        stats_type  = is_pitcher ? "pit" : "bat"
-        position    = is_pitcher ? "P" : "NP"
+      def fetch_player_row(fg_minor_id, player_name, positions, season)
+        is_pitcher = positions.to_s.match?(/\bP\b|SP|RP|CP/)
+        stats_type = is_pitcher ? "pit" : "bat"
+        position   = is_pitcher ? "P" : "NP"
 
         resp = fg_conn.get("https://www.fangraphs.com/api/players/stats", {
           playerid: fg_minor_id,
@@ -86,16 +85,16 @@ module Warehouse
         row = rows.find { |r| r["AbbLevel"] == "MiLB" } ||
               rows.max_by { |r| LEVEL_PRIORITY[r["AbbLevel"].to_s] || 0 }
 
-        is_pitcher ? build_pitcher_row(row, fg_minor_id, season) : build_batter_row(row, fg_minor_id, season)
+        is_pitcher ? build_pitcher_row(row, fg_minor_id, player_name, season) : build_batter_row(row, fg_minor_id, player_name, season)
       rescue => e
-        Rails.logger.warn("Warehouse::MiLBIngester: #{player[:name]} (#{player[:fg_minor_id]}) — #{e.message}")
+        Rails.logger.warn("Warehouse::MiLBIngester: #{player_name} (#{fg_minor_id}) — #{e.message}")
         nil
       end
 
-      def build_batter_row(r, fg_minor_id, season)
+      def build_batter_row(r, fg_minor_id, player_name, season)
         {
           "fg_minor_id" => fg_minor_id,
-          "name"        => r["name"].to_s.presence || extract_name(r),
+          "name"        => player_name,
           "mlb_team"    => r["AbbName"].to_s,
           "level"       => r["AbbLevel"].to_s,
           "season"      => season,
@@ -120,10 +119,10 @@ module Warehouse
         }
       end
 
-      def build_pitcher_row(r, fg_minor_id, season)
+      def build_pitcher_row(r, fg_minor_id, player_name, season)
         {
           "fg_minor_id" => fg_minor_id,
-          "name"        => r["name"].to_s.presence || extract_name(r),
+          "name"        => player_name,
           "mlb_team"    => r["AbbName"].to_s,
           "level"       => r["AbbLevel"].to_s,
           "season"      => season,
@@ -146,11 +145,6 @@ module Warehouse
           "fip"         => r["FIP"],
           "whip"        => r["WHIP"]
         }
-      end
-
-      # The per-player API doesn't always return a "name" field; strip HTML from ateam if needed.
-      def extract_name(r)
-        r["ateam"].to_s.gsub(/<[^>]+>/, "").strip
       end
 
       def fg_conn
