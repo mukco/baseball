@@ -10,24 +10,24 @@ module Warehouse
       ip k sv era fip whip
     ].freeze
 
+    LEVEL_PRIORITY = { "AAA" => 6, "AA" => 5, "A+" => 4, "A" => 3, "A-" => 2, "R" => 1 }.freeze
+
     class << self
       def ingest!
         FileUtils.mkdir_p(base_dir)
 
-        target_ids = rostered_minor_ids
-        if target_ids.empty?
+        prospects = rostered_minor_leaguers
+        if prospects.empty?
           write_csv([])
           Rails.logger.info("Warehouse::MiLBIngester: no rostered minor leaguers, wrote 0 rows")
           return 0
         end
 
         season   = Date.today.year
-        bat_rows = fetch_fg_minor(season, "bat", target_ids)
-        pit_rows = fetch_fg_minor(season, "pit", target_ids)
-        all_rows = bat_rows + pit_rows
+        all_rows = prospects.filter_map { |p| fetch_player_row(p, season) }
 
         write_csv(all_rows)
-        Rails.logger.info("Warehouse::MiLBIngester: wrote #{all_rows.size} rows for #{target_ids.size} rostered prospects")
+        Rails.logger.info("Warehouse::MiLBIngester: wrote #{all_rows.size} rows for #{prospects.size} rostered prospects")
         all_rows.size
       rescue => e
         Rails.logger.error("Warehouse::MiLBIngester: #{e.message}")
@@ -45,74 +45,72 @@ module Warehouse
         Rails.root.join("tmp", "warehouse")
       end
 
-      # Collect fg_minor_ids for rostered players who have no fg_id (true minor leaguers).
-      def rostered_minor_ids
+      def rostered_minor_leaguers
         rosters = OttoneuService.all_rosters
         return [] if rosters.is_a?(Hash) && rosters[:error]
 
         Array(rosters).flat_map do |team|
           Array(team[:players]).filter_map do |p|
-            p[:fg_minor_id].presence if p[:fg_id].blank? && p[:fg_minor_id].present?
+            next unless p[:fg_id].blank? && p[:fg_minor_id].present?
+            { fg_minor_id: p[:fg_minor_id], name: p[:name], positions: p[:positions] }
           end
-        end.uniq
+        end.uniq { |p| p[:fg_minor_id] }
       end
 
-      def fetch_fg_minor(season, stats_type, target_ids)
-        target_set = target_ids.to_set
-        conn       = fg_conn
-        group      = stats_type == "bat" ? "batter" : "pitcher"
+      # Fetch batting or pitching stats for a single player via FanGraphs per-player API.
+      # Prefers the combined "MiLB" row; falls back to the highest level with AB/IP data.
+      def fetch_player_row(player, season)
+        fg_minor_id = player[:fg_minor_id]
+        is_pitcher  = player[:positions].to_s.match?(/\bP\b|SP|RP|CP/)
+        stats_type  = is_pitcher ? "pit" : "bat"
+        position    = is_pitcher ? "P" : "NP"
 
-        resp = conn.get("https://www.fangraphs.com/api/leaders/minor-league/data", {
-          pos: stats_type == "bat" ? "all" : "all",
-          stats: stats_type,
-          lg: "all",
-          qual: 0,
-          type: 0,
-          season: season,
-          season1: season,
-          ind: 0,
-          pageitems: 3000,
-          pagenum: 1
+        resp = fg_conn.get("https://www.fangraphs.com/api/players/stats", {
+          playerid: fg_minor_id,
+          position: position,
+          stats:    stats_type,
+          lg:       "all",
+          season:   season,
+          type:     0
         })
 
         json = JSON.parse(resp.body)
-        rows = json["data"] || (json.is_a?(Array) ? json : [])
-        rows = rows.select { |r| r.is_a?(Hash) }
-
-        rows.filter_map do |r|
-          pid = r["playerid"].to_s.strip
-          next unless target_set.include?(pid)
-
-          if stats_type == "bat"
-            build_batter_row(r, pid, season, group)
-          else
-            build_pitcher_row(r, pid, season, group)
-          end
+        rows = Array(json["data"]).select do |r|
+          r["aseason"].to_i == season &&
+            !%w[PROJ ROS].include?(r["AbbLevel"].to_s)
         end
+
+        return nil if rows.empty?
+
+        # Prefer the combined MiLB row; otherwise pick the highest level
+        row = rows.find { |r| r["AbbLevel"] == "MiLB" } ||
+              rows.max_by { |r| LEVEL_PRIORITY[r["AbbLevel"].to_s] || 0 }
+
+        is_pitcher ? build_pitcher_row(row, fg_minor_id, season) : build_batter_row(row, fg_minor_id, season)
       rescue => e
-        Rails.logger.warn("Warehouse::MiLBIngester fetch_fg_minor(#{stats_type}): #{e.message}")
-        []
+        Rails.logger.warn("Warehouse::MiLBIngester: #{player[:name]} (#{player[:fg_minor_id]}) — #{e.message}")
+        nil
       end
 
-      def build_batter_row(r, pid, season, group)
+      def build_batter_row(r, fg_minor_id, season)
         {
-          "fg_minor_id" => pid,
-          "name"        => r["Name"].to_s.strip,
-          "mlb_team"    => r["Team"].to_s.strip,
-          "level"       => r["Level"].to_s.strip,
+          "fg_minor_id" => fg_minor_id,
+          "name"        => r["name"].to_s.presence || extract_name(r),
+          "mlb_team"    => r["AbbName"].to_s,
+          "level"       => r["AbbLevel"].to_s,
           "season"      => season,
-          "group"       => group,
-          "ab"          => float_or_nil(r["AB"]),
-          "h"           => float_or_nil(r["H"]),
-          "doubles"     => float_or_nil(r["2B"]),
-          "hr"          => float_or_nil(r["HR"]),
-          "bb"          => float_or_nil(r["BB"]),
-          "sb"          => float_or_nil(r["SB"]),
-          "cs"          => float_or_nil(r["CS"]),
-          "avg"         => float_or_nil(r["AVG"]),
-          "obp"         => float_or_nil(r["OBP"]),
-          "slg"         => float_or_nil(r["SLG"]),
-          "ops"         => float_or_nil(r["OPS"]),
+          "group"       => "batter",
+          "ab"          => r["AB"],
+          "h"           => r["H"],
+          "doubles"     => r["2B"],
+          "hr"          => r["HR"],
+          "bb"          => r["BB"],
+          "sb"          => r["SB"],
+          "cs"          => r["CS"],
+          "avg"         => r["AVG"],
+          "obp"         => r["OBP"],
+          "slg"         => r["SLG"],
+          "ops"         => r["OPS"],
           "ip"          => nil,
           "k"           => nil,
           "sv"          => nil,
@@ -122,14 +120,14 @@ module Warehouse
         }
       end
 
-      def build_pitcher_row(r, pid, season, group)
+      def build_pitcher_row(r, fg_minor_id, season)
         {
-          "fg_minor_id" => pid,
-          "name"        => r["Name"].to_s.strip,
-          "mlb_team"    => r["Team"].to_s.strip,
-          "level"       => r["Level"].to_s.strip,
+          "fg_minor_id" => fg_minor_id,
+          "name"        => r["name"].to_s.presence || extract_name(r),
+          "mlb_team"    => r["AbbName"].to_s,
+          "level"       => r["AbbLevel"].to_s,
           "season"      => season,
-          "group"       => group,
+          "group"       => "pitcher",
           "ab"          => nil,
           "h"           => nil,
           "doubles"     => nil,
@@ -141,18 +139,18 @@ module Warehouse
           "obp"         => nil,
           "slg"         => nil,
           "ops"         => nil,
-          "ip"          => float_or_nil(r["IP"]),
-          "k"           => float_or_nil(r["SO"] || r["K"]),
-          "sv"          => float_or_nil(r["SV"]),
-          "era"         => float_or_nil(r["ERA"]),
-          "fip"         => float_or_nil(r["FIP"]),
-          "whip"        => float_or_nil(r["WHIP"])
+          "ip"          => r["IP"],
+          "k"           => r["SO"] || r["K"],
+          "sv"          => r["SV"],
+          "era"         => r["ERA"],
+          "fip"         => r["FIP"],
+          "whip"        => r["WHIP"]
         }
       end
 
-      def float_or_nil(val)
-        return nil if val.nil? || val.to_s.strip.empty?
-        Float(val.to_s.gsub(",", ""), exception: false)
+      # The per-player API doesn't always return a "name" field; strip HTML from ateam if needed.
+      def extract_name(r)
+        r["ateam"].to_s.gsub(/<[^>]+>/, "").strip
       end
 
       def fg_conn
@@ -163,7 +161,7 @@ module Warehouse
           f.options.open_timeout = 10
           f.headers["User-Agent"] = "Mozilla/5.0 (compatible; StatlineBot/1.0)"
           f.headers["Accept"]     = "application/json, text/javascript, */*"
-          f.headers["Referer"]    = "https://www.fangraphs.com/leaders/minor-league"
+          f.headers["Referer"]    = "https://www.fangraphs.com/players"
         end
       end
 
