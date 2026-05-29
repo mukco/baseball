@@ -641,7 +641,7 @@ export default function GameDetails() {
   const edges = adv.edges || {}
   const insights = insightsData?.insights || {}
   const context = data?.gameContext || {}
-  const isLive = data?.abstractState === 'Live'
+  const isLive = data?.abstractState === 'Live' || data?.abstractState === 'Preview'
   const isPreview = data?.abstractState === 'Preview'
   const count = context.count || {}
   const ballparkImage = ballparkImageForVenue(data?.venue)

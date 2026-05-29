@@ -84,7 +84,9 @@ export default function Today() {
     refetchInterval: (query) => {
       if (!isToday) return false
       const games = query.state.data?.games ?? []
-      return games.some(g => g.abstractState === 'Live') ? 30_000 : false
+      if (games.some(g => g.abstractState === 'Live')) return 30_000
+      if (games.some(g => g.abstractState === 'Preview')) return 60_000
+      return false
     },
   })
 
